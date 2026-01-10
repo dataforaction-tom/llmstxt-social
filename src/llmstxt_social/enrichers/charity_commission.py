@@ -41,6 +41,11 @@ async def fetch_charity_data(charity_number: str, api_key: str | None = None) ->
     Returns:
         CharityData if found, None otherwise
     """
+    # Load API key from environment if not provided
+    if api_key is None:
+        import os
+        api_key = os.getenv("CHARITY_COMMISSION_API_KEY")
+
     # Try API first if we have a key
     if api_key:
         data = await _fetch_from_api(charity_number, api_key)
@@ -83,52 +88,103 @@ async def _fetch_from_api(charity_number: str, api_key: str) -> CharityData | No
 
 
 def _parse_api_response(data: dict, charity_number: str) -> CharityData | None:
-    """Parse the Charity Commission API response."""
+    """
+    Parse the Charity Commission API response.
+
+    The API returns a flat structure with fields like:
+    - charity_name, reg_status, latest_income, etc.
+    """
     try:
-        # Extract main charity information
-        charity_info = data.get("charity", {})
+        # Extract charity name
+        name = data.get("charity_name", "Unknown")
 
-        # Get financial information
-        financial_info = data.get("financial", {})
-        latest_income = None
-        latest_expenditure = None
+        # Extract status
+        status = data.get("reg_status", "Unknown")
 
-        if financial_info:
-            # Get most recent financial year
-            latest_income = financial_info.get("income")
-            latest_expenditure = financial_info.get("spending")
+        # Extract dates
+        date_registered = data.get("date_of_registration")
+        date_removed = data.get("date_of_removal")
 
-        # Get trustees
+        # Extract financial information (already in top level as floats)
+        latest_income = data.get("latest_income")
+        latest_expenditure = data.get("latest_expenditure")
+
+        # Convert to int
+        if latest_income is not None:
+            try:
+                latest_income = int(latest_income)
+            except (ValueError, TypeError):
+                latest_income = None
+        if latest_expenditure is not None:
+            try:
+                latest_expenditure = int(latest_expenditure)
+            except (ValueError, TypeError):
+                latest_expenditure = None
+
+        # Extract trustees (array of objects with trustee_name field)
         trustees = []
-        trustees_data = data.get("trustees", [])
-        for trustee in trustees_data[:10]:  # Limit to first 10
-            name = trustee.get("name", "")
-            if name:
-                trustees.append(name)
+        trustee_names = data.get("trustee_names", [])
+        if isinstance(trustee_names, list):
+            for trustee in trustee_names[:10]:  # Limit to first 10
+                if isinstance(trustee, dict):
+                    trustee_name = trustee.get("trustee_name", "").strip()
+                    if trustee_name:
+                        trustees.append(trustee_name)
 
-        # Get contact information
-        contact_info = charity_info.get("contact", {})
+        # Extract charitable objects and activities from classification array
+        charitable_objects = []
+        activities = []
+        who_what_where = data.get("who_what_where", [])
+        if isinstance(who_what_where, list):
+            for classification in who_what_where:
+                if isinstance(classification, dict):
+                    class_type = classification.get("classification_type", "")
+                    class_desc = classification.get("classification_desc", "")
+
+                    if class_type == "What":
+                        charitable_objects.append(class_desc)
+                    elif class_type == "How":
+                        activities.append(class_desc)
+
+        # Join into strings
+        charitable_objects = ", ".join(charitable_objects) if charitable_objects else None
+        activities = ", ".join(activities) if activities else None
+
+        # Build address from components
+        address_parts = [
+            data.get("address_line_one"),
+            data.get("address_line_two"),
+            data.get("address_line_three"),
+            data.get("address_line_four"),
+            data.get("address_line_five"),
+            data.get("address_post_code"),
+        ]
+        address = ", ".join([p for p in address_parts if p])
+
+        # Extract contact information
         contact = {
-            "email": contact_info.get("email"),
-            "phone": contact_info.get("phone"),
-            "address": contact_info.get("address")
+            "email": data.get("email"),
+            "phone": data.get("phone"),
+            "address": address if address else None,
+            "web": data.get("web")
         }
 
         return CharityData(
-            name=charity_info.get("name", "Unknown"),
+            name=name,
             number=charity_number,
-            status=charity_info.get("registrationStatus", "Unknown"),
-            date_registered=charity_info.get("registeredDate"),
-            date_removed=charity_info.get("removedDate"),
+            status=status,
+            date_registered=date_registered,
+            date_removed=date_removed,
             latest_income=latest_income,
             latest_expenditure=latest_expenditure,
-            charitable_objects=charity_info.get("charitableObjects"),
-            activities=charity_info.get("activities"),
+            charitable_objects=charitable_objects,
+            activities=activities,
             trustees=trustees,
             contact=contact
         )
 
     except Exception:
+        # Failed to parse API response, fall back to scraping
         return None
 
 
