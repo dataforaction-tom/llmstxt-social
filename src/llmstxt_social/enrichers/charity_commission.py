@@ -137,28 +137,67 @@ async def _fetch_from_public_register(charity_number: str) -> CharityData | None
     Scrape charity data from the public Charity Commission register.
 
     This is a fallback when API access is not available.
+    Uses the Find and Update service which is more machine-readable.
     """
     try:
         async with httpx.AsyncClient(
             timeout=15,
             follow_redirects=True,
-            headers={"User-Agent": "llmstxt-social/0.1.0 (+https://github.com/llmstxt/llmstxt-social)"}
+            headers={"User-Agent": "llmstxt-social/0.2.0 (+https://github.com/llmstxt/llmstxt-social)"}
         ) as client:
-            # Main charity details page
-            url = f"https://register-of-charities.charitycommission.gov.uk/charity-search/-/charity-details/{charity_number}"
+            # Try the Find and Update service first (has better structured data)
+            find_update_url = f"https://beta.charitycommission.gov.uk/charity-details/?regid={charity_number}&subid=0"
 
-            response = await client.get(url)
+            response = await client.get(find_update_url)
 
             if response.status_code != 200:
-                return None
+                # Fallback to main register
+                url = f"https://register-of-charities.charitycommission.gov.uk/charity-search/-/charity-details/{charity_number}"
+                response = await client.get(url)
+
+                if response.status_code != 200:
+                    return None
 
             soup = BeautifulSoup(response.text, "lxml")
 
-            # Extract charity name
+            # Extract charity name - try multiple selectors
             name = "Unknown"
-            name_element = soup.find("h1", class_="charity-heading")
-            if name_element:
-                name = name_element.get_text(strip=True)
+
+            # Try different selectors that work on different CC pages
+            name_selectors = [
+                ("h1", {"class": "charity-heading"}),
+                ("h1", {}),  # Any h1
+                ("h2", {"class": "charity-name"}),
+                ("div", {"class": "charity-name"}),
+            ]
+
+            for tag, attrs in name_selectors:
+                if attrs:
+                    name_element = soup.find(tag, **attrs)
+                else:
+                    # Find first h1 in main content
+                    main = soup.find("main") or soup.find(id="content") or soup
+                    name_element = main.find(tag)
+
+                if name_element:
+                    name_text = name_element.get_text(strip=True)
+
+                    # Clean up the name - remove page titles and other noise
+                    # Remove common prefixes
+                    cleanup_patterns = [
+                        "Register of Charities - The Charity Commission",
+                        "Charity Commission",
+                        "Register of Charities",
+                    ]
+
+                    for pattern in cleanup_patterns:
+                        if pattern in name_text:
+                            name_text = name_text.replace(pattern, "").strip()
+
+                    # Filter out generic text
+                    if name_text and name_text not in ["Search", "Charity Details", "Register", ""]:
+                        name = name_text
+                        break
 
             # Extract registration status
             status = "Registered"
