@@ -62,7 +62,12 @@ def extract_content(page: Page) -> ExtractedPage:
     # Extract headings
     headings = _extract_headings(soup)
 
-    # Extract main body text
+    # IMPORTANT: Extract charity number from full HTML BEFORE removing footer
+    # (Charity numbers are often in footers!)
+    full_page_text = soup.get_text(separator=" ", strip=True)
+    charity_number = _extract_charity_number(full_page_text)
+
+    # Extract main body text (removes footer, nav, etc.)
     body_text = _extract_body_text(soup)
 
     # Classify page type
@@ -70,9 +75,6 @@ def extract_content(page: Page) -> ExtractedPage:
 
     # Extract contact information
     contact_info = _extract_contact_info(body_text, soup)
-
-    # Extract charity number
-    charity_number = _extract_charity_number(body_text)
 
     return ExtractedPage(
         url=page.url,
@@ -199,11 +201,21 @@ def _extract_contact_info(body_text: str, soup: BeautifulSoup) -> dict | None:
 
 def _extract_charity_number(text: str) -> str | None:
     """Extract charity registration number from text."""
-    # Patterns for charity numbers
+    # Patterns for charity numbers (UK charities are 6-7 digits)
+    # These patterns handle common variations including periods, colons, and spaces
     patterns = [
-        r'registered charity\s+(?:number|no\.?|#)?\s*:?\s*(\d{6,7})',
-        r'charity\s+(?:number|no\.?|registration|reg\.?)?\s*:?\s*(\d{6,7})',
-        r'charity\s+commission\s+(?:number|no\.?)?\s*:?\s*(\d{6,7})',
+        # "Registered Charity No. 1094112" or "Registered Charity Number 1094112"
+        r'registered\s+charity\s+(?:number|no\.?|num\.?|#)?\s*:?\s*(\d{6,7})',
+        # "Charity No: 1094112" or "Charity Number: 1094112"
+        r'charity\s+(?:number|no\.?|num\.?|#|registration|reg\.?)\s*:?\s*(\d{6,7})',
+        # "Charity Commission No. 1094112"
+        r'charity\s+commission\s+(?:number|no\.?|#)?\s*:?\s*(\d{6,7})',
+        # "England and Wales 1094112" or "E&W 1094112"
+        r'(?:england\s+(?:and|&)\s+wales|e\s*&\s*w)\s+(?:charity\s+)?(?:number|no\.?|#)?\s*:?\s*(\d{6,7})',
+        # "Reg. Charity 1094112"
+        r'reg\.?\s+charity\s*:?\s*(\d{6,7})',
+        # Fallback: Just "Charity: 1094112" with optional colon
+        r'charity\s*:?\s+(\d{6,7})\b',
     ]
 
     text_lower = text.lower()
@@ -211,7 +223,10 @@ def _extract_charity_number(text: str) -> str | None:
     for pattern in patterns:
         match = re.search(pattern, text_lower)
         if match:
-            return match.group(1)
+            number = match.group(1)
+            # Validate it's 6 or 7 digits
+            if 6 <= len(number) <= 7:
+                return number
 
     return None
 

@@ -223,13 +223,33 @@ async def _generate_async(
         charity_data = None
         grant_data = None
 
-        if enrich and not charity_number:
+        if enrich and not charity_number and template == "charity":
             console.print("\n[cyan]Looking for charity number...[/cyan]")
             charity_number = find_charity_num(extracted_pages)
             if charity_number:
                 console.print(f"[green]✓[/green] Found charity number: {charity_number}")
             else:
-                console.print("[yellow]![/yellow] Charity number not found")
+                console.print("[yellow]![/yellow] Charity number not found on website")
+                console.print("\n[dim]Charity numbers are usually 6-7 digits (e.g., 1094112)[/dim]")
+
+                # Prompt user for charity number
+                user_input = typer.prompt(
+                    "\nEnter charity number (or press Enter to skip enrichment)",
+                    default="",
+                    show_default=False
+                )
+
+                if user_input.strip():
+                    # Validate it's a number and correct length
+                    cleaned = user_input.strip().replace(" ", "")
+                    if cleaned.isdigit() and 6 <= len(cleaned) <= 7:
+                        charity_number = cleaned
+                        console.print(f"[green]✓[/green] Using charity number: {charity_number}")
+                    else:
+                        console.print("[red]✗[/red] Invalid charity number format (must be 6-7 digits)")
+                        console.print("[yellow]Continuing without enrichment...[/yellow]")
+                else:
+                    console.print("[dim]Skipping charity enrichment[/dim]")
 
         # Step 3a: Enrich with Charity Commission data
         if enrich and charity_number and template == "charity":
