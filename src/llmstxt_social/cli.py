@@ -310,7 +310,9 @@ async def _generate_async(
         llmstxt_content = generate_llmstxt(
             analysis=analysis,
             pages=extracted_pages,
-            template=template
+            template=template,
+            charity_data=charity_data,
+            grant_data=grant_data
         )
 
         progress.update(

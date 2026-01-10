@@ -2,12 +2,16 @@
 
 from .analyzer import OrganisationAnalysis, FunderAnalysis
 from .extractor import ExtractedPage, PageType
+from .enrichers.charity_commission import CharityData
+from .enrichers.threesixty_giving import GrantData
 
 
 def generate_llmstxt(
     analysis: OrganisationAnalysis | FunderAnalysis,
     pages: list[ExtractedPage],
-    template: str = "charity"
+    template: str = "charity",
+    charity_data: CharityData | None = None,
+    grant_data: GrantData | None = None
 ) -> str:
     """
     Generate llms.txt content following the llmstxt.org spec.
@@ -16,19 +20,22 @@ def generate_llmstxt(
         analysis: Analysis results from Claude
         pages: Extracted pages
         template: "charity" or "funder"
+        charity_data: Optional Charity Commission data for enrichment
+        grant_data: Optional 360Giving data for funders
 
     Returns:
         llms.txt content as a string
     """
     if template == "charity":
-        return generate_charity_llmstxt(analysis, pages)
+        return generate_charity_llmstxt(analysis, pages, charity_data)
     else:
-        return generate_funder_llmstxt(analysis, pages)
+        return generate_funder_llmstxt(analysis, pages, grant_data)
 
 
 def generate_charity_llmstxt(
     analysis: OrganisationAnalysis,
-    pages: list[ExtractedPage]
+    pages: list[ExtractedPage],
+    charity_data: CharityData | None = None
 ) -> str:
     """Generate llms.txt for a charity/VCSE org."""
     sections = []
@@ -132,7 +139,23 @@ def generate_charity_llmstxt(
     # For Funders section
     sections.append("## For Funders\n")
 
-    if analysis.registration_number:
+    # Use charity_data if available (more accurate), otherwise use analysis
+    if charity_data:
+        # Official data from Charity Commission
+        sections.append(f"- Registration: {charity_data.number}\n")
+        sections.append(f"- Status: {charity_data.status}\n")
+
+        if charity_data.date_registered:
+            # Extract just the date part (format: 2013-11-27T00:00:00)
+            date_str = charity_data.date_registered.split('T')[0]
+            sections.append(f"- Registered: {date_str}\n")
+
+        if charity_data.latest_income:
+            sections.append(f"- Annual income: £{charity_data.latest_income:,}\n")
+
+        if charity_data.latest_expenditure:
+            sections.append(f"- Annual expenditure: £{charity_data.latest_expenditure:,}\n")
+    elif analysis.registration_number:
         sections.append(f"- Registration: {analysis.registration_number}\n")
 
     sections.append(f"- Geography: {analysis.geographic_area}\n")
@@ -142,8 +165,18 @@ def generate_charity_llmstxt(
 
     sections.append(f"- Beneficiaries: {analysis.beneficiaries}\n")
 
-    if analysis.contact.get('email'):
+    # Use enriched contact data if available
+    if charity_data and charity_data.contact.get('email'):
+        sections.append(f"- Contact: {charity_data.contact['email']}\n")
+    elif analysis.contact.get('email'):
         sections.append(f"- Contact: {analysis.contact['email']}\n")
+
+    # Add charitable objects if available from official data
+    if charity_data and charity_data.charitable_objects:
+        objects = charity_data.charitable_objects[:200]  # Limit length
+        if len(charity_data.charitable_objects) > 200:
+            objects += "..."
+        sections.append(f"- Charitable purposes: {objects}\n")
 
     sections.append("\n")
 
@@ -163,7 +196,8 @@ def generate_charity_llmstxt(
 
 def generate_funder_llmstxt(
     analysis: FunderAnalysis,
-    pages: list[ExtractedPage]
+    pages: list[ExtractedPage],
+    grant_data: GrantData | None = None
 ) -> str:
     """Generate llms.txt for a funder/foundation."""
     sections = []
@@ -246,9 +280,28 @@ def generate_funder_llmstxt(
     # For Applicants section
     sections.append("## For Applicants\n")
 
-    sections.append(f"- Geographic focus: {analysis.geographic_focus}\n")
+    # Use grant_data if available for more accurate information
+    if grant_data:
+        sections.append(f"- Total grants awarded: {grant_data.total_grants}\n")
+        sections.append(f"- Total amount awarded: £{grant_data.total_amount:,.0f}\n")
+        sections.append(f"- Average grant size: £{grant_data.average_grant:,.0f}\n")
 
-    if analysis.thematic_focus:
+        if grant_data.grant_size_distribution:
+            sections.append(f"- Grant size range: £{grant_data.min_grant:,.0f} - £{grant_data.max_grant:,.0f}\n")
+
+        if grant_data.top_themes:
+            themes_str = ', '.join([f"{t[0]} ({t[1]} grants)" for t in grant_data.top_themes[:5]])
+            sections.append(f"- Top themes: {themes_str}\n")
+
+        if grant_data.geographic_distribution:
+            top_regions = list(grant_data.geographic_distribution.items())[:5]
+            regions_str = ', '.join([f"{r[0]} ({r[1]} grants)" for r in top_regions])
+            sections.append(f"- Geographic focus: {regions_str}\n")
+    else:
+        # Fall back to analysis data
+        sections.append(f"- Geographic focus: {analysis.geographic_focus}\n")
+
+    if analysis.thematic_focus and not grant_data:
         sections.append(f"- Themes: {', '.join(analysis.thematic_focus)}\n")
 
     if analysis.grant_sizes:
