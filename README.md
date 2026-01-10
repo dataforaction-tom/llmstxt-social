@@ -7,10 +7,14 @@ A Python CLI tool that automatically generates [llms.txt](https://llmstxt.org) f
 ## Features
 
 - 🕷️ **Smart crawling**: Respects robots.txt, uses sitemaps, discovers pages intelligently
+- 🎭 **JavaScript support**: Playwright integration for JavaScript-heavy websites
 - 📄 **Content extraction**: Parses HTML, classifies pages, extracts structured data
 - 🤖 **AI-powered analysis**: Uses Claude to analyze content and generate accurate descriptions
 - ✅ **Validation**: Checks compliance with llmstxt.org spec
 - 🎯 **Social sector templates**: Specialized templates for charities and funders
+- 💰 **Data enrichment**:
+  - Charity Commission API integration for official charity data
+  - 360Giving data enrichment for funders
 - 📊 **Rich CLI output**: Beautiful progress bars and validation reports
 
 ## Installation
@@ -27,12 +31,17 @@ pip install llmstxt-social
 git clone https://github.com/yourusername/llmstxt-social.git
 cd llmstxt-social
 pip install -e .
+
+# If you want to use Playwright for JavaScript sites:
+playwright install chromium
 ```
 
 ### Dependencies
 
 - Python 3.11+
 - Anthropic API key (Claude)
+- Optional: Charity Commission API key
+- Optional: Playwright (for JavaScript-rendered sites)
 
 ## Quick Start
 
@@ -73,7 +82,9 @@ llmstxt generate <URL> [OPTIONS]
 - `-t, --template TEXT` - Template: `charity` or `funder` (default: `charity`)
 - `-m, --model TEXT` - Claude model to use (default: `claude-sonnet-4-20250514`)
 - `--max-pages INTEGER` - Maximum pages to crawl (default: 30)
-- `--enrich/--no-enrich` - Fetch Charity Commission data (default: `--no-enrich`)
+- `--enrich/--no-enrich` - Fetch Charity Commission data (default: `--enrich`)
+- `--enrich-360/--no-enrich-360` - Fetch 360Giving data for funders (default: `--no-enrich-360`)
+- `--playwright/--no-playwright` - Use Playwright for JavaScript sites (default: `--no-playwright`)
 - `--charity TEXT` - Specify charity number directly
 
 **Examples:**
@@ -93,6 +104,15 @@ llmstxt generate https://example.org.uk --max-pages 15
 
 # Use faster model
 llmstxt generate https://example.org.uk --model claude-haiku-3-5-20250219
+
+# Use Playwright for JavaScript-heavy sites
+llmstxt generate https://js-heavy-site.org.uk --playwright
+
+# Enrich funder with 360Giving data
+llmstxt generate https://example-trust.org.uk --template funder --enrich-360
+
+# Disable Charity Commission enrichment
+llmstxt generate https://example.org.uk --no-enrich
 ```
 
 ### Validate llms.txt
@@ -331,6 +351,69 @@ llmstxt-social/
    - Calculates scores
    - Reports issues
 
+## Data Enrichment
+
+### Charity Commission Integration
+
+Automatically fetches official data from the UK Charity Commission:
+
+- Official charity name and status
+- Registration date and charity number
+- Latest financial information (income/expenditure)
+- Charitable objects and activities
+- Trustee information
+- Contact details
+
+**Setup:**
+
+1. (Optional) Get an API key from [Charity Commission Developer Portal](https://developer.charitycommission.gov.uk/)
+2. Add to `.env`: `CHARITY_COMMISSION_API_KEY=your-key-here`
+3. If no API key is provided, falls back to scraping the public register
+
+**Usage:**
+```bash
+# Enabled by default
+llmstxt generate https://example-charity.org.uk
+
+# Disable if not needed
+llmstxt generate https://example-charity.org.uk --no-enrich
+```
+
+### 360Giving Data (Funders)
+
+Enriches funder profiles with open grants data from [360Giving](https://www.threesixtygiving.org/):
+
+- Total grants awarded and amounts
+- Average grant size and range
+- Geographic distribution
+- Funding themes and priorities
+- Sample recipients
+- Grants over time trends
+
+**Usage:**
+```bash
+llmstxt generate https://example-foundation.org.uk --template funder --enrich-360
+```
+
+### Playwright for JavaScript Sites
+
+Some modern charity and funder websites use JavaScript frameworks (React, Vue, etc.) that require browser rendering:
+
+**Setup:**
+```bash
+playwright install chromium
+```
+
+**Usage:**
+```bash
+llmstxt generate https://js-heavy-site.org.uk --playwright
+```
+
+**When to use:**
+- Site appears blank when crawled normally
+- Content loads dynamically after page load
+- Single-page applications (SPAs)
+
 ## Configuration
 
 ### Environment Variables
@@ -342,7 +425,7 @@ Create a `.env` file:
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 # Optional: Charity Commission API
-# CHARITY_COMMISSION_API_KEY=your-key-here
+CHARITY_COMMISSION_API_KEY=your-key-here
 ```
 
 ### Model Selection
@@ -364,20 +447,22 @@ Contributions welcome! Please:
 
 ## Roadmap
 
-MVP (Current):
+### v0.2.0 (Current)
 - ✅ Static site crawling
 - ✅ Charity template
 - ✅ Funder template
 - ✅ Claude analysis
-- ✅ Basic validation
+- ✅ Comprehensive validation
+- ✅ **Charity Commission API integration**
+- ✅ **360Giving data enrichment**
+- ✅ **JavaScript-rendered sites (Playwright)**
 
-Future:
-- [ ] Charity Commission API integration
-- [ ] 360Giving data enrichment
-- [ ] JavaScript-rendered sites (Playwright)
+### Future
 - [ ] Alternative LLM providers (OpenAI, Ollama)
 - [ ] WordPress plugin
 - [ ] Batch processing
+- [ ] Web interface
+- [ ] Automated updates/monitoring
 
 ## License
 

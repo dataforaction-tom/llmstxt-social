@@ -15,7 +15,8 @@ from .extractor import extract_content, find_charity_number
 from .analyzer import analyze_organisation
 from .generator import generate_llmstxt
 from .validator import validate_llmstxt, ValidationLevel
-from .enrichers.charity_commission import find_charity_number as find_charity_num
+from .enrichers.charity_commission import find_charity_number as find_charity_num, fetch_charity_data
+from .enrichers.threesixty_giving import fetch_360giving_data
 
 app = typer.Typer(
     name="llmstxt",
@@ -74,9 +75,19 @@ def generate(
         help="Maximum pages to crawl"
     ),
     enrich: bool = typer.Option(
-        False,
+        True,
         "--enrich/--no-enrich",
-        help="Fetch Charity Commission data"
+        help="Fetch Charity Commission data (default: enabled)"
+    ),
+    enrich_360: bool = typer.Option(
+        False,
+        "--enrich-360/--no-enrich-360",
+        help="Fetch 360Giving data for funders"
+    ),
+    use_playwright: bool = typer.Option(
+        False,
+        "--playwright/--no-playwright",
+        help="Use Playwright for JavaScript-rendered sites"
     ),
     charity_number: str = typer.Option(
         None,
@@ -110,6 +121,8 @@ def generate(
             model=model,
             max_pages=max_pages,
             enrich=enrich,
+            enrich_360=enrich_360,
+            use_playwright=use_playwright,
             charity_number=charity_number
         ))
 
@@ -132,6 +145,8 @@ async def _generate_async(
     model: str,
     max_pages: int,
     enrich: bool,
+    enrich_360: bool,
+    use_playwright: bool,
     charity_number: str | None
 ) -> bool:
     """Async generation logic."""
@@ -149,10 +164,19 @@ async def _generate_async(
             total=None
         )
 
-        crawl_result = await crawl_site(
-            url=url,
-            max_pages=max_pages
-        )
+        # Choose crawler based on flag
+        if use_playwright:
+            console.print("[dim]Using Playwright for JavaScript rendering...[/dim]")
+            from .crawler_playwright import crawl_site_with_playwright
+            crawl_result = await crawl_site_with_playwright(
+                url=url,
+                max_pages=max_pages
+            )
+        else:
+            crawl_result = await crawl_site(
+                url=url,
+                max_pages=max_pages
+            )
 
         progress.update(
             crawl_task,
@@ -196,6 +220,9 @@ async def _generate_async(
             console.print(f"  [dim]{pt}: {count}[/dim]")
 
         # Step 3: Find charity number if needed
+        charity_data = None
+        grant_data = None
+
         if enrich and not charity_number:
             console.print("\n[cyan]Looking for charity number...[/cyan]")
             charity_number = find_charity_num(extracted_pages)
@@ -203,6 +230,39 @@ async def _generate_async(
                 console.print(f"[green]✓[/green] Found charity number: {charity_number}")
             else:
                 console.print("[yellow]![/yellow] Charity number not found")
+
+        # Step 3a: Enrich with Charity Commission data
+        if enrich and charity_number and template == "charity":
+            import os
+            console.print("\n[cyan]Fetching Charity Commission data...[/cyan]")
+
+            cc_api_key = os.getenv("CHARITY_COMMISSION_API_KEY")
+            charity_data = await fetch_charity_data(charity_number, cc_api_key)
+
+            if charity_data:
+                console.print(f"[green]✓[/green] Enriched with official charity data")
+                console.print(f"  [dim]Name: {charity_data.name}[/dim]")
+                if charity_data.latest_income:
+                    console.print(f"  [dim]Income: £{charity_data.latest_income:,}[/dim]")
+            else:
+                console.print("[yellow]![/yellow] Could not fetch Charity Commission data")
+
+        # Step 3b: Enrich with 360Giving data (for funders)
+        if enrich_360 and template == "funder":
+            console.print("\n[cyan]Fetching 360Giving grants data...[/cyan]")
+
+            # Get the funder name from first page title or analysis
+            funder_name = extracted_pages[0].title if extracted_pages else None
+
+            if funder_name:
+                grant_data = await fetch_360giving_data(funder_name, charity_number)
+
+                if grant_data:
+                    console.print(f"[green]✓[/green] Found 360Giving data")
+                    console.print(f"  [dim]Total grants: {grant_data.total_grants}[/dim]")
+                    console.print(f"  [dim]Average grant: £{grant_data.average_grant:,.0f}[/dim]")
+                else:
+                    console.print("[yellow]![/yellow] No 360Giving data found")
 
         # Step 4: Analyze with Claude
         analysis_task = progress.add_task(
