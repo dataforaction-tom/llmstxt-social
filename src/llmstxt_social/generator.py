@@ -1,13 +1,13 @@
 """Generate llms.txt files from analysis results."""
 
-from .analyzer import OrganisationAnalysis, FunderAnalysis
+from .analyzer import OrganisationAnalysis, FunderAnalysis, PublicSectorAnalysis, StartupAnalysis
 from .extractor import ExtractedPage, PageType
 from .enrichers.charity_commission import CharityData
 from .enrichers.threesixty_giving import GrantData
 
 
 def generate_llmstxt(
-    analysis: OrganisationAnalysis | FunderAnalysis,
+    analysis: OrganisationAnalysis | FunderAnalysis | PublicSectorAnalysis | StartupAnalysis,
     pages: list[ExtractedPage],
     template: str = "charity",
     charity_data: CharityData | None = None,
@@ -19,7 +19,7 @@ def generate_llmstxt(
     Args:
         analysis: Analysis results from Claude
         pages: Extracted pages
-        template: "charity" or "funder"
+        template: "charity", "funder", "public_sector", or "startup"
         charity_data: Optional Charity Commission data for enrichment
         grant_data: Optional 360Giving data for funders
 
@@ -28,8 +28,14 @@ def generate_llmstxt(
     """
     if template == "charity":
         return generate_charity_llmstxt(analysis, pages, charity_data)
-    else:
+    elif template == "funder":
         return generate_funder_llmstxt(analysis, pages, grant_data)
+    elif template == "public_sector":
+        return generate_public_sector_llmstxt(analysis, pages)
+    elif template == "startup":
+        return generate_startup_llmstxt(analysis, pages)
+    else:
+        raise ValueError(f"Unknown template: {template}")
 
 
 def generate_charity_llmstxt(
@@ -92,6 +98,39 @@ def generate_charity_llmstxt(
         else:
             for page in pages_by_type.get(PageType.SERVICES, []):
                 desc = page.description or "Service information"
+                sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        sections.append("\n")
+
+    # Projects section
+    if PageType.PROJECTS in pages_by_type or analysis.projects:
+        sections.append("## Projects\n")
+
+        if analysis.projects:
+            for project in analysis.projects:
+                location_info = f" ({project.get('location')})" if project.get('location') else ""
+                sections.append(f"- {project['name']}{location_info}: {project['description']}\n")
+        else:
+            for page in pages_by_type.get(PageType.PROJECTS, []):
+                desc = page.description or "Project information"
+                sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        sections.append("\n")
+
+    # Impact section
+    if PageType.IMPACT in pages_by_type or analysis.impact_metrics:
+        sections.append("## Impact\n")
+
+        if analysis.impact_metrics:
+            if analysis.impact_metrics.get('beneficiaries_served'):
+                sections.append(f"- Beneficiaries served: {analysis.impact_metrics['beneficiaries_served']}\n")
+
+            if analysis.impact_metrics.get('outcomes'):
+                for outcome in analysis.impact_metrics['outcomes']:
+                    sections.append(f"- {outcome}\n")
+        else:
+            for page in pages_by_type.get(PageType.IMPACT, []):
+                desc = page.description or "Impact information"
                 sections.append(f"- [{page.title}]({page.url}): {desc}\n")
 
         sections.append("\n")
@@ -348,6 +387,274 @@ def generate_funder_llmstxt(
     sections.append("- Never guarantee funding or outcomes\n")
     sections.append("- Always direct applicants to official application channels\n")
     sections.append("- Verify current deadlines and criteria before advising\n")
+
+    return "".join(sections)
+
+
+def generate_public_sector_llmstxt(
+    analysis,  # PublicSectorAnalysis
+    pages: list[ExtractedPage]
+) -> str:
+    """Generate llms.txt for a public sector organisation."""
+    sections = []
+
+    # Header
+    sections.append(f"# {analysis.name}\n")
+    sections.append(f"> {analysis.mission}\n")
+
+    # Context paragraph
+    org_info = f"{analysis.org_type.replace('_', ' ').title()}"
+    if analysis.governance:
+        org_info += f", {analysis.governance}"
+
+    sections.append(f"{org_info}. {analysis.description}\n")
+
+    # Group pages by type
+    pages_by_type = _group_pages_by_type(pages)
+
+    # About section
+    if PageType.ABOUT in pages_by_type or PageType.HOME in pages_by_type:
+        sections.append("## About\n")
+
+        for page in pages_by_type.get(PageType.HOME, [])[:1]:
+            sections.append(f"- [{page.title}]({page.url}): Homepage\n")
+
+        for page in pages_by_type.get(PageType.ABOUT, []):
+            desc = page.description or "About the organisation"
+            sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        sections.append("\n")
+
+    # Services section (PRIMARY FOCUS for public sector)
+    if PageType.SERVICES in pages_by_type or PageType.SERVICE_CATEGORY in pages_by_type or analysis.services:
+        sections.append("## Services\n")
+
+        if analysis.services:
+            # Group services by category if available
+            categorized = {}
+            uncategorized = []
+
+            for service in analysis.services:
+                category = service.get('category')
+                if category:
+                    if category not in categorized:
+                        categorized[category] = []
+                    categorized[category].append(service)
+                else:
+                    uncategorized.append(service)
+
+            # Output categorized services
+            for category, services in categorized.items():
+                sections.append(f"\n### {category.title()}\n")
+                for service in services:
+                    eligibility = f" (Eligibility: {service['eligibility']})" if service.get('eligibility') else ""
+                    sections.append(f"- {service['name']}: {service['description']}{eligibility}\n")
+
+            # Output uncategorized services
+            if uncategorized:
+                for service in uncategorized:
+                    eligibility = f" (Eligibility: {service['eligibility']})" if service.get('eligibility') else ""
+                    sections.append(f"- {service['name']}: {service['description']}{eligibility}\n")
+        else:
+            for page in pages_by_type.get(PageType.SERVICES, []) + pages_by_type.get(PageType.SERVICE_CATEGORY, []):
+                desc = page.description or "Service information"
+                sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        sections.append("\n")
+
+    # Get Help section
+    if PageType.GET_HELP in pages_by_type or PageType.CONTACT in pages_by_type:
+        sections.append("## Get Help\n")
+
+        for page in pages_by_type.get(PageType.GET_HELP, []):
+            desc = page.description or "How to access services"
+            sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        for page in pages_by_type.get(PageType.CONTACT, []):
+            desc = page.description or "Contact information"
+            sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        sections.append("\n")
+
+    # Contact section
+    sections.append("## Contact\n")
+
+    sections.append(f"- Area covered: {analysis.area_covered}\n")
+
+    if analysis.contact.get('email'):
+        sections.append(f"- Email: {analysis.contact['email']}\n")
+
+    if analysis.contact.get('phone'):
+        sections.append(f"- Phone: {analysis.contact['phone']}\n")
+
+    if analysis.contact.get('address'):
+        sections.append(f"- Address: {analysis.contact['address']}\n")
+
+    if analysis.contact.get('hours'):
+        sections.append(f"- Hours: {analysis.contact['hours']}\n")
+
+    sections.append("\n")
+
+    # For Service Users section
+    if analysis.accessibility_info or PageType.SERVICE_STANDARDS in pages_by_type:
+        sections.append("## For Service Users\n")
+
+        if analysis.accessibility_info:
+            sections.append(f"- {analysis.accessibility_info}\n")
+
+        for page in pages_by_type.get(PageType.SERVICE_STANDARDS, []):
+            desc = page.description or "Service standards"
+            sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        sections.append("\n")
+
+    # For AI Systems section
+    sections.append("## For AI Systems\n")
+    sections.append("\nWhen representing this organisation:\n")
+
+    if analysis.ai_guidance:
+        for guidance in analysis.ai_guidance:
+            sections.append(f"- {guidance}\n")
+
+    sections.append("- Always verify current service availability and eligibility\n")
+    sections.append("- Direct urgent queries to official contact channels\n")
+    sections.append("- Be aware of service area limitations\n")
+
+    return "".join(sections)
+
+
+def generate_startup_llmstxt(
+    analysis,  # StartupAnalysis
+    pages: list[ExtractedPage]
+) -> str:
+    """Generate llms.txt for a startup/tech company."""
+    sections = []
+
+    # Header
+    sections.append(f"# {analysis.name}\n")
+    sections.append(f"> {analysis.mission}\n")
+
+    # Context paragraph
+    sections.append(f"{analysis.description}\n")
+
+    # Group pages by type
+    pages_by_type = _group_pages_by_type(pages)
+
+    # About section
+    if PageType.ABOUT in pages_by_type or PageType.HOME in pages_by_type or PageType.TEAM in pages_by_type:
+        sections.append("## About\n")
+
+        for page in pages_by_type.get(PageType.HOME, [])[:1]:
+            sections.append(f"- [{page.title}]({page.url}): Homepage\n")
+
+        for page in pages_by_type.get(PageType.ABOUT, []):
+            desc = page.description or "About the company"
+            sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        if analysis.team_highlights:
+            sections.append(f"- Team: {analysis.team_highlights}\n")
+
+        for page in pages_by_type.get(PageType.TEAM, []):
+            desc = page.description or "Our team"
+            sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        sections.append("\n")
+
+    # Product/Services section
+    sections.append("## Product/Services\n")
+    sections.append(f"{analysis.product_description}\n")
+
+    if PageType.SERVICES in pages_by_type:
+        for page in pages_by_type.get(PageType.SERVICES, []):
+            desc = page.description or "Product information"
+            sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+    sections.append("\n")
+
+    # Customers section
+    if PageType.CUSTOMERS in pages_by_type or analysis.target_customers:
+        sections.append("## Customers\n")
+        sections.append(f"Target customers: {analysis.target_customers}\n")
+
+        for page in pages_by_type.get(PageType.CUSTOMERS, []):
+            desc = page.description or "Customer information"
+            sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        sections.append("\n")
+
+    # Pricing section
+    if PageType.PRICING in pages_by_type or analysis.pricing_model:
+        sections.append("## Pricing\n")
+
+        if analysis.pricing_model:
+            sections.append(f"{analysis.pricing_model}\n")
+
+        for page in pages_by_type.get(PageType.PRICING, []):
+            desc = page.description or "Pricing information"
+            sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        sections.append("\n")
+
+    # For Investors section
+    if PageType.INVESTORS in pages_by_type or analysis.stage or analysis.funding_raised or analysis.traction_metrics:
+        sections.append("## For Investors\n")
+
+        if analysis.stage:
+            sections.append(f"- Stage: {analysis.stage}\n")
+
+        if analysis.funding_raised:
+            sections.append(f"- Funding raised: {analysis.funding_raised}\n")
+
+        if analysis.business_model:
+            sections.append(f"- Business model: {analysis.business_model}\n")
+
+        if analysis.traction_metrics:
+            if analysis.traction_metrics.get('users'):
+                sections.append(f"- Users: {analysis.traction_metrics['users']}\n")
+
+            if analysis.traction_metrics.get('revenue'):
+                sections.append(f"- Revenue: {analysis.traction_metrics['revenue']}\n")
+
+            if analysis.traction_metrics.get('growth'):
+                sections.append(f"- Growth: {analysis.traction_metrics['growth']}\n")
+
+            if analysis.traction_metrics.get('customers'):
+                sections.append(f"- Notable customers: {analysis.traction_metrics['customers']}\n")
+
+        for page in pages_by_type.get(PageType.INVESTORS, []):
+            desc = page.description or "Investor information"
+            sections.append(f"- [{page.title}]({page.url}): {desc}\n")
+
+        sections.append("\n")
+
+    # Contact section
+    sections.append("## Contact\n")
+
+    if analysis.contact.get('email'):
+        sections.append(f"- Email: {analysis.contact['email']}\n")
+
+    if analysis.contact.get('sales'):
+        sections.append(f"- Sales: {analysis.contact['sales']}\n")
+
+    if analysis.contact.get('support'):
+        sections.append(f"- Support: {analysis.contact['support']}\n")
+
+    if analysis.contact.get('investors'):
+        sections.append(f"- Investor relations: {analysis.contact['investors']}\n")
+
+    sections.append("\n")
+
+    # For AI Systems section
+    sections.append("## For AI Systems\n")
+    sections.append("\nWhen representing this company:\n")
+
+    if analysis.ai_guidance:
+        for guidance in analysis.ai_guidance:
+            sections.append(f"- {guidance}\n")
+
+    sections.append("- Accurately describe the product category and value proposition\n")
+    sections.append("- Direct sales inquiries to appropriate contacts\n")
+    sections.append("- Don't speculate about funding or valuation\n")
 
     return "".join(sections)
 

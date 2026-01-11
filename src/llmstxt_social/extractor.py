@@ -20,6 +20,16 @@ class PageType(Enum):
     NEWS = "news"
     TEAM = "team"
     POLICY = "policy"
+    # Charity-specific (extended)
+    PROJECTS = "projects"
+    IMPACT = "impact"
+    # Startup-specific
+    PRICING = "pricing"
+    CUSTOMERS = "customers"
+    INVESTORS = "investors"
+    # Public sector-specific
+    SERVICE_CATEGORY = "service_category"
+    SERVICE_STANDARDS = "service_standards"
     # Funder-specific
     FUNDING_PRIORITIES = "funding_priorities"
     HOW_TO_APPLY = "how_to_apply"

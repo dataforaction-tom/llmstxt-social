@@ -22,6 +22,8 @@ class OrganisationAnalysis:
     description: str
     geographic_area: str
     services: list[dict]
+    projects: list[dict] | None
+    impact_metrics: dict | None
     beneficiaries: str
     themes: list[str]
     contact: dict
@@ -50,6 +52,39 @@ class FunderAnalysis:
     ai_guidance: list[str]
 
 
+@dataclass
+class PublicSectorAnalysis:
+    """Analysis results for a public sector organisation."""
+    name: str
+    org_type: str
+    governance: str | None
+    mission: str
+    description: str
+    area_covered: str
+    services: list[dict]
+    contact: dict
+    accessibility_info: str | None
+    ai_guidance: list[str]
+
+
+@dataclass
+class StartupAnalysis:
+    """Analysis results for a startup/tech company."""
+    name: str
+    mission: str
+    description: str
+    product_description: str
+    target_customers: str
+    business_model: str | None
+    pricing_model: str | None
+    stage: str | None
+    funding_raised: str | None
+    traction_metrics: dict | None
+    team_highlights: str | None
+    contact: dict
+    ai_guidance: list[str]
+
+
 CHARITY_SYSTEM_PROMPT = """You are analyzing a UK VCSE (voluntary, community, social enterprise) organisation's website to create an llms.txt file.
 
 Given the extracted content from their website pages, identify and return as JSON:
@@ -64,6 +99,13 @@ Given the extracted content from their website pages, identify and return as JSO
   "services": [
     {"name": "Service name", "description": "What it is", "eligibility": "Who can access"}
   ],
+  "projects": [
+    {"name": "Project name", "description": "What the project does", "location": "Where it operates"}
+  ],
+  "impact_metrics": {
+    "beneficiaries_served": "Number of people helped (if mentioned)",
+    "outcomes": ["Key outcomes or achievements"]
+  },
   "beneficiaries": "Who they primarily serve",
   "themes": ["theme1", "theme2"],
   "contact": {"email": "", "phone": "", "address": "", "hours": ""},
@@ -76,6 +118,8 @@ Given the extracted content from their website pages, identify and return as JSO
 
 Be concise. Extract only what's clearly stated - don't infer or hallucinate.
 If information isn't available, use null.
+Projects should be specific initiatives or programmes the charity runs.
+Impact metrics should only include quantifiable outcomes if explicitly stated.
 Themes should be broad categories like "homelessness", "mental health", "youth services", etc."""
 
 
@@ -112,23 +156,84 @@ Be concise. Extract only what's clearly stated.
 If information isn't available, use null."""
 
 
+PUBLIC_SECTOR_SYSTEM_PROMPT = """You are analyzing a UK public sector organisation's website to create an llms.txt file.
+
+Given the extracted content from their website pages, identify and return as JSON:
+
+{
+  "name": "Full organisation name",
+  "org_type": "local_authority|nhs_trust|government_department|agency|other",
+  "governance": "Brief governance structure if mentioned",
+  "mission": "One sentence on their purpose/mission",
+  "description": "2-3 sentences on what they do, area covered, who they serve",
+  "area_covered": "Geographic area or jurisdiction",
+  "services": [
+    {"name": "Service name", "description": "What it provides", "eligibility": "Who can access", "category": "Service category"}
+  ],
+  "contact": {"email": "", "phone": "", "address": "", "hours": "", "departments": {}},
+  "accessibility_info": "Information about accessibility, complaints procedures, or service standards if mentioned",
+  "ai_guidance": [
+    "Important things AI should know when representing this organisation",
+    "E.g. how to direct urgent queries, service availability"
+  ]
+}
+
+Be concise. Extract only what's clearly stated - don't infer or hallucinate.
+If information isn't available, use null.
+Services should be categorized where possible (e.g., "adult social care", "waste management", "planning").
+Focus on practical service information that helps people access what they need."""
+
+
+STARTUP_SYSTEM_PROMPT = """You are analyzing a startup/tech company's website to create an llms.txt file.
+
+Given the extracted content from their website pages, identify and return as JSON:
+
+{
+  "name": "Company name",
+  "mission": "One sentence mission or vision",
+  "description": "2-3 sentences on what the company does and its unique value proposition",
+  "product_description": "What the product/service is and who it's for",
+  "target_customers": "Primary customer segments or personas",
+  "business_model": "B2B|B2C|B2B2C|marketplace|SaaS|etc if clear",
+  "pricing_model": "Brief pricing approach if publicly available (freemium, subscription, etc)",
+  "stage": "pre-seed|seed|Series A|Series B|etc if mentioned",
+  "funding_raised": "Total funding raised if mentioned",
+  "traction_metrics": {
+    "users": "User count if mentioned",
+    "revenue": "Revenue info if public",
+    "growth": "Growth metrics if mentioned",
+    "customers": "Notable customers or case studies"
+  },
+  "team_highlights": "Brief note on founders/team if mentioned",
+  "contact": {"email": "", "sales": "", "support": "", "investors": ""},
+  "ai_guidance": [
+    "Important things AI should know when representing this company",
+    "E.g. correct product category, how to describe what they do"
+  ]
+}
+
+Be concise. Extract only what's clearly stated - don't speculate about funding or metrics.
+If information isn't available, use null.
+Focus on information that would help customers understand the product and investors understand the opportunity."""
+
+
 async def analyze_organisation(
     pages: list[ExtractedPage],
     template: str = "charity",
     model: str = "claude-sonnet-4-20250514",
     api_key: str | None = None
-) -> OrganisationAnalysis | FunderAnalysis:
+) -> OrganisationAnalysis | FunderAnalysis | PublicSectorAnalysis | StartupAnalysis:
     """
     Use Claude to analyze the extracted pages and produce structured data.
 
     Args:
         pages: List of extracted pages from the website
-        template: "charity" or "funder"
+        template: "charity", "funder", "public_sector", or "startup"
         model: Claude model to use
         api_key: Anthropic API key (or will use env var)
 
     Returns:
-        OrganisationAnalysis or FunderAnalysis depending on template
+        OrganisationAnalysis, FunderAnalysis, PublicSectorAnalysis, or StartupAnalysis depending on template
     """
     # Get API key
     if api_key is None:
@@ -140,7 +245,13 @@ async def analyze_organisation(
     content = _prepare_content(pages)
 
     # Choose system prompt
-    system_prompt = CHARITY_SYSTEM_PROMPT if template == "charity" else FUNDER_SYSTEM_PROMPT
+    prompt_map = {
+        "charity": CHARITY_SYSTEM_PROMPT,
+        "funder": FUNDER_SYSTEM_PROMPT,
+        "public_sector": PUBLIC_SECTOR_SYSTEM_PROMPT,
+        "startup": STARTUP_SYSTEM_PROMPT
+    }
+    system_prompt = prompt_map.get(template, CHARITY_SYSTEM_PROMPT)
 
     # Call Claude API
     client = Anthropic(api_key=api_key)
@@ -179,13 +290,15 @@ async def analyze_organisation(
             description=data["description"],
             geographic_area=data["geographic_area"],
             services=data.get("services", []),
+            projects=data.get("projects"),
+            impact_metrics=data.get("impact_metrics"),
             beneficiaries=data["beneficiaries"],
             themes=data.get("themes", []),
             contact=data.get("contact", {}),
             team_info=data.get("team_info"),
             ai_guidance=data.get("ai_guidance", [])
         )
-    else:  # funder
+    elif template == "funder":
         return FunderAnalysis(
             name=data["name"],
             funder_type=data["funder_type"],
@@ -202,6 +315,35 @@ async def analyze_organisation(
             deadlines=data.get("deadlines"),
             contact=data.get("contact", {}),
             success_factors=data.get("success_factors", []),
+            ai_guidance=data.get("ai_guidance", [])
+        )
+    elif template == "public_sector":
+        return PublicSectorAnalysis(
+            name=data["name"],
+            org_type=data["org_type"],
+            governance=data.get("governance"),
+            mission=data["mission"],
+            description=data["description"],
+            area_covered=data["area_covered"],
+            services=data.get("services", []),
+            contact=data.get("contact", {}),
+            accessibility_info=data.get("accessibility_info"),
+            ai_guidance=data.get("ai_guidance", [])
+        )
+    else:  # startup
+        return StartupAnalysis(
+            name=data["name"],
+            mission=data["mission"],
+            description=data["description"],
+            product_description=data["product_description"],
+            target_customers=data["target_customers"],
+            business_model=data.get("business_model"),
+            pricing_model=data.get("pricing_model"),
+            stage=data.get("stage"),
+            funding_raised=data.get("funding_raised"),
+            traction_metrics=data.get("traction_metrics"),
+            team_highlights=data.get("team_highlights"),
+            contact=data.get("contact", {}),
             ai_guidance=data.get("ai_guidance", [])
         )
 

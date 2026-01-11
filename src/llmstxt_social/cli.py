@@ -61,7 +61,7 @@ def generate(
         "charity",
         "-t",
         "--template",
-        help="Template: charity or funder"
+        help="Template: charity, funder, public_sector, or startup"
     ),
     model: str = typer.Option(
         "claude-sonnet-4-20250514",
@@ -98,8 +98,8 @@ def generate(
     """Generate an llms.txt file for a website."""
 
     # Validate template
-    if template not in ["charity", "funder"]:
-        console.print("[red]Error:[/red] Template must be 'charity' or 'funder'")
+    if template not in ["charity", "funder", "public_sector", "startup"]:
+        console.print("[red]Error:[/red] Template must be 'charity', 'funder', 'public_sector', or 'startup'")
         raise typer.Exit(1)
 
     # Ensure URL has protocol
@@ -567,6 +567,506 @@ def test_api_key():
             console.print(f"\n   Full error details: [red]{e}[/red]")
         
         raise typer.Exit(1)
+
+
+@app.command()
+def assess(
+    source: str = typer.Argument(..., help="URL of website or path to llms.txt file to assess"),
+    template: str = typer.Option(
+        None,
+        "-t",
+        "--template",
+        help="Template type (auto-detected if not specified)"
+    ),
+    output: Path = typer.Option(
+        None,
+        "-o",
+        "--output",
+        help="Output file path (default: assessment-{timestamp})"
+    ),
+    format: str = typer.Option(
+        "both",
+        "-f",
+        "--format",
+        help="Output format: json, markdown, or both"
+    ),
+    deep_analysis: bool = typer.Option(
+        True,
+        "--deep/--quick",
+        help="Use Claude for quality analysis (default: enabled)"
+    ),
+    enrich: bool = typer.Option(
+        True,
+        "--enrich/--no-enrich",
+        help="Fetch enrichment data for context (default: enabled)"
+    ),
+):
+    """Assess quality and completeness of an llms.txt file."""
+
+    # Determine if source is URL or file path
+    is_url = source.startswith(('http://', 'https://')) or (not Path(source).exists() and '.' in source and not source.endswith('.txt'))
+
+    console.print(Panel.fit(
+        f"[bold]Assessing:[/bold] {source}\n"
+        f"[dim]Format: {format} | Deep analysis: {deep_analysis}[/dim]",
+        border_style="cyan"
+    ))
+
+    try:
+        if is_url:
+            # Website assessment path
+            asyncio.run(_assess_from_website(
+                url=source,
+                template=template,
+                output=output,
+                format=format,
+                deep_analysis=deep_analysis,
+                enrich=enrich
+            ))
+        else:
+            # File assessment path
+            asyncio.run(_assess_from_file(
+                file_path=source,
+                template=template,
+                output=output,
+                format=format,
+                deep_analysis=deep_analysis,
+                enrich=enrich
+            ))
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Cancelled by user[/yellow]")
+        raise typer.Exit(130)
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {str(e)}")
+        import traceback
+        console.print(f"[dim]{traceback.format_exc()}[/dim]")
+        raise typer.Exit(1)
+
+
+async def _assess_from_website(
+    url: str,
+    template: str | None,
+    output: Path | None,
+    format: str,
+    deep_analysis: bool,
+    enrich: bool
+):
+    """Assess by generating llms.txt from website then analyzing it."""
+    from datetime import datetime
+    from .assessor import LLMSTxtAssessor
+    from anthropic import Anthropic
+    import os
+
+    # Ensure URL has protocol
+    if not url.startswith(('http://', 'https://')):
+        url = f"https://{url}"
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        console=console
+    ) as progress:
+
+        # 1. Crawl website
+        crawl_task = progress.add_task("Crawling website...", total=None)
+        crawl_result = await crawl_site(url, max_pages=30)
+        progress.update(crawl_task, description="[green]✓[/green] Crawled website", completed=True)
+
+        # 2. Extract content
+        extract_task = progress.add_task("Extracting content...", total=None)
+        extracted_pages = [extract_content(p) for p in crawl_result.pages]
+        progress.update(extract_task, description="[green]✓[/green] Extracted content", completed=True)
+
+        # 3. Auto-detect template if not specified
+        if not template:
+            template = _detect_template_type(extracted_pages)
+            console.print(f"[dim]Auto-detected template: {template}[/dim]")
+
+        # 4. Get enrichment data
+        charity_data = None
+        if enrich and template == "charity":
+            enrich_task = progress.add_task("Fetching Charity Commission data...", total=None)
+            charity_number = find_charity_num(extracted_pages)
+            if charity_number:
+                charity_data = await fetch_charity_data(charity_number)
+                if charity_data:
+                    progress.update(enrich_task, description="[green]✓[/green] Fetched enrichment data", completed=True)
+                else:
+                    progress.update(enrich_task, description="[yellow]○[/yellow] No enrichment data found", completed=True)
+            else:
+                progress.update(enrich_task, description="[yellow]○[/yellow] No charity number found", completed=True)
+
+        # 5. Analyze with Claude
+        analysis_task = progress.add_task("Analyzing organization...", total=None)
+        analysis = await analyze_organisation(extracted_pages, template)
+        progress.update(analysis_task, description="[green]✓[/green] Analyzed organization", completed=True)
+
+        # 6. Generate llms.txt
+        gen_task = progress.add_task("Generating llms.txt...", total=None)
+        llmstxt_content = generate_llmstxt(analysis, extracted_pages, template, charity_data)
+        progress.update(gen_task, description="[green]✓[/green] Generated llms.txt", completed=True)
+
+        # 7. Assess the generated llms.txt
+        assess_task = progress.add_task("Assessing quality...", total=None)
+
+        client = None
+        if deep_analysis:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if api_key:
+                client = Anthropic(api_key=api_key)
+            else:
+                console.print("[yellow]Warning: No API key found, skipping AI quality analysis[/yellow]")
+
+        assessor = LLMSTxtAssessor(template, client)
+
+        assessment_result = await assessor.assess(
+            llmstxt_content=llmstxt_content,
+            website_url=url,
+            crawl_result=crawl_result,
+            enrichment_data=charity_data
+        )
+
+        progress.update(assess_task, description="[green]✓[/green] Assessment complete", completed=True)
+
+    # 8. Output results
+    _output_assessment(assessment_result, output, format, llmstxt_content, url)
+    _show_assessment_summary(assessment_result)
+
+
+async def _assess_from_file(
+    file_path: str,
+    template: str | None,
+    output: Path | None,
+    format: str,
+    deep_analysis: bool,
+    enrich: bool
+):
+    """Assess an existing llms.txt file."""
+    from datetime import datetime
+    from .assessor import LLMSTxtAssessor
+    from anthropic import Anthropic
+    import os
+
+    # 1. Load file
+    path = Path(file_path)
+    if not path.exists():
+        console.print(f"[red]Error:[/red] File not found: {file_path}")
+        raise typer.Exit(1)
+
+    llmstxt_content = path.read_text(encoding='utf-8')
+
+    # 2. Auto-detect template from content
+    if not template:
+        template = _detect_template_from_content(llmstxt_content)
+        console.print(f"[dim]Auto-detected template: {template}[/dim]")
+
+    # 3. Try to extract website URL from content for enrichment
+    website_url = _extract_url_from_llmstxt(llmstxt_content)
+
+    crawl_result = None
+    charity_data = None
+
+    if website_url and enrich:
+        console.print(f"[cyan]Found website URL: {website_url}[/cyan]")
+
+        # Ask if user wants to crawl for gap analysis
+        if typer.confirm("Crawl website for gap analysis?", default=True):
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                crawl_task = progress.add_task("Crawling website...", total=None)
+                crawl_result = await crawl_site(website_url, max_pages=30)
+                progress.update(crawl_task, description="[green]✓[/green] Crawled website", completed=True)
+
+                # Get enrichment data if charity
+                if template == "charity":
+                    from .extractor import extract_content
+                    enrich_task = progress.add_task("Fetching enrichment data...", total=None)
+                    extracted_pages = [extract_content(p) for p in crawl_result.pages]
+                    charity_number = find_charity_num(extracted_pages)
+                    if charity_number:
+                        charity_data = await fetch_charity_data(charity_number)
+                    progress.update(enrich_task, description="[green]✓[/green] Fetched enrichment data", completed=True)
+
+    # 4. Assess
+    console.print("[cyan]Running assessment...[/cyan]")
+
+    client = None
+    if deep_analysis:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if api_key:
+            client = Anthropic(api_key=api_key)
+        else:
+            console.print("[yellow]Warning: No API key found, skipping AI quality analysis[/yellow]")
+
+    assessor = LLMSTxtAssessor(template, client)
+
+    assessment_result = await assessor.assess(
+        llmstxt_content=llmstxt_content,
+        website_url=website_url,
+        crawl_result=crawl_result,
+        enrichment_data=charity_data
+    )
+
+    # 5. Output
+    _output_assessment(assessment_result, output, format, llmstxt_content, website_url)
+    _show_assessment_summary(assessment_result)
+
+
+def _detect_template_type(extracted_pages) -> str:
+    """Auto-detect template type from extracted pages."""
+    from .extractor import PageType
+
+    page_types = set(p.page_type for p in extracted_pages)
+
+    # Check for funder-specific page types
+    if PageType.FUNDING_PRIORITIES in page_types or PageType.HOW_TO_APPLY in page_types or PageType.PAST_GRANTS in page_types:
+        return "funder"
+
+    # Check for startup-specific page types
+    if PageType.PRICING in page_types or PageType.INVESTORS in page_types:
+        return "startup"
+
+    # Check for public sector indicators in titles/content
+    for page in extracted_pages:
+        title_lower = page.title.lower()
+        if any(term in title_lower for term in ["council", "nhs", "government", "local authority"]):
+            return "public_sector"
+
+    # Default to charity
+    return "charity"
+
+
+def _detect_template_from_content(content: str) -> str:
+    """Auto-detect template type from llms.txt content."""
+    content_lower = content.lower()
+
+    # Check for template-specific sections
+    if "what we fund" in content_lower or "for applicants" in content_lower:
+        return "funder"
+    elif "for investors" in content_lower or ("pricing" in content_lower and "product" in content_lower):
+        return "startup"
+    elif "for service users" in content_lower or ("council" in content_lower or "nhs" in content_lower):
+        return "public_sector"
+    else:
+        return "charity"
+
+
+def _extract_url_from_llmstxt(content: str) -> str | None:
+    """Extract website URL from llms.txt content."""
+    import re
+
+    # Look for URLs in markdown links
+    url_pattern = r'\[.*?\]\((https?://[^\)]+)\)'
+    matches = re.findall(url_pattern, content)
+
+    if matches:
+        # Return the domain of the first URL
+        from urllib.parse import urlparse
+        parsed = urlparse(matches[0])
+        return f"{parsed.scheme}://{parsed.netloc}"
+
+    return None
+
+
+def _output_assessment(assessment_result, output: Path | None, format: str, llmstxt_content: str, website_url: str | None):
+    """Generate output files."""
+    from datetime import datetime
+    import json
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    if output is None:
+        base_name = f"assessment-{timestamp}"
+    else:
+        base_name = output.stem
+
+    # JSON output
+    if format in ["json", "both"]:
+        json_path = Path(f"{base_name}.json") if output is None else output.with_suffix('.json')
+
+        data = {
+            "template_type": assessment_result.template_type,
+            "timestamp": datetime.now().isoformat(),
+            "website_url": website_url,
+            "scores": {
+                "overall": assessment_result.overall_score,
+                "completeness": assessment_result.completeness_score,
+                "quality": assessment_result.quality_score,
+                **assessment_result.scores
+            },
+            "sections": [
+                {
+                    "name": s.section_name,
+                    "present": s.present,
+                    "content_quality": s.content_quality,
+                    "completeness": s.completeness
+                }
+                for s in assessment_result.section_assessments
+            ],
+            "findings": [
+                {
+                    "category": f.category.value,
+                    "severity": f.severity.value,
+                    "message": f.message,
+                    "section": f.section,
+                    "suggestion": f.suggestion
+                }
+                for f in assessment_result.findings
+            ],
+            "website_gaps": {
+                "missing_page_types": assessment_result.website_gaps.missing_page_types,
+                "sitemap_detected": assessment_result.website_gaps.sitemap_detected,
+                "suggested_pages": assessment_result.website_gaps.suggested_pages
+            } if assessment_result.website_gaps else None,
+            "org_size": {
+                "category": assessment_result.org_size.category,
+                "income": assessment_result.org_size.income
+            } if assessment_result.org_size else None,
+            "recommendations": assessment_result.recommendations
+        }
+
+        json_path.write_text(json.dumps(data, indent=2), encoding='utf-8')
+        console.print(f"[green]✓[/green] JSON saved to: {json_path.absolute()}")
+
+    # Markdown output
+    if format in ["markdown", "both"]:
+        md_path = Path(f"{base_name}.md") if output is None else output.with_suffix('.md')
+
+        lines = []
+
+        # Header
+        lines.append(f"# llms.txt Quality Assessment Report\n")
+        lines.append(f"**Template Type**: {assessment_result.template_type}\n")
+        lines.append(f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
+        if website_url:
+            lines.append(f"**Website**: {website_url}\n")
+        lines.append("\n")
+
+        # Scores
+        lines.append("## Overall Scores\n")
+        lines.append(f"- **Overall**: {assessment_result.overall_score}/100")
+        lines.append(f"- **Completeness**: {assessment_result.completeness_score}/100")
+        lines.append(f"- **Quality**: {assessment_result.quality_score}/100\n\n")
+
+        # Grade
+        if assessment_result.overall_score >= 90:
+            grade = "A"
+        elif assessment_result.overall_score >= 80:
+            grade = "B"
+        elif assessment_result.overall_score >= 70:
+            grade = "C"
+        elif assessment_result.overall_score >= 60:
+            grade = "D"
+        else:
+            grade = "F"
+        lines.append(f"**Grade**: {grade}\n\n")
+
+        # Organization size (if charity)
+        if assessment_result.org_size:
+            lines.append("## Organization Profile\n")
+            lines.append(f"- **Size Category**: {assessment_result.org_size.category.capitalize()}")
+            if assessment_result.org_size.income:
+                lines.append(f"- **Annual Income**: £{assessment_result.org_size.income:,}\n\n")
+
+        # Section breakdown
+        lines.append("## Section Assessment\n")
+        for section in assessment_result.section_assessments:
+            status = "✓" if section.present else "✗"
+            lines.append(f"### {status} {section.section_name}")
+            if section.present:
+                lines.append(f"- Content Quality: {section.content_quality * 100:.0f}%")
+                lines.append(f"- Completeness: {section.completeness * 100:.0f}%\n")
+            else:
+                lines.append("- **Missing** - This section should be added\n")
+
+        # Findings by severity
+        lines.append("\n## Findings\n")
+
+        from .assessor import IssueSeverity
+        for severity in [IssueSeverity.CRITICAL, IssueSeverity.MAJOR, IssueSeverity.MINOR]:
+            severity_findings = [f for f in assessment_result.findings if f.severity == severity]
+            if severity_findings:
+                lines.append(f"\n### {severity.value.capitalize()} Issues\n")
+                for finding in severity_findings:
+                    lines.append(f"- **{finding.section or 'General'}**: {finding.message}")
+                    if finding.suggestion:
+                        lines.append(f"  - *Suggestion*: {finding.suggestion}")
+                    lines.append("")
+
+        # Website gaps
+        if assessment_result.website_gaps:
+            lines.append("\n## Website Data Gaps\n")
+            if assessment_result.website_gaps.missing_page_types:
+                lines.append("**Missing Page Types:**\n")
+                for pt in assessment_result.website_gaps.missing_page_types:
+                    lines.append(f"- {pt}")
+                lines.append("")
+
+            if assessment_result.website_gaps.suggested_pages:
+                lines.append("**Suggested Improvements:**\n")
+                for suggestion in assessment_result.website_gaps.suggested_pages:
+                    lines.append(f"- {suggestion}")
+                lines.append("")
+
+            lines.append(f"**Sitemap Detected**: {'Yes' if assessment_result.website_gaps.sitemap_detected else 'No'}\n")
+
+        # Recommendations
+        lines.append("\n## Recommendations\n")
+        for i, rec in enumerate(assessment_result.recommendations, 1):
+            lines.append(f"{i}. {rec}")
+
+        # Appendix: Full llms.txt
+        lines.append("\n\n---\n\n## Appendix: Full llms.txt Content\n")
+        lines.append("```")
+        lines.append(llmstxt_content)
+        lines.append("```")
+
+        md_path.write_text("\n".join(lines), encoding='utf-8')
+        console.print(f"[green]✓[/green] Markdown saved to: {md_path.absolute()}")
+
+
+def _show_assessment_summary(assessment_result):
+    """Display assessment summary in terminal."""
+
+    # Create summary table
+    table = Table(title="\nAssessment Summary", show_header=True, header_style="bold cyan")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Score", justify="right")
+    table.add_column("Grade", justify="center")
+
+    def get_grade_color(score):
+        if score >= 90:
+            return "green"
+        elif score >= 80:
+            return "yellow"
+        elif score >= 70:
+            return "orange"
+        else:
+            return "red"
+
+    overall_color = get_grade_color(assessment_result.overall_score)
+    table.add_row("Overall", f"[{overall_color}]{assessment_result.overall_score:.1f}/100[/{overall_color}]", f"[{overall_color}]{'A' if assessment_result.overall_score >= 90 else 'B' if assessment_result.overall_score >= 80 else 'C' if assessment_result.overall_score >= 70 else 'D'}[/{overall_color}]")
+
+    completeness_color = get_grade_color(assessment_result.completeness_score)
+    table.add_row("Completeness", f"[{completeness_color}]{assessment_result.completeness_score:.1f}/100[/{completeness_color}]", "")
+
+    quality_color = get_grade_color(assessment_result.quality_score)
+    table.add_row("Quality", f"[{quality_color}]{assessment_result.quality_score:.1f}/100[/{quality_color}]", "")
+
+    console.print(table)
+
+    # Show top recommendations
+    if assessment_result.recommendations:
+        console.print("\n[bold cyan]Top Recommendations:[/bold cyan]")
+        for i, rec in enumerate(assessment_result.recommendations[:3], 1):
+            console.print(f"  {i}. {rec}")
+
+    console.print()
 
 
 if __name__ == "__main__":
