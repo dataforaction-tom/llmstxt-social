@@ -19,6 +19,17 @@ A Python CLI tool that automatically generates [llms.txt](https://llmstxt.org) f
 - 📊 **Rich CLI output**: Beautiful progress bars, validation reports, and assessment summaries
 - 📈 **Detailed reports**: JSON and Markdown assessment reports with actionable recommendations
 
+## Repository Structure
+
+This is a monorepo containing:
+
+- **`packages/core/`** - Core library (`llmstxt-core`) with all business logic
+- **`packages/cli/`** - CLI tool (`llmstxt-social`) - open-source, MIT licensed
+- **`packages/api/`** - FastAPI backend for SaaS platform (coming soon)
+- **`packages/web/`** - React frontend for SaaS platform (coming soon)
+
+The core library is shared between the CLI and future SaaS platform, ensuring consistent behavior and easy maintenance.
+
 ## Installation
 
 ### From PyPI (when published)
@@ -27,15 +38,25 @@ A Python CLI tool that automatically generates [llms.txt](https://llmstxt.org) f
 pip install llmstxt-social
 ```
 
-### From source
+### From source (CLI tool)
 
 ```bash
 git clone https://github.com/yourusername/llmstxt-social.git
 cd llmstxt-social
-pip install -e .
+
+# Install both core and CLI packages
+cd packages/core && pip install -e . && cd ../..
+cd packages/cli && pip install -e . && cd ../..
 
 # If you want to use Playwright for JavaScript sites:
 playwright install chromium
+```
+
+### For development
+
+```bash
+# Start local PostgreSQL and Redis (for future API development)
+docker-compose up -d postgres redis
 ```
 
 ### Dependencies
@@ -466,32 +487,50 @@ ruff format .
 ## Project Structure
 
 ```
-llmstxt-social/
-├── src/llmstxt_social/
-│   ├── __init__.py
-│   ├── cli.py              # CLI interface
-│   ├── crawler.py          # Website crawling
-│   ├── extractor.py        # Content extraction
-│   ├── analyzer.py         # LLM analysis
-│   ├── generator.py        # llms.txt generation
-│   ├── validator.py        # Spec validation
-│   ├── assessor.py         # Quality assessment
-│   ├── enrichers/
-│   │   ├── __init__.py
-│   │   ├── charity_commission.py
-│   │   └── threesixty_giving.py
-│   └── templates/
-│       ├── __init__.py
-│       ├── charity.py      # Charity template
-│       ├── funder.py       # Funder template
-│       ├── public_sector.py # Public sector template
-│       └── startup.py      # Startup template
-├── tests/
-│   ├── test_extractor.py
-│   ├── test_generator.py
-│   ├── test_validator.py
-│   └── test_assessor.py
-├── pyproject.toml
+llmstxt-social/                      # Monorepo root
+├── packages/
+│   ├── core/                        # Core library (shared)
+│   │   ├── src/llmstxt_core/
+│   │   │   ├── __init__.py
+│   │   │   ├── crawler.py          # Website crawling
+│   │   │   ├── crawler_playwright.py
+│   │   │   ├── extractor.py        # Content extraction
+│   │   │   ├── analyzer.py         # LLM analysis
+│   │   │   ├── generator.py        # llms.txt generation
+│   │   │   ├── validator.py        # Spec validation
+│   │   │   ├── assessor.py         # Quality assessment
+│   │   │   ├── enrichers/
+│   │   │   │   ├── charity_commission.py
+│   │   │   │   └── threesixty_giving.py
+│   │   │   └── templates/
+│   │   │       ├── charity.py      # Charity template
+│   │   │       ├── funder.py       # Funder template
+│   │   │       ├── public_sector.py
+│   │   │       └── startup.py
+│   │   ├── tests/
+│   │   ├── pyproject.toml
+│   │   └── README.md
+│   │
+│   ├── cli/                         # CLI tool (open-source)
+│   │   ├── src/llmstxt_social/
+│   │   │   ├── __init__.py
+│   │   │   └── cli.py              # CLI interface
+│   │   ├── tests/
+│   │   ├── pyproject.toml
+│   │   └── README.md
+│   │
+│   ├── api/                         # FastAPI backend (coming soon)
+│   └── web/                         # React frontend (coming soon)
+│
+├── docs/
+│   ├── saas-architecture.md        # SaaS platform architecture
+│   ├── api.md                      # API documentation (TBD)
+│   └── deployment.md               # Deployment guide (TBD)
+│
+├── infrastructure/                 # Deployment configs (TBD)
+│   └── digitalocean/
+│
+├── docker-compose.yml              # Local development
 ├── README.md
 └── LICENSE
 ```

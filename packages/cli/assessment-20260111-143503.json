@@ -1,0 +1,174 @@
+{
+  "template_type": "charity",
+  "timestamp": "2026-01-11T14:35:03.649885",
+  "website_url": "https://rainbowhome.org.uk/",
+  "scores": {
+    "overall": 46.2,
+    "completeness": 72.5,
+    "quality": 20.0,
+    "structure": 90
+  },
+  "sections": [
+    {
+      "name": "About",
+      "present": false,
+      "content_quality": 0.0,
+      "completeness": 0.0
+    },
+    {
+      "name": "Services",
+      "present": true,
+      "content_quality": 0.7,
+      "completeness": 1.0
+    },
+    {
+      "name": "For Funders",
+      "present": true,
+      "content_quality": 0.7,
+      "completeness": 1.0
+    },
+    {
+      "name": "For AI Systems",
+      "present": true,
+      "content_quality": 0.7,
+      "completeness": 1.0
+    },
+    {
+      "name": "Projects",
+      "present": true,
+      "content_quality": 0.7,
+      "completeness": 0.3
+    },
+    {
+      "name": "Impact",
+      "present": true,
+      "content_quality": 0.7,
+      "completeness": 0.6
+    },
+    {
+      "name": "Get Help",
+      "present": true,
+      "content_quality": 1.0,
+      "completeness": 1.0
+    },
+    {
+      "name": "Get Involved",
+      "present": true,
+      "content_quality": 1.0,
+      "completeness": 0.6
+    }
+  ],
+  "findings": [
+    {
+      "category": "structure",
+      "severity": "major",
+      "message": "Recommended section missing: About section",
+      "section": null,
+      "suggestion": null
+    },
+    {
+      "category": "completeness",
+      "severity": "critical",
+      "message": "Required section 'About' is missing",
+      "section": "About",
+      "suggestion": "Add 'About' section with relevant content for your organization"
+    },
+    {
+      "category": "size_appropriate",
+      "severity": "major",
+      "message": "Section 'About' expected for small charity (\u00a345,062 income)",
+      "section": "About",
+      "suggestion": "Add 'About' section - organizations of your size typically include this"
+    },
+    {
+      "category": "size_appropriate",
+      "severity": "major",
+      "message": "Section 'Contact' expected for small charity (\u00a345,062 income)",
+      "section": "Contact",
+      "suggestion": "Add 'Contact' section - organizations of your size typically include this"
+    },
+    {
+      "category": "website_data",
+      "severity": "major",
+      "message": "Website appears to be missing About page(s)",
+      "section": "About",
+      "suggestion": "Add About page(s) to your website to improve llms.txt completeness"
+    },
+    {
+      "category": "website_data",
+      "severity": "major",
+      "message": "Website appears to be missing Services page(s)",
+      "section": "Services",
+      "suggestion": "Add Services page(s) to your website to improve llms.txt completeness"
+    },
+    {
+      "category": "website_data",
+      "severity": "info",
+      "message": "No sitemap.xml detected",
+      "section": null,
+      "suggestion": "Add a sitemap.xml to help with content discovery"
+    },
+    {
+      "category": "quality",
+      "severity": "critical",
+      "message": "Repetitive and unhelpful link descriptions - all links use 'Where our stories live' regardless of their actual purpose - AI systems cannot understand what each link provides, making it impossible to direct users to appropriate resources",
+      "section": "Get Help",
+      "suggestion": "Replace generic descriptions with specific ones like 'Apply for support services', 'Make a donation', 'View impact reports', etc."
+    },
+    {
+      "category": "quality",
+      "severity": "major",
+      "message": "Multiple duplicate links with slight variations (#content anchors) creating confusion - Redundant information makes it harder for AI to determine the canonical resource and may confuse routing decisions",
+      "section": "Get Help",
+      "suggestion": "Consolidate duplicate links and keep only the primary URL for each unique resource"
+    },
+    {
+      "category": "quality",
+      "severity": "critical",
+      "message": "Same repetitive 'Where our stories live' descriptions used for involvement/donation links - AI cannot distinguish between different ways to get involved or support the organization",
+      "section": "Get Involved",
+      "suggestion": "Use descriptive text like 'Volunteer opportunities', 'Donation options', 'Ways to support our work'"
+    },
+    {
+      "category": "quality",
+      "severity": "major",
+      "message": "Blog and privacy policy links use the same generic description - AI systems cannot differentiate between organizational content and legal documents",
+      "section": "Optional",
+      "suggestion": "Use 'Latest news and stories from our community' for blog and 'Data protection and privacy information' for policy"
+    },
+    {
+      "category": "quality",
+      "severity": "major",
+      "message": "Section title 'Get Help' is misleading as it includes donation and administrative links rather than just support services - AI may incorrectly categorize donation pages as support services, confusing users seeking help",
+      "section": "Get Help",
+      "suggestion": "Rename to 'Resources' or separate into 'Get Support' and 'Other Resources' sections"
+    },
+    {
+      "category": "quality",
+      "severity": "minor",
+      "message": "Impact metrics lack specific numbers or timeframes - AI cannot provide concrete information about the organization's effectiveness or scale of operations",
+      "section": "Impact",
+      "suggestion": "Add quantitative data where possible, e.g., 'X% of members receiving positive decisions in 2023'"
+    }
+  ],
+  "website_gaps": {
+    "missing_page_types": [
+      "About",
+      "Services"
+    ],
+    "sitemap_detected": false,
+    "suggested_pages": [
+      "Create a dedicated /services or /what-we-do page",
+      "Add a sitemap.xml file to help with content discovery"
+    ]
+  },
+  "org_size": {
+    "category": "small",
+    "income": 45062
+  },
+  "recommendations": [
+    "Fix 3 critical issue(s): Get Help, Get Involved, About",
+    "Improve content quality in: Optional, Get Help",
+    "Website improvements: Create a dedicated /services or /what-we-do page"
+  ]
+}
