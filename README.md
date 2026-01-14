@@ -8,7 +8,7 @@ A Python CLI tool that automatically generates [llms.txt](https://llmstxt.org) f
 
 Deploy the full SaaS platform (API + Web + Worker) with one click:
 
-[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/yourusername/llmstxt-social/tree/main&refcode=)
+[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/dataforaction-tom/llmstxt-social/tree/main&refcode=)
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/llmstxt-social?referralCode=)
 
@@ -55,7 +55,7 @@ pip install llmstxt-social
 ### From source (CLI tool)
 
 ```bash
-git clone https://github.com/yourusername/llmstxt-social.git
+git clone https://github.com/dataforaction-tom/llmstxt-social.git
 cd llmstxt-social
 
 # Install both core and CLI packages
@@ -498,7 +498,7 @@ The validator checks:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/llmstxt-social.git
+git clone https://github.com/dataforaction-tom/llmstxt-social.git
 cd llmstxt-social
 
 # Install with dev dependencies
@@ -773,8 +773,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/llmstxt-social/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/llmstxt-social/discussions)
+- **Issues**: [GitHub Issues](https://github.com/dataforaction-tom/llmstxt-social/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/dataforaction-tom/llmstxt-social/discussions)
 
 ---
 

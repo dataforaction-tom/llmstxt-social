@@ -62,7 +62,7 @@ This is a monorepo with the following services:
 ### 1. Clone and Setup
 
 ```bash
-git clone https://github.com/yourusername/llmstxt-social.git
+git clone https://github.com/dataforaction-tom/llmstxt-social.git
 cd llmstxt-social
 cp .env.example .env
 # Edit .env and add your ANTHROPIC_API_KEY
@@ -88,6 +88,14 @@ docker-compose exec api alembic upgrade head
 Railway is the easiest option for deploying this monorepo.
 
 **Estimated cost:** $5-40/month depending on usage
+
+### Quick Start
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/dataforaction-tom/llmstxt-social)
+
+> **Note:** Railway requires manual configuration for monorepos with multiple services. The button above will create a project from this repo, but you'll need to follow the steps below to add all services (API, Worker, Web) and databases.
+
+For a true one-click experience, you can [create a Railway Template](https://docs.railway.app/guides/templates) from your configured project and share that template link instead.
 
 ### Step 1: Create Railway Project
 
@@ -243,9 +251,55 @@ DigitalOcean App Platform offers more control and predictable pricing.
 
 **Estimated cost:** $20-50/month
 
-### Step 1: Create Managed Databases
+### One-Click Deploy (Recommended)
 
-#### Create PostgreSQL Database
+[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/dataforaction-tom/llmstxt-social/tree/main)
+
+This repository includes a `.do/app.yaml` that automatically configures:
+- PostgreSQL database
+- Redis database
+- API service (FastAPI)
+- Worker service (Celery)
+- Web frontend (React)
+
+**After clicking the button:**
+
+1. DigitalOcean will detect the app spec and show the pre-configured services
+2. Review the configuration and click **"Next"**
+3. Add required secrets in the **"Environment Variables"** section:
+   - `ANTHROPIC_API_KEY` - Your Claude API key
+   - `SECRET_KEY` - Generate with `openssl rand -hex 32`
+4. Click **"Create Resources"**
+5. Wait for deployment (5-10 minutes)
+6. Run database migrations:
+   - Go to your app → `api` service → **"Console"** tab
+   - Run: `alembic upgrade head`
+
+**Or deploy via CLI:**
+
+```bash
+# Install doctl
+brew install doctl  # or see https://docs.digitalocean.com/reference/doctl/how-to/install/
+
+# Authenticate
+doctl auth init
+
+# Deploy from app spec
+doctl apps create --spec .do/app.yaml
+
+# After deployment, run migrations
+doctl apps exec <app-id> --component api -- alembic upgrade head
+```
+
+---
+
+### Manual Setup (Alternative)
+
+If you prefer to configure services manually or need more control:
+
+#### Step 1: Create Managed Databases
+
+##### Create PostgreSQL Database
 
 1. Go to https://cloud.digitalocean.com/databases
 2. Click **"Create Database Cluster"**
@@ -261,7 +315,7 @@ DigitalOcean App Platform offers more control and predictable pricing.
    - Add database: `llmstxt`
 7. Copy the connection string from **"Connection Details"**
 
-#### Create Redis Database
+##### Create Redis Database
 
 1. Go to https://cloud.digitalocean.com/databases
 2. Click **"Create Database Cluster"**
@@ -271,7 +325,7 @@ DigitalOcean App Platform offers more control and predictable pricing.
    - **Name:** `llmstxt-redis`
 4. Copy the connection string
 
-### Step 2: Create App Platform Application
+#### Step 2: Create App Platform Application
 
 1. Go to https://cloud.digitalocean.com/apps
 2. Click **"Create App"**
@@ -279,7 +333,7 @@ DigitalOcean App Platform offers more control and predictable pricing.
 4. Select your `llmstxt-social` repository
 5. Select branch: `main`
 
-### Step 3: Configure API Service
+#### Step 3: Configure API Service
 
 1. On the Resources screen, click **"Edit"** on the detected service
 2. Configure:
@@ -299,7 +353,7 @@ SECRET_KEY=your-random-secret-key
 ENVIRONMENT=production
 ```
 
-### Step 4: Add Worker Service
+#### Step 4: Add Worker Service
 
 1. Click **"+ Add Resource"** → **"Service from Source"**
 2. Same repo, same branch
@@ -313,7 +367,7 @@ ENVIRONMENT=production
 
 4. Add same environment variables as API (DATABASE_URL, REDIS_URL, ANTHROPIC_API_KEY)
 
-### Step 5: Add Web Frontend Service
+#### Step 5: Add Web Frontend Service
 
 1. Click **"+ Add Resource"** → **"Service from Source"**
 2. Same repo, same branch
@@ -330,7 +384,7 @@ ENVIRONMENT=production
 VITE_API_URL=${api.PUBLIC_URL}
 ```
 
-### Step 6: Configure App Settings
+#### Step 6: Configure App Settings
 
 1. Click **"Next"** to go to Environment settings
 2. Set **App-Level Environment Variables** (shared across services):
@@ -338,7 +392,7 @@ VITE_API_URL=${api.PUBLIC_URL}
 ENVIRONMENT=production
 ```
 
-### Step 7: Configure Routing
+#### Step 7: Configure Routing
 
 1. Go to **"Settings"** → **"Domains"**
 2. Add custom domain or use the provided `.ondigitalocean.app` domain
@@ -350,13 +404,13 @@ Or use separate subdomains:
 - `api.yourdomain.com` → `api` service
 - `app.yourdomain.com` → `web` service
 
-### Step 8: Deploy
+#### Step 8: Deploy
 
 1. Review all settings
 2. Click **"Create Resources"**
 3. Wait for build and deployment
 
-### Step 9: Run Migrations
+#### Step 9: Run Migrations
 
 1. Go to your app in App Platform
 2. Click on the `api` service
@@ -372,7 +426,7 @@ doctl apps create-deployment <app-id> --wait
 doctl apps exec <app-id> --component api -- alembic upgrade head
 ```
 
-### App Spec (Optional)
+#### App Spec (Optional)
 
 You can also define your app using an `app.yaml` spec file:
 
@@ -486,7 +540,7 @@ sudo apt install docker-compose-plugin -y
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/llmstxt-social.git
+git clone https://github.com/dataforaction-tom/llmstxt-social.git
 cd llmstxt-social
 
 # Create environment file

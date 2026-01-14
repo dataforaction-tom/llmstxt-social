@@ -1,5 +1,5 @@
 name: llmstxt-social
-region: lon
+region: lon1
 
 alerts:
   - rule: DEPLOYMENT_FAILED
