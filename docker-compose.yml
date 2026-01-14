@@ -27,65 +27,82 @@ services:
       timeout: 3s
       retries: 5
 
-  # Future: API service (when Phase 2 begins)
-  # api:
-  #   build:
-  #     context: .
-  #     dockerfile: packages/api/Dockerfile
-  #   depends_on:
-  #     - postgres
-  #     - redis
-  #   environment:
-  #     DATABASE_URL: postgresql://postgres:dev_password@postgres/llmstxt
-  #     REDIS_URL: redis://redis:6379
-  #     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-  #     STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-  #     RESEND_API_KEY: ${RESEND_API_KEY}
-  #   ports:
-  #     - "8000:8000"
-  #   volumes:
-  #     - ./packages/core:/app/core
-  #     - ./packages/api:/app/api
+  # API service
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:dev_password@postgres/llmstxt
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
+      RESEND_API_KEY: ${RESEND_API_KEY:-re_dummy}
+      SECRET_KEY: dev-secret-key-change-in-production
+      ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./packages/core:/app/core
+      - ./packages/api:/app/api
+    command: uvicorn llmstxt_api.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # Future: Celery worker (when Phase 2 begins)
-  # celery_worker:
-  #   build:
-  #     context: .
-  #     dockerfile: packages/api/Dockerfile
-  #   command: celery -A llmstxt_api.tasks worker -l info
-  #   depends_on:
-  #     - postgres
-  #     - redis
-  #   environment:
-  #     DATABASE_URL: postgresql://postgres:dev_password@postgres/llmstxt
-  #     REDIS_URL: redis://redis:6379
-  #     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # Celery worker
+  celery_worker:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    command: celery -A llmstxt_api.tasks.celery worker -l info
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:dev_password@postgres/llmstxt
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CHARITY_COMMISSION_API_KEY: ${CHARITY_COMMISSION_API_KEY}
+    volumes:
+      - ./packages/core:/app/core
+      - ./packages/api:/app/api
 
-  # Future: Celery beat scheduler (when Phase 2 begins)
+  # Future: Celery beat scheduler (when Phase 2 subscription monitoring is active)
   # celery_beat:
   #   build:
   #     context: .
   #     dockerfile: packages/api/Dockerfile
-  #   command: celery -A llmstxt_api.tasks beat -l info
+  #   command: celery -A llmstxt_api.tasks.celery beat -l info
   #   depends_on:
   #     - postgres
   #     - redis
   #   environment:
-  #     DATABASE_URL: postgresql://postgres:dev_password@postgres/llmstxt
+  #     DATABASE_URL: postgresql+asyncpg://postgres:dev_password@postgres/llmstxt
   #     REDIS_URL: redis://redis:6379
-
-  # Future: Web frontend (when Phase 3 begins)
-  # web:
-  #   build:
-  #     context: .
-  #     dockerfile: packages/web/Dockerfile
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     VITE_API_URL: http://localhost:8000
-  #     VITE_STRIPE_PUBLIC_KEY: ${STRIPE_PUBLIC_KEY}
   #   volumes:
-  #     - ./packages/web:/app
+  #     - ./packages/core:/app/core
+  #     - ./packages/api:/app/api
+
+  # Web frontend
+  web:
+    build:
+      context: packages/web
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:8000
+      VITE_STRIPE_PUBLIC_KEY: ${STRIPE_PUBLIC_KEY:-pk_test_dummy}
+    volumes:
+      - ./packages/web:/app
+      - /app/node_modules
+    depends_on:
+      - api
 
 volumes:
   postgres_data:

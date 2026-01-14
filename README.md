@@ -4,6 +4,20 @@
 
 A Python CLI tool that automatically generates [llms.txt](https://llmstxt.org) files for UK charities, VCSE organisations, funders, public sector bodies, and startups. Crawls websites, extracts content, analyzes with Claude, and generates spec-compliant llms.txt files with comprehensive quality assessment.
 
+## Deploy the SaaS Platform
+
+Deploy the full SaaS platform (API + Web + Worker) with one click:
+
+[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/yourusername/llmstxt-social/tree/main&refcode=)
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/llmstxt-social?referralCode=)
+
+**Required after deployment:**
+1. Add your `ANTHROPIC_API_KEY` in the environment variables
+2. Run database migrations: `alembic upgrade head`
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions.
+
 ## Features
 
 - 🕷️ **Smart crawling**: Respects robots.txt, uses sitemaps, discovers pages intelligently
@@ -21,14 +35,14 @@ A Python CLI tool that automatically generates [llms.txt](https://llmstxt.org) f
 
 ## Repository Structure
 
-This is a monorepo containing:
+This is a monorepo containing both an open-source CLI and a commercial SaaS platform:
 
 - **`packages/core/`** - Core library (`llmstxt-core`) with all business logic
 - **`packages/cli/`** - CLI tool (`llmstxt-social`) - open-source, MIT licensed
-- **`packages/api/`** - FastAPI backend for SaaS platform (coming soon)
-- **`packages/web/`** - React frontend for SaaS platform (coming soon)
+- **`packages/api/`** - FastAPI backend for SaaS platform
+- **`packages/web/`** - React frontend for SaaS platform
 
-The core library is shared between the CLI and future SaaS platform, ensuring consistent behavior and easy maintenance.
+The core library is shared between the CLI and SaaS platform, ensuring consistent behavior and easy maintenance. Updates to templates and generation logic automatically benefit both platforms.
 
 ## Installation
 
@@ -55,9 +69,32 @@ playwright install chromium
 ### For development
 
 ```bash
-# Start local PostgreSQL and Redis (for future API development)
+# Start local PostgreSQL and Redis (for API development)
 docker-compose up -d postgres redis
 ```
+
+### SaaS Platform (Full Stack)
+
+To run the complete SaaS platform (API + Web frontend + Background workers):
+
+```bash
+# 1. Configure environment
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY (minimum required)
+
+# 2. Start all services
+docker-compose up -d
+
+# 3. Run database migrations
+docker-compose exec api alembic upgrade head
+
+# 4. Access the platform
+# - Web Frontend: http://localhost:3000
+# - API Docs: http://localhost:8000/docs
+# - API Health: http://localhost:8000/health
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
 ### Dependencies
 
@@ -65,6 +102,7 @@ docker-compose up -d postgres redis
 - Anthropic API key (Claude)
 - Optional: Charity Commission API key
 - Optional: Playwright (for JavaScript-rendered sites)
+- For SaaS Platform: Docker & Docker Compose
 
 ## Quick Start
 
@@ -519,18 +557,37 @@ llmstxt-social/                      # Monorepo root
 │   │   ├── pyproject.toml
 │   │   └── README.md
 │   │
-│   ├── api/                         # FastAPI backend (coming soon)
-│   └── web/                         # React frontend (coming soon)
+│   ├── api/                         # FastAPI backend
+│   │   ├── src/llmstxt_api/
+│   │   │   ├── main.py             # FastAPI app
+│   │   │   ├── config.py           # Settings
+│   │   │   ├── database.py         # DB connection
+│   │   │   ├── models.py           # SQLAlchemy models
+│   │   │   ├── routes/             # API endpoints
+│   │   │   ├── services/           # Business logic
+│   │   │   └── tasks/              # Celery background jobs
+│   │   ├── alembic/                # Database migrations
+│   │   ├── tests/
+│   │   ├── Dockerfile
+│   │   └── README.md
+│   │
+│   └── web/                         # React frontend
+│       ├── src/
+│       │   ├── App.tsx
+│       │   ├── pages/              # React pages
+│       │   ├── components/         # React components
+│       │   ├── api/                # API client
+│       │   └── types/              # TypeScript types
+│       ├── public/
+│       ├── Dockerfile
+│       └── README.md
 │
 ├── docs/
-│   ├── saas-architecture.md        # SaaS platform architecture
-│   ├── api.md                      # API documentation (TBD)
-│   └── deployment.md               # Deployment guide (TBD)
+│   └── saas-architecture.md        # SaaS platform architecture
 │
-├── infrastructure/                 # Deployment configs (TBD)
-│   └── digitalocean/
-│
-├── docker-compose.yml              # Local development
+├── DEPLOYMENT.md                   # Deployment guide
+├── docker-compose.yml              # Local development environment
+├── .env.example                    # Environment configuration template
 ├── README.md
 └── LICENSE
 ```
@@ -663,31 +720,46 @@ Contributions welcome! Please:
 
 ## Roadmap
 
-### v0.3.0 (Current)
-- ✅ Static site crawling
-- ✅ Charity template with Projects and Impact sections
-- ✅ Funder template
-- ✅ Public sector template
-- ✅ Startup template
-- ✅ Claude analysis
-- ✅ Comprehensive validation
-- ✅ **Quality assessment system**
-- ✅ **Size-based expectations for charities**
-- ✅ **Website gap analysis**
-- ✅ **AI-powered quality analysis**
-- ✅ **JSON and Markdown reports**
-- ✅ Charity Commission API integration
-- ✅ 360Giving data enrichment
-- ✅ JavaScript-rendered sites (Playwright)
+### v0.3.0 (Current) - SaaS Platform MVP
+- ✅ **CLI Tool (Open Source)**
+  - Static site crawling
+  - 4 templates (charity, funder, public_sector, startup)
+  - Quality assessment system
+  - Charity Commission API integration
+  - 360Giving data enrichment
+  - JavaScript-rendered sites (Playwright)
+  - Size-based expectations
+  - Website gap analysis
+  - AI-powered quality analysis
+  - JSON and Markdown reports
+
+- ✅ **SaaS Platform**
+  - FastAPI backend with async PostgreSQL
+  - React frontend (TypeScript + Tailwind CSS)
+  - Celery background job processing
+  - Stripe payment integration (test mode)
+  - Free tier (10 generations/day, basic output)
+  - Paid tier (£29, includes assessment + enrichment)
+  - Rate limiting middleware
+  - Real-time job status updates
+  - Docker deployment configuration
+
+### v0.4.0 (Next)
+- [ ] SaaS Platform: Production deployment
+- [ ] SaaS Platform: Subscription tier (£9/month)
+- [ ] SaaS Platform: Automated monitoring and regeneration
+- [ ] SaaS Platform: User dashboard
+- [ ] SaaS Platform: Change history tracking
+- [ ] API: Public API access
+- [ ] CLI: Alternative LLM providers (OpenAI, Ollama)
+- [ ] CLI: Batch processing
 
 ### Future
-- [ ] Alternative LLM providers (OpenAI, Ollama)
 - [ ] WordPress plugin
-- [ ] Batch processing
-- [ ] Web interface
-- [ ] Automated updates/monitoring
-- [ ] Assessment history tracking
-- [ ] Comparison between versions
+- [ ] Assessment history tracking and comparison
+- [ ] Email notifications for changes
+- [ ] Zapier/Make.com integrations
+- [ ] White-label options for agencies
 
 ## License
 
