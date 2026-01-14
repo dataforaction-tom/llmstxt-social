@@ -1,17 +1,34 @@
 # llmstxt-social
 
-> Generate llms.txt files for UK social sector organisations
+> Generate and assess llms.txt files for UK social sector organisations
 
-A Python CLI tool that automatically generates [llms.txt](https://llmstxt.org) files for UK charities, VCSE organisations, and funders. Crawls websites, extracts content, analyzes with Claude, and generates spec-compliant llms.txt files with social sector-specific extensions.
+A Python CLI tool that automatically generates [llms.txt](https://llmstxt.org) files for UK charities, VCSE organisations, funders, public sector bodies, and startups. Crawls websites, extracts content, analyzes with Claude, and generates spec-compliant llms.txt files with comprehensive quality assessment.
 
 ## Features
 
 - 🕷️ **Smart crawling**: Respects robots.txt, uses sitemaps, discovers pages intelligently
+- 🎭 **JavaScript support**: Playwright integration for JavaScript-heavy websites
 - 📄 **Content extraction**: Parses HTML, classifies pages, extracts structured data
 - 🤖 **AI-powered analysis**: Uses Claude to analyze content and generate accurate descriptions
-- ✅ **Validation**: Checks compliance with llmstxt.org spec
-- 🎯 **Social sector templates**: Specialized templates for charities and funders
-- 📊 **Rich CLI output**: Beautiful progress bars and validation reports
+- ✅ **Quality assessment**: Comprehensive evaluation of llms.txt completeness and quality
+- 🎯 **Multiple templates**: Specialized templates for charities, funders, public sector, and startups
+- 💰 **Data enrichment**:
+  - Charity Commission API integration for official charity data
+  - 360Giving data enrichment for funders
+  - Size-based expectations for charities
+- 📊 **Rich CLI output**: Beautiful progress bars, validation reports, and assessment summaries
+- 📈 **Detailed reports**: JSON and Markdown assessment reports with actionable recommendations
+
+## Repository Structure
+
+This is a monorepo containing:
+
+- **`packages/core/`** - Core library (`llmstxt-core`) with all business logic
+- **`packages/cli/`** - CLI tool (`llmstxt-social`) - open-source, MIT licensed
+- **`packages/api/`** - FastAPI backend for SaaS platform (coming soon)
+- **`packages/web/`** - React frontend for SaaS platform (coming soon)
+
+The core library is shared between the CLI and future SaaS platform, ensuring consistent behavior and easy maintenance.
 
 ## Installation
 
@@ -21,18 +38,33 @@ A Python CLI tool that automatically generates [llms.txt](https://llmstxt.org) f
 pip install llmstxt-social
 ```
 
-### From source
+### From source (CLI tool)
 
 ```bash
 git clone https://github.com/yourusername/llmstxt-social.git
 cd llmstxt-social
-pip install -e .
+
+# Install both core and CLI packages
+cd packages/core && pip install -e . && cd ../..
+cd packages/cli && pip install -e . && cd ../..
+
+# If you want to use Playwright for JavaScript sites:
+playwright install chromium
+```
+
+### For development
+
+```bash
+# Start local PostgreSQL and Redis (for future API development)
+docker-compose up -d postgres redis
 ```
 
 ### Dependencies
 
 - Python 3.11+
 - Anthropic API key (Claude)
+- Optional: Charity Commission API key
+- Optional: Playwright (for JavaScript-rendered sites)
 
 ## Quick Start
 
@@ -51,9 +83,25 @@ llmstxt generate https://example-charity.org.uk
 
 # For a funder
 llmstxt generate https://example-foundation.org.uk --template funder
+
+# For a public sector organization
+llmstxt generate https://example-council.gov.uk --template public_sector
+
+# For a startup
+llmstxt generate https://example-startup.com --template startup
 ```
 
-3. **Validate an existing llms.txt file**:
+3. **Assess quality and completeness**:
+
+```bash
+# Assess from website (generates and evaluates)
+llmstxt assess https://example-charity.org.uk
+
+# Assess existing file
+llmstxt assess ./llms.txt
+```
+
+4. **Validate an existing llms.txt file**:
 
 ```bash
 llmstxt validate ./llms.txt
@@ -70,10 +118,12 @@ llmstxt generate <URL> [OPTIONS]
 **Options:**
 
 - `-o, --output PATH` - Output file path (default: `./llms.txt`)
-- `-t, --template TEXT` - Template: `charity` or `funder` (default: `charity`)
+- `-t, --template TEXT` - Template: `charity`, `funder`, `public_sector`, or `startup` (default: `charity`)
 - `-m, --model TEXT` - Claude model to use (default: `claude-sonnet-4-20250514`)
 - `--max-pages INTEGER` - Maximum pages to crawl (default: 30)
-- `--enrich/--no-enrich` - Fetch Charity Commission data (default: `--no-enrich`)
+- `--enrich/--no-enrich` - Fetch Charity Commission data (default: `--enrich`)
+- `--enrich-360/--no-enrich-360` - Fetch 360Giving data for funders (default: `--no-enrich-360`)
+- `--playwright/--no-playwright` - Use Playwright for JavaScript sites (default: `--no-playwright`)
 - `--charity TEXT` - Specify charity number directly
 
 **Examples:**
@@ -93,6 +143,15 @@ llmstxt generate https://example.org.uk --max-pages 15
 
 # Use faster model
 llmstxt generate https://example.org.uk --model claude-haiku-3-5-20250219
+
+# Use Playwright for JavaScript-heavy sites
+llmstxt generate https://js-heavy-site.org.uk --playwright
+
+# Enrich funder with 360Giving data
+llmstxt generate https://example-trust.org.uk --template funder --enrich-360
+
+# Disable Charity Commission enrichment
+llmstxt generate https://example.org.uk --no-enrich
 ```
 
 ### Validate llms.txt
@@ -117,6 +176,62 @@ llmstxt validate https://example.org.uk/llms.txt
 # Validate against funder template
 llmstxt validate ./llms.txt --template funder
 ```
+
+### Assess Quality
+
+Comprehensive quality assessment of llms.txt files:
+
+```bash
+llmstxt assess <URL_OR_PATH> [OPTIONS]
+```
+
+**Options:**
+
+- `-t, --template TEXT` - Template type (auto-detected if not specified)
+- `-o, --output PATH` - Output file path (default: `assessment-{timestamp}`)
+- `-f, --format TEXT` - Output format: `json`, `markdown`, or `both` (default: `both`)
+- `--deep/--quick` - Use Claude for quality analysis (default: `--deep`)
+- `--enrich/--no-enrich` - Fetch enrichment data for context (default: `--enrich`)
+
+**Examples:**
+
+```bash
+# Assess from website (generates llms.txt then assesses it)
+llmstxt assess https://example-charity.org.uk
+
+# Assess existing file
+llmstxt assess ./llms.txt
+
+# Quick assessment without AI analysis
+llmstxt assess ./llms.txt --quick
+
+# Output only JSON
+llmstxt assess https://example.org.uk -f json -o my-assessment
+
+# Assess without crawling for gaps
+llmstxt assess ./llms.txt --no-enrich
+```
+
+**Assessment Output:**
+
+The assess command generates:
+- **JSON report**: Machine-readable assessment data with scores, findings, and recommendations
+- **Markdown report**: Human-readable formatted report with detailed analysis
+- **Terminal summary**: Color-coded scores and top recommendations
+
+**What it checks:**
+- ✅ Structural compliance with llms.txt spec
+- ✅ Completeness of required sections
+- ✅ Content quality and clarity (with AI analysis)
+- ✅ Size-appropriate expectations (for charities based on income)
+- ✅ Website data gaps (missing pages, no sitemap)
+- ✅ Template-specific requirements
+
+**Scoring:**
+- **Overall Score** (0-100): Weighted average of completeness and quality
+- **Completeness Score**: Percentage of required sections present and filled
+- **Quality Score**: Content clarity, usefulness, and accuracy
+- **Grade**: A (90+), B (80-89), C (70-79), D (60-69), F (<60)
 
 ### Preview crawl
 
@@ -152,6 +267,15 @@ Charity type, registration number. 2-3 sentence description.
 ## Services
 
 - [Service Name](url): What the service provides
+
+## Projects
+
+- Project Name (Location): What the project does
+
+## Impact
+
+- Beneficiaries served: Number of people helped
+- Key outcomes and achievements
 
 ## Get Help
 
@@ -217,6 +341,95 @@ When representing this funder:
 - Verify current criteria before advising
 ```
 
+### Public Sector Template
+
+```markdown
+# Organisation Name
+
+> One-sentence mission
+
+Local Authority / NHS Trust / Government Department. Description.
+
+## About
+
+- [About Us](url): Description
+
+## Services
+
+### Service Category
+
+- Service Name: Description (Eligibility: Who can access)
+
+## Get Help
+
+- [Contact](url): How to reach services
+
+## Contact
+
+- Area covered: Geographic area
+- Email: email@example.gov.uk
+- Phone: 0123 456 7890
+
+## For Service Users
+
+- Service standards and accessibility information
+- Complaints procedures
+
+## For AI Systems
+
+When representing this organisation:
+- Verify current service availability
+- Direct urgent queries to official channels
+```
+
+### Startup Template
+
+```markdown
+# Company Name
+
+> One-sentence mission
+
+Company description and value proposition.
+
+## About
+
+- [About Us](url): Company overview
+- Team: Founder highlights
+
+## Product/Services
+
+Product description and features.
+
+## Customers
+
+Target customers: Customer segments
+
+- [Case Studies](url): Customer stories
+
+## Pricing
+
+Pricing model description.
+
+## For Investors
+
+- Stage: Seed / Series A / etc.
+- Funding raised: Amount
+- Business model: B2B SaaS / etc.
+- Traction metrics: Users, revenue, growth
+
+## Contact
+
+- Email: hello@example.com
+- Sales: sales@example.com
+- Investor relations: investors@example.com
+
+## For AI Systems
+
+When representing this company:
+- Accurately describe the product category
+- Don't speculate about funding or valuation
+```
+
 ## Validation
 
 The validator checks:
@@ -274,27 +487,50 @@ ruff format .
 ## Project Structure
 
 ```
-llmstxt-social/
-├── src/llmstxt_social/
-│   ├── __init__.py
-│   ├── cli.py              # CLI interface
-│   ├── crawler.py          # Website crawling
-│   ├── extractor.py        # Content extraction
-│   ├── analyzer.py         # LLM analysis
-│   ├── generator.py        # llms.txt generation
-│   ├── validator.py        # Spec validation
-│   ├── enrichers/
-│   │   ├── __init__.py
-│   │   └── charity_commission.py
-│   └── templates/
-│       ├── __init__.py
-│       ├── charity.py      # Charity template
-│       └── funder.py       # Funder template
-├── tests/
-│   ├── test_extractor.py
-│   ├── test_generator.py
-│   └── test_validator.py
-├── pyproject.toml
+llmstxt-social/                      # Monorepo root
+├── packages/
+│   ├── core/                        # Core library (shared)
+│   │   ├── src/llmstxt_core/
+│   │   │   ├── __init__.py
+│   │   │   ├── crawler.py          # Website crawling
+│   │   │   ├── crawler_playwright.py
+│   │   │   ├── extractor.py        # Content extraction
+│   │   │   ├── analyzer.py         # LLM analysis
+│   │   │   ├── generator.py        # llms.txt generation
+│   │   │   ├── validator.py        # Spec validation
+│   │   │   ├── assessor.py         # Quality assessment
+│   │   │   ├── enrichers/
+│   │   │   │   ├── charity_commission.py
+│   │   │   │   └── threesixty_giving.py
+│   │   │   └── templates/
+│   │   │       ├── charity.py      # Charity template
+│   │   │       ├── funder.py       # Funder template
+│   │   │       ├── public_sector.py
+│   │   │       └── startup.py
+│   │   ├── tests/
+│   │   ├── pyproject.toml
+│   │   └── README.md
+│   │
+│   ├── cli/                         # CLI tool (open-source)
+│   │   ├── src/llmstxt_social/
+│   │   │   ├── __init__.py
+│   │   │   └── cli.py              # CLI interface
+│   │   ├── tests/
+│   │   ├── pyproject.toml
+│   │   └── README.md
+│   │
+│   ├── api/                         # FastAPI backend (coming soon)
+│   └── web/                         # React frontend (coming soon)
+│
+├── docs/
+│   ├── saas-architecture.md        # SaaS platform architecture
+│   ├── api.md                      # API documentation (TBD)
+│   └── deployment.md               # Deployment guide (TBD)
+│
+├── infrastructure/                 # Deployment configs (TBD)
+│   └── digitalocean/
+│
+├── docker-compose.yml              # Local development
 ├── README.md
 └── LICENSE
 ```
@@ -331,6 +567,69 @@ llmstxt-social/
    - Calculates scores
    - Reports issues
 
+## Data Enrichment
+
+### Charity Commission Integration
+
+Automatically fetches official data from the UK Charity Commission:
+
+- Official charity name and status
+- Registration date and charity number
+- Latest financial information (income/expenditure)
+- Charitable objects and activities
+- Trustee information
+- Contact details
+
+**Setup:**
+
+1. (Optional) Get an API key from [Charity Commission Developer Portal](https://developer.charitycommission.gov.uk/)
+2. Add to `.env`: `CHARITY_COMMISSION_API_KEY=your-key-here`
+3. If no API key is provided, falls back to scraping the public register
+
+**Usage:**
+```bash
+# Enabled by default
+llmstxt generate https://example-charity.org.uk
+
+# Disable if not needed
+llmstxt generate https://example-charity.org.uk --no-enrich
+```
+
+### 360Giving Data (Funders)
+
+Enriches funder profiles with open grants data from [360Giving](https://www.threesixtygiving.org/):
+
+- Total grants awarded and amounts
+- Average grant size and range
+- Geographic distribution
+- Funding themes and priorities
+- Sample recipients
+- Grants over time trends
+
+**Usage:**
+```bash
+llmstxt generate https://example-foundation.org.uk --template funder --enrich-360
+```
+
+### Playwright for JavaScript Sites
+
+Some modern charity and funder websites use JavaScript frameworks (React, Vue, etc.) that require browser rendering:
+
+**Setup:**
+```bash
+playwright install chromium
+```
+
+**Usage:**
+```bash
+llmstxt generate https://js-heavy-site.org.uk --playwright
+```
+
+**When to use:**
+- Site appears blank when crawled normally
+- Content loads dynamically after page load
+- Single-page applications (SPAs)
+
 ## Configuration
 
 ### Environment Variables
@@ -342,7 +641,7 @@ Create a `.env` file:
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 # Optional: Charity Commission API
-# CHARITY_COMMISSION_API_KEY=your-key-here
+CHARITY_COMMISSION_API_KEY=your-key-here
 ```
 
 ### Model Selection
@@ -364,20 +663,31 @@ Contributions welcome! Please:
 
 ## Roadmap
 
-MVP (Current):
+### v0.3.0 (Current)
 - ✅ Static site crawling
-- ✅ Charity template
+- ✅ Charity template with Projects and Impact sections
 - ✅ Funder template
+- ✅ Public sector template
+- ✅ Startup template
 - ✅ Claude analysis
-- ✅ Basic validation
+- ✅ Comprehensive validation
+- ✅ **Quality assessment system**
+- ✅ **Size-based expectations for charities**
+- ✅ **Website gap analysis**
+- ✅ **AI-powered quality analysis**
+- ✅ **JSON and Markdown reports**
+- ✅ Charity Commission API integration
+- ✅ 360Giving data enrichment
+- ✅ JavaScript-rendered sites (Playwright)
 
-Future:
-- [ ] Charity Commission API integration
-- [ ] 360Giving data enrichment
-- [ ] JavaScript-rendered sites (Playwright)
+### Future
 - [ ] Alternative LLM providers (OpenAI, Ollama)
 - [ ] WordPress plugin
 - [ ] Batch processing
+- [ ] Web interface
+- [ ] Automated updates/monitoring
+- [ ] Assessment history tracking
+- [ ] Comparison between versions
 
 ## License
 

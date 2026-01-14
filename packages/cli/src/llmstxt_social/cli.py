@@ -10,13 +10,13 @@ from rich.table import Table
 from rich import print as rprint
 
 from . import __version__
-from .crawler import crawl_site
-from .extractor import extract_content, find_charity_number
-from .analyzer import analyze_organisation
-from .generator import generate_llmstxt
-from .validator import validate_llmstxt, ValidationLevel
-from .enrichers.charity_commission import find_charity_number as find_charity_num, fetch_charity_data
-from .enrichers.threesixty_giving import fetch_360giving_data
+from llmstxt_core.crawler import crawl_site
+from llmstxt_core.extractor import extract_content, find_charity_number
+from llmstxt_core.analyzer import analyze_organisation
+from llmstxt_core.generator import generate_llmstxt
+from llmstxt_core.validator import validate_llmstxt, ValidationLevel
+from llmstxt_core.enrichers.charity_commission import find_charity_number as find_charity_num, fetch_charity_data
+from llmstxt_core.enrichers.threesixty_giving import fetch_360giving_data
 
 app = typer.Typer(
     name="llmstxt",
@@ -167,7 +167,7 @@ async def _generate_async(
         # Choose crawler based on flag
         if use_playwright:
             console.print("[dim]Using Playwright for JavaScript rendering...[/dim]")
-            from .crawler_playwright import crawl_site_with_playwright
+            from llmstxt_core.crawler_playwright import crawl_site_with_playwright
             crawl_result = await crawl_site_with_playwright(
                 url=url,
                 max_pages=max_pages
@@ -654,7 +654,7 @@ async def _assess_from_website(
 ):
     """Assess by generating llms.txt from website then analyzing it."""
     from datetime import datetime
-    from .assessor import LLMSTxtAssessor
+    from llmstxt_core.assessor import LLMSTxtAssessor
     from anthropic import Anthropic
     import os
 
@@ -745,7 +745,7 @@ async def _assess_from_file(
 ):
     """Assess an existing llms.txt file."""
     from datetime import datetime
-    from .assessor import LLMSTxtAssessor
+    from llmstxt_core.assessor import LLMSTxtAssessor
     from anthropic import Anthropic
     import os
 
@@ -784,7 +784,7 @@ async def _assess_from_file(
 
                 # Get enrichment data if charity
                 if template == "charity":
-                    from .extractor import extract_content
+                    from llmstxt_core.extractor import extract_content
                     enrich_task = progress.add_task("Fetching enrichment data...", total=None)
                     extracted_pages = [extract_content(p) for p in crawl_result.pages]
                     charity_number = find_charity_num(extracted_pages)
@@ -819,7 +819,7 @@ async def _assess_from_file(
 
 def _detect_template_type(extracted_pages) -> str:
     """Auto-detect template type from extracted pages."""
-    from .extractor import PageType
+    from llmstxt_core.extractor import PageType
 
     page_types = set(p.page_type for p in extracted_pages)
 
@@ -987,7 +987,7 @@ def _output_assessment(assessment_result, output: Path | None, format: str, llms
         # Findings by severity
         lines.append("\n## Findings\n")
 
-        from .assessor import IssueSeverity
+        from llmstxt_core.assessor import IssueSeverity
         for severity in [IssueSeverity.CRITICAL, IssueSeverity.MAJOR, IssueSeverity.MINOR]:
             severity_findings = [f for f in assessment_result.findings if f.severity == severity]
             if severity_findings:

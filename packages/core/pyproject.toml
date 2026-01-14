@@ -1,7 +1,7 @@
 [project]
-name = "llmstxt-social"
+name = "llmstxt-core"
 version = "0.2.0"
-description = "Generate llms.txt files for UK social sector organisations"
+description = "Core library for generating and assessing llms.txt files"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -22,8 +22,6 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "lxml>=5.0",
     "anthropic>=0.40",
-    "typer>=0.12",
-    "rich>=13.0",
     "pydantic>=2.0",
     "python-dotenv>=1.0",
     "playwright>=1.40",
@@ -36,9 +34,6 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.5",
 ]
-
-[project.scripts]
-llmstxt = "llmstxt_social.cli:app"
 
 [build-system]
 requires = ["hatchling"]

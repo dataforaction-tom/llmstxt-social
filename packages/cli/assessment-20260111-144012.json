@@ -1,0 +1,111 @@
+{
+  "template_type": "funder",
+  "timestamp": "2026-01-11T14:40:12.791630",
+  "website_url": "https://www.lloydsbankfoundation.org.uk/",
+  "scores": {
+    "overall": 83.5,
+    "completeness": 82.0,
+    "quality": 85.0,
+    "structure": 90
+  },
+  "sections": [
+    {
+      "name": "About",
+      "present": true,
+      "content_quality": 1.0,
+      "completeness": 0.3
+    },
+    {
+      "name": "What We Fund",
+      "present": true,
+      "content_quality": 0.7,
+      "completeness": 1.0
+    },
+    {
+      "name": "For Applicants",
+      "present": true,
+      "content_quality": 0.7,
+      "completeness": 1.0
+    },
+    {
+      "name": "For AI Systems",
+      "present": true,
+      "content_quality": 0.7,
+      "completeness": 1.0
+    },
+    {
+      "name": "How to Apply",
+      "present": false,
+      "content_quality": 0.0,
+      "completeness": 0.0
+    },
+    {
+      "name": "Past Grants",
+      "present": false,
+      "content_quality": 0.0,
+      "completeness": 0.0
+    }
+  ],
+  "findings": [
+    {
+      "category": "structure",
+      "severity": "major",
+      "message": "Recommended section missing: How to Apply section",
+      "section": null,
+      "suggestion": null
+    },
+    {
+      "category": "website_data",
+      "severity": "major",
+      "message": "Website appears to be missing What We Fund page(s)",
+      "section": "What We Fund",
+      "suggestion": "Add What We Fund page(s) to your website to improve llms.txt completeness"
+    },
+    {
+      "category": "quality",
+      "severity": "minor",
+      "message": "Inconsistent terminology for programme status - AI systems need clear status indicators to avoid directing users to unavailable opportunities",
+      "section": "What We Fund",
+      "suggestion": "Use consistent format like 'Status: CLOSED' or standardize closed programme notation"
+    },
+    {
+      "category": "quality",
+      "severity": "minor",
+      "message": "No specific date given for Summer 2026 opening - Users may expect more precise timing information and AI systems can't provide specific guidance",
+      "section": "For Applicants - Deadlines",
+      "suggestion": "Add 'Contact foundation for specific opening date' or provide month if known"
+    },
+    {
+      "category": "quality",
+      "severity": "minor",
+      "message": "Income range placement could be clearer - The income threshold is buried in a list rather than prominently displayed as a key eligibility criterion",
+      "section": "For Applicants - Who can apply",
+      "suggestion": "Create separate 'Eligibility criteria' subsection highlighting income thresholds more prominently"
+    },
+    {
+      "category": "quality",
+      "severity": "info",
+      "message": "Missing guidance on common misconceptions - AI systems would benefit from knowing what users commonly misunderstand about this funder",
+      "section": "For AI Systems",
+      "suggestion": "Add guidance about common misconceptions like 'this is not emergency funding' or 'applications take time to process'"
+    },
+    {
+      "category": "quality",
+      "severity": "info",
+      "message": "Redundant information with mission statement - The About section largely repeats the mission statement without adding value",
+      "section": "About",
+      "suggestion": "Either expand with unique information or remove to avoid redundancy"
+    }
+  ],
+  "website_gaps": {
+    "missing_page_types": [
+      "What We Fund"
+    ],
+    "sitemap_detected": true,
+    "suggested_pages": []
+  },
+  "org_size": null,
+  "recommendations": [
+    "Your llms.txt file is in good shape! Consider adding more detail to existing sections."
+  ]
+}
