@@ -150,10 +150,10 @@ async def assess_llmstxt(
         "recommendations": assessment_result.recommendations,
         "sections": [
             {
-                "name": s.name,
+                "name": s.section_name,
                 "present": s.present,
-                "quality": s.quality,
-                "issues": s.issues,
+                "quality": f"{int(s.content_quality * 100)}%" if s.present else None,
+                "issues": [f.message for f in s.findings] if hasattr(s, 'findings') else [],
             }
             for s in assessment_result.section_assessments
         ],

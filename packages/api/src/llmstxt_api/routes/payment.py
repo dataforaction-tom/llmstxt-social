@@ -31,7 +31,7 @@ async def create_payment_intent(request: CreatePaymentIntentRequest):
     """
     try:
         # Calculate amount (could vary by template in future)
-        amount = 2900  # £29.00 in pence
+        amount = 900  # £9.00 in pence for one-time assessment
 
         # Create payment intent
         intent = stripe.PaymentIntent.create(

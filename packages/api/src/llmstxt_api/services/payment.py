@@ -14,13 +14,13 @@ class PaymentError(Exception):
     pass
 
 
-async def verify_payment_intent(payment_intent_id: str, expected_amount: int = 2900) -> dict:
+async def verify_payment_intent(payment_intent_id: str, expected_amount: int = 900) -> dict:
     """
     Verify a payment intent with Stripe.
 
     Args:
         payment_intent_id: The Stripe payment intent ID to verify
-        expected_amount: Expected amount in pence (default £29.00)
+        expected_amount: Expected amount in pence (default £9.00)
 
     Returns:
         dict with payment details including metadata

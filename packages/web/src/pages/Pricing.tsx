@@ -37,11 +37,10 @@ export default function PricingPage() {
           {/* Paid Tier */}
           <PricingCard
             name="Paid"
-            price="£29"
+            price="£9"
             period="one-time"
             description="Full generation with assessment"
             features={[
-              'Unlimited generations',
               'All 4 templates',
               'Charity Commission enrichment',
               '360Giving data for funders',
@@ -64,7 +63,7 @@ export default function PricingPage() {
             description="Automated monitoring and updates"
             features={[
               'All paid tier features',
-              'Weekly or monthly monitoring',
+              'Monthly monitoring',
               'Auto-regeneration on changes',
               'Email notifications',
               'Change history tracking',
@@ -86,7 +85,7 @@ export default function PricingPage() {
           <div className="space-y-6">
             <FAQItem
               question="What's included in the free tier?"
-              answer="The free tier gives you basic llms.txt generation for any UK social sector organization. You can generate up to 10 files per day, but they won't include quality assessment or enrichment data from external sources."
+              answer="The free tier gives you basic llms.txt generation for any UK social sector organisation. You can generate up to 10 files per day, but they won't include quality assessment or enrichment data from external sources."
             />
             <FAQItem
               question="What is enrichment data?"
@@ -98,15 +97,15 @@ export default function PricingPage() {
             />
             <FAQItem
               question="What's the difference between paid and subscription?"
-              answer="The paid tier (£29) is a one-time payment for a single generation with full assessment. The subscription tier (£9/month) includes automatic monitoring - we'll regenerate your llms.txt whenever your website changes and notify you of updates."
+              answer="The paid tier (£9) is a one-time payment for a single generation with full assessment. The subscription tier (£9/month) includes automatic monitoring - we'll regenerate your llms.txt whenever your website changes and notify you of updates."
             />
             <FAQItem
-              question="Can I use this for multiple organizations?"
-              answer="Yes! Each generation is per URL, so you can generate llms.txt files for as many organizations as you need. The free tier has a daily limit, while paid and subscription tiers are unlimited."
+              question="Can I use this for multiple organisations?"
+              answer="Yes! Each generation is per URL, so you can generate llms.txt files for as many organisations as you need. The free tier has a daily limit, while paid and subscription tiers are unlimited."
             />
             <FAQItem
-              question="Do you support organizations outside the UK?"
-              answer="Currently, we specialize in UK social sector organizations (charities, funders, public sector). Our enrichment integrations are UK-specific (Charity Commission, 360Giving). However, the basic generation works for any organization worldwide."
+              question="Do you support organisations outside the UK?"
+              answer="Currently, we specialize in UK social sector organisations (charities, funders, public sector). Our enrichment integrations are UK-specific (Charity Commission, 360Giving). However, the basic generation works for any organisation worldwide."
             />
           </div>
         </div>

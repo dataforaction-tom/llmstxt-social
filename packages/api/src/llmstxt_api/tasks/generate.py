@@ -261,6 +261,24 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
                     for f in assessment_result.findings
                 ],
                 "recommendations": assessment_result.recommendations,
+                "sections": [
+                    {
+                        "name": s.section_name,
+                        "present": s.present,
+                        "quality": f"{int(s.content_quality * 100)}%" if s.present else None,
+                        "issues": [f.message for f in s.findings] if hasattr(s, 'findings') else [],
+                    }
+                    for s in assessment_result.section_assessments
+                ],
+                "website_gaps": (
+                    {
+                        "missing_page_types": assessment_result.website_gaps.missing_page_types,
+                        "has_sitemap": assessment_result.website_gaps.has_sitemap,
+                        "crawl_coverage": assessment_result.website_gaps.crawl_coverage,
+                    }
+                    if assessment_result.website_gaps
+                    else None
+                ),
             }
 
             # Complete

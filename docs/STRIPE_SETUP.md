@@ -1,6 +1,6 @@
 # Stripe Setup Guide
 
-Complete guide to setting up Stripe for one-time payments (£29 assessments) and subscriptions (£9/month monitoring).
+Complete guide to setting up Stripe for one-time payments (£9 assessments) and subscriptions (£9/month monitoring).
 
 ## Table of Contents
 
@@ -41,7 +41,7 @@ Complete guide to setting up Stripe for one-time payments (£29 assessments) and
 
 ## Step 3: Create Products
 
-### 3a. One-Time Assessment Product (£29)
+### 3a. One-Time Assessment Product (£9)
 
 1. Go to **Products → Add product**
 2. Fill in:
@@ -195,10 +195,10 @@ Use these test card numbers:
 | Requires authentication | `4000 0025 0000 3155` | Any 3 digits | Any future date |
 | Insufficient funds | `4000 0000 0000 9995` | Any 3 digits | Any future date |
 
-### Test One-Time Payment (£29)
+### Test One-Time Payment (£9)
 
 1. Go to `http://localhost:3000/generate`
-2. Enter a URL and select "Paid - £29"
+2. Enter a URL and select "Paid - £9"
 3. Click "Generate (Proceed to Payment)"
 4. Enter test card `4242 4242 4242 4242`
 5. Use any future expiry date and any CVC

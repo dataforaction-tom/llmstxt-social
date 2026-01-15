@@ -143,7 +143,7 @@ export default function GeneratePage() {
                       : 'border-gray-300 hover:border-gray-400'
                   }`}
                 >
-                  <h3 className="font-semibold mb-1">Paid - £29</h3>
+                  <h3 className="font-semibold mb-1">Paid - £9</h3>
                   <p className="text-sm text-gray-600">Full assessment</p>
                   <p className="text-xs text-gray-500 mt-2">+ enrichment data</p>
                 </button>
@@ -236,7 +236,7 @@ export default function GeneratePage() {
 
             {/* Assessment Results */}
             {job.status === 'completed' && job.assessment_json && (
-              <AssessmentDisplay assessment={job.assessment_json} />
+              <AssessmentDisplay assessment={job.assessment_json} websiteUrl={job.url} />
             )}
 
             {/* Start Over Button */}

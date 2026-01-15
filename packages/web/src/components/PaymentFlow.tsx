@@ -55,7 +55,7 @@ export default function PaymentFlow({ url, template, onSuccess, onCancel }: Paym
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
           <div className="flex justify-between mb-2">
             <span className="text-gray-700">Full Generation + Assessment</span>
-            <span className="font-semibold">£29.00</span>
+            <span className="font-semibold">£9.00</span>
           </div>
           <p className="text-sm text-gray-600">
             One-time payment - Valid for 30 days
@@ -164,7 +164,7 @@ function PaymentForm({ onSuccess, onCancel }: PaymentFormProps) {
             Processing...
           </>
         ) : (
-          'Pay £29.00'
+          'Pay £9.00'
         )}
       </button>
 

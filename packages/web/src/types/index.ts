@@ -52,7 +52,7 @@ export interface Assessment {
 
 export interface AssessmentFinding {
   category: string;
-  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  severity: 'critical' | 'major' | 'high' | 'medium' | 'minor' | 'low' | 'info';
   message: string;
   suggestion?: string;
 }
