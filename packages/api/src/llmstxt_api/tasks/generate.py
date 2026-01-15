@@ -8,26 +8,26 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 
 from llmstxt_api.config import settings
 from llmstxt_api.models import GenerationJob
-from llmstxt_api.services.generation import (
-    generate_llmstxt_from_url,
-    generate_with_enrichment,
-    assess_llmstxt,
-)
 from llmstxt_api.tasks.celery import celery_app
 
-# Create async engine for Celery tasks
-engine = create_async_engine(settings.database_url, echo=False)
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+# Import core functions for step-by-step progress
+from llmstxt_core import crawl_site, extract_content, generate_llmstxt
+from llmstxt_core.analyzer import analyze_organisation
 
 
-async def update_job_status(job_id: uuid.UUID, status: str, **kwargs):
-    """Update job status in database."""
-    async with AsyncSessionLocal() as session:
+def get_async_session():
+    """Create a new async engine and session for each task."""
+    engine = create_async_engine(settings.database_url, echo=False)
+    return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+
+async def update_job_progress(session_maker, job_id: uuid.UUID, **kwargs):
+    """Update job progress in database."""
+    async with session_maker() as session:
         result = await session.execute(select(GenerationJob).where(GenerationJob.id == job_id))
         job = result.scalar_one_or_none()
 
         if job:
-            job.status = status
             for key, value in kwargs.items():
                 setattr(job, key, value)
             await session.commit()
@@ -46,19 +46,66 @@ def generate_free_task(self, job_id_str: str, url: str, template: str):
     import asyncio
 
     job_id = uuid.UUID(job_id_str)
+    max_pages = settings.max_crawl_pages
 
     async def run():
+        # Create fresh session maker for this event loop
+        session_maker = get_async_session()
+
         try:
-            # Update status to processing
-            await update_job_status(job_id, "processing")
-
-            # Generate llms.txt
-            llmstxt_content = await generate_llmstxt_from_url(url, template)
-
-            # Update job with result
-            await update_job_status(
+            # Stage 1: Crawling
+            await update_job_progress(
+                session_maker,
                 job_id,
-                "completed",
+                status="processing",
+                progress_stage="crawling",
+                progress_detail=f"Discovering pages on {url}",
+                total_pages=max_pages,
+                pages_crawled=0,
+            )
+
+            crawl_result = await crawl_site(url, max_pages=max_pages)
+            pages_found = len(crawl_result.pages)
+
+            # Stage 2: Extracting content
+            await update_job_progress(
+                session_maker,
+                job_id,
+                progress_stage="extracting",
+                progress_detail=f"Extracting content from {pages_found} pages",
+                pages_crawled=pages_found,
+                total_pages=pages_found,
+            )
+
+            pages = [extract_content(page) for page in crawl_result.pages]
+
+            # Stage 3: Analyzing with AI
+            await update_job_progress(
+                session_maker,
+                job_id,
+                progress_stage="analyzing",
+                progress_detail="Analyzing content with Claude AI",
+            )
+
+            analysis = await analyze_organisation(pages, template, api_key=settings.anthropic_api_key)
+
+            # Stage 4: Generating llms.txt
+            await update_job_progress(
+                session_maker,
+                job_id,
+                progress_stage="generating",
+                progress_detail="Generating llms.txt file",
+            )
+
+            llmstxt_content = generate_llmstxt(analysis, pages, template)
+
+            # Complete
+            await update_job_progress(
+                session_maker,
+                job_id,
+                status="completed",
+                progress_stage="completed",
+                progress_detail="Generation complete",
                 llmstxt_content=llmstxt_content,
                 completed_at=datetime.utcnow(),
             )
@@ -67,9 +114,12 @@ def generate_free_task(self, job_id_str: str, url: str, template: str):
 
         except Exception as e:
             # Update job with error
-            await update_job_status(
+            await update_job_progress(
+                session_maker,
                 job_id,
-                "failed",
+                status="failed",
+                progress_stage="failed",
+                progress_detail=str(e)[:200],
                 error_message=str(e),
                 completed_at=datetime.utcnow(),
             )
@@ -93,29 +143,120 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
         template: Template type
     """
     import asyncio
+    from anthropic import Anthropic
+    from llmstxt_core.assessor import LLMSTxtAssessor
+    from llmstxt_core.enrichers.charity_commission import fetch_charity_data, find_charity_number
 
     job_id = uuid.UUID(job_id_str)
+    max_pages = settings.max_crawl_pages
 
     async def run():
+        # Create fresh session maker for this event loop
+        session_maker = get_async_session()
+
         try:
-            # Update status to processing
-            await update_job_status(job_id, "processing")
+            # Stage 1: Crawling
+            await update_job_progress(
+                session_maker,
+                job_id,
+                status="processing",
+                progress_stage="crawling",
+                progress_detail=f"Discovering pages on {url}",
+                total_pages=max_pages,
+                pages_crawled=0,
+            )
 
-            # Generate with enrichment
-            llmstxt_content, enrichment_data = await generate_with_enrichment(url, template)
+            crawl_result = await crawl_site(url, max_pages=max_pages)
+            pages_found = len(crawl_result.pages)
 
-            # Run assessment
-            assessment = await assess_llmstxt(
+            # Stage 2: Extracting content
+            await update_job_progress(
+                session_maker,
+                job_id,
+                progress_stage="extracting",
+                progress_detail=f"Extracting content from {pages_found} pages",
+                pages_crawled=pages_found,
+                total_pages=pages_found,
+            )
+
+            pages = [extract_content(page) for page in crawl_result.pages]
+
+            # Stage 3: Enrichment (for charities)
+            enrichment_data = None
+            if template == "charity" and settings.charity_commission_api_key:
+                await update_job_progress(
+                    session_maker,
+                    job_id,
+                    progress_stage="enriching",
+                    progress_detail="Fetching Charity Commission data",
+                )
+                charity_number = find_charity_number(pages)
+                if charity_number:
+                    enrichment_data = await fetch_charity_data(
+                        charity_number, api_key=settings.charity_commission_api_key
+                    )
+
+            # Stage 4: Analyzing with AI
+            await update_job_progress(
+                session_maker,
+                job_id,
+                progress_stage="analyzing",
+                progress_detail="Analyzing content with Claude AI",
+            )
+
+            analysis = await analyze_organisation(pages, template, api_key=settings.anthropic_api_key)
+
+            # Stage 5: Generating llms.txt
+            await update_job_progress(
+                session_maker,
+                job_id,
+                progress_stage="generating",
+                progress_detail="Generating llms.txt file",
+            )
+
+            llmstxt_content = generate_llmstxt(analysis, pages, template)
+
+            # Stage 6: Assessment
+            await update_job_progress(
+                session_maker,
+                job_id,
+                progress_stage="assessing",
+                progress_detail="Running quality assessment",
+            )
+
+            client = Anthropic(api_key=settings.anthropic_api_key)
+            assessor = LLMSTxtAssessor(template, client)
+            assessment_result = await assessor.assess(
                 llmstxt_content=llmstxt_content,
-                template=template,
                 website_url=url,
                 enrichment_data=enrichment_data,
             )
 
-            # Update job with results
-            await update_job_status(
+            # Convert assessment to dict
+            assessment = {
+                "overall_score": assessment_result.overall_score,
+                "completeness_score": assessment_result.completeness_score,
+                "quality_score": assessment_result.quality_score,
+                "grade": assessment_result.grade,
+                "findings": [
+                    {
+                        "category": f.category.value,
+                        "severity": f.severity.value,
+                        "message": f.message,
+                        "suggestion": f.suggestion,
+                    }
+                    for f in assessment_result.findings
+                ],
+                "recommendations": assessment_result.top_recommendations,
+            }
+
+            # Complete
+            await update_job_progress(
+                session_maker,
                 job_id,
-                "completed",
+                status="completed",
+                progress_stage="completed",
+                progress_detail="Generation and assessment complete",
                 llmstxt_content=llmstxt_content,
                 assessment_json=assessment,
                 completed_at=datetime.utcnow(),
@@ -125,9 +266,12 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
 
         except Exception as e:
             # Update job with error
-            await update_job_status(
+            await update_job_progress(
+                session_maker,
                 job_id,
-                "failed",
+                status="failed",
+                progress_stage="failed",
+                progress_detail=str(e)[:200],
                 error_message=str(e),
                 completed_at=datetime.utcnow(),
             )

@@ -47,3 +47,7 @@ Thumbs.db
 
 # Output files
 llms.txt
+
+# Node
+node_modules/
+.npm

@@ -82,17 +82,26 @@ To run the complete SaaS platform (API + Web frontend + Background workers):
 cp .env.example .env
 # Edit .env and add your ANTHROPIC_API_KEY (minimum required)
 
-# 2. Start all services
+# 2. Generate package-lock.json for web (required for Docker build)
+cd packages/web && npm install && cd ../..
+
+# 3. Start all services
 docker-compose up -d
 
-# 3. Run database migrations
+# 4. Run database migrations
 docker-compose exec api alembic upgrade head
 
-# 4. Access the platform
+# 5. Access the platform
 # - Web Frontend: http://localhost:3000
 # - API Docs: http://localhost:8000/docs
 # - API Health: http://localhost:8000/health
 ```
+
+**Troubleshooting:**
+
+- **"npm ci" fails during Docker build**: Run `cd packages/web && npm install` to generate `package-lock.json`
+- **"relation already exists" during migrations**: Run `docker-compose exec api alembic stamp head` to mark migrations as applied
+- **Rate limit errors (429)**: Clear rate limits with `docker-compose exec redis redis-cli FLUSHALL`
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 

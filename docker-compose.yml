@@ -46,6 +46,7 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-re_dummy}
       SECRET_KEY: dev-secret-key-change-in-production
       ENVIRONMENT: development
+      FREE_TIER_DAILY_LIMIT: 1000
     ports:
       - "8000:8000"
     volumes:
@@ -67,6 +68,11 @@ services:
       REDIS_URL: redis://redis:6379
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       CHARITY_COMMISSION_API_KEY: ${CHARITY_COMMISSION_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
+      RESEND_API_KEY: ${RESEND_API_KEY:-re_dummy}
+      SECRET_KEY: dev-secret-key-change-in-production
+      ENVIRONMENT: development
     volumes:
       - ./packages/core:/app/core
       - ./packages/api:/app/api

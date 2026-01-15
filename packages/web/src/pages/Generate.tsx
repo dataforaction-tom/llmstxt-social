@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Loader2, Download, CheckCircle2, XCircle } from 'lucide-react';
+import { Download, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import apiClient from '../api/client';
 import type { Template, Job } from '../types';
 import AssessmentDisplay from '../components/AssessmentDisplay';
 import PaymentFlow from '../components/PaymentFlow';
+import ProgressIndicator from '../components/ProgressIndicator';
 
 export default function GeneratePage() {
   const [url, setUrl] = useState('');
@@ -26,7 +27,8 @@ export default function GeneratePage() {
     queryKey: ['job', jobId],
     queryFn: () => apiClient.getJob(jobId!),
     enabled: !!jobId,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
+      const data = query.state.data;
       if (!data || data.status === 'pending' || data.status === 'processing') {
         return 2000; // Poll every 2 seconds
       }
@@ -197,11 +199,14 @@ export default function GeneratePage() {
               </div>
 
               {(job.status === 'pending' || job.status === 'processing') && (
-                <div className="mt-4">
-                  <div className="flex items-center gap-2 text-primary-600">
-                    <Loader2 className="animate-spin" />
-                    <span>Processing your request...</span>
-                  </div>
+                <div className="mt-6">
+                  <ProgressIndicator
+                    stage={job.progress_stage}
+                    detail={job.progress_detail}
+                    pagesCrawled={job.pages_crawled}
+                    totalPages={job.total_pages}
+                    tier={job.tier}
+                  />
                 </div>
               )}
 

@@ -35,6 +35,12 @@ class GenerationJob(Base):
         String(20), nullable=False, default="pending"
     )  # 'pending', 'processing', 'completed', 'failed'
 
+    # Progress tracking
+    progress_stage: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    progress_detail: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    pages_crawled: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_pages: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Output
     llmstxt_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     assessment_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

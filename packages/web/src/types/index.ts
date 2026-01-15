@@ -17,6 +17,8 @@ export interface GeneratePaidRequest extends GenerateRequest {
   payment_intent_id: string;
 }
 
+export type ProgressStage = 'crawling' | 'extracting' | 'enriching' | 'analyzing' | 'generating' | 'assessing' | 'completed' | 'failed';
+
 export interface Job {
   job_id: string;
   status: JobStatus;
@@ -26,6 +28,12 @@ export interface Job {
   created_at: string;
   completed_at?: string;
   expires_at?: string;
+  // Progress tracking
+  progress_stage?: ProgressStage;
+  progress_detail?: string;
+  pages_crawled?: number;
+  total_pages?: number;
+  // Results
   llmstxt_content?: string;
   assessment_json?: Assessment;
   error_message?: string;

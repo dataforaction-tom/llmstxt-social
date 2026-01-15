@@ -29,7 +29,7 @@ class GeneratePaidRequest(GenerateRequest):
 class JobResponse(BaseModel):
     """Response with job information."""
 
-    job_id: UUID = Field(..., description="Unique job ID")
+    job_id: UUID = Field(..., description="Unique job ID", validation_alias="id")
     status: str = Field(..., description="Job status: pending, processing, completed, or failed")
     url: str = Field(..., description="URL being processed")
     template: str = Field(..., description="Template type")
@@ -37,6 +37,12 @@ class JobResponse(BaseModel):
     created_at: datetime = Field(..., description="Job creation timestamp")
     completed_at: datetime | None = Field(None, description="Job completion timestamp")
     expires_at: datetime | None = Field(None, description="Job expiration timestamp")
+
+    # Progress tracking
+    progress_stage: str | None = Field(None, description="Current stage: crawling, analyzing, generating")
+    progress_detail: str | None = Field(None, description="Details about current progress")
+    pages_crawled: int | None = Field(None, description="Number of pages crawled so far")
+    total_pages: int | None = Field(None, description="Total pages to crawl")
 
     # Output (only available when completed)
     llmstxt_content: str | None = Field(None, description="Generated llms.txt content")
@@ -52,7 +58,7 @@ class JobResponse(BaseModel):
 class JobStatusResponse(BaseModel):
     """Lightweight job status response."""
 
-    job_id: UUID
+    job_id: UUID = Field(validation_alias="id")
     status: str
     progress: str | None = None
 

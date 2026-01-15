@@ -39,8 +39,7 @@ async def generate_llmstxt_from_url(
     pages = [extract_content(page) for page in crawl_result.pages]
 
     # Analyze with Claude
-    client = Anthropic(api_key=settings.anthropic_api_key)
-    analysis = await analyze_organisation(pages, template, client)
+    analysis = await analyze_organisation(pages, template, api_key=settings.anthropic_api_key)
 
     # Generate llms.txt
     llmstxt_content = generate_llmstxt(analysis, pages, template)
@@ -84,8 +83,7 @@ async def generate_with_enrichment(
             )
 
     # Analyze with Claude
-    client = Anthropic(api_key=settings.anthropic_api_key)
-    analysis = await analyze_organisation(pages, template, client)
+    analysis = await analyze_organisation(pages, template, api_key=settings.anthropic_api_key)
 
     # Generate llms.txt
     llmstxt_content = generate_llmstxt(analysis, pages, template)
