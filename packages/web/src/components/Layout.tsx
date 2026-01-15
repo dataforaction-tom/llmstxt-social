@@ -1,11 +1,18 @@
 import { Link } from 'react-router-dom';
-import { FileText } from 'lucide-react';
+import { FileText, User, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const { user, isAuthenticated, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navigation */}
@@ -40,12 +47,14 @@ export default function Layout({ children }: LayoutProps) {
               >
                 Pricing
               </Link>
-              <Link
-                to="/dashboard"
-                className="text-gray-700 hover:text-primary-600 transition-colors"
-              >
-                Dashboard
-              </Link>
+              {isAuthenticated && (
+                <Link
+                  to="/dashboard"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
+                  Dashboard
+                </Link>
+              )}
               <a
                 href="https://llmstxt.org"
                 target="_blank"
@@ -54,6 +63,30 @@ export default function Layout({ children }: LayoutProps) {
               >
                 Spec
               </a>
+
+              {/* Auth section */}
+              {isAuthenticated ? (
+                <div className="flex items-center gap-4 ml-4 pl-4 border-l border-gray-200">
+                  <span className="text-sm text-gray-600 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    {user?.email}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="text-gray-500 hover:text-red-600 transition-colors"
+                    title="Log out"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/login"
+                  className="ml-4 btn btn-primary text-sm"
+                >
+                  Log in
+                </Link>
+              )}
             </div>
           </div>
         </div>

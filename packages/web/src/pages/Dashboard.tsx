@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, Navigate } from 'react-router-dom';
 import {
   CheckCircle2,
   XCircle,
@@ -13,16 +13,33 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import apiClient from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 import type { Subscription, MonitoringHistory } from '../types';
 
 export default function DashboardPage() {
   const [searchParams] = useSearchParams();
   const subscriptionSuccess = searchParams.get('subscription') === 'success';
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const { data: subscriptions, isLoading } = useQuery({
     queryKey: ['subscriptions'],
     queryFn: () => apiClient.listSubscriptions(false), // Get all including cancelled
+    enabled: isAuthenticated, // Only fetch when authenticated
   });
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

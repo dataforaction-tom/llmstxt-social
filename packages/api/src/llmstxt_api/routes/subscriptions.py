@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from llmstxt_api.database import get_db
-from llmstxt_api.models import Subscription, MonitoringHistory
+from llmstxt_api.models import Subscription, MonitoringHistory, User
 from llmstxt_api.schemas import (
     SubscriptionCreate,
     SubscriptionResponse,
@@ -21,6 +21,7 @@ from llmstxt_api.services.payment import (
     get_subscription_status,
     PaymentError,
 )
+from llmstxt_api.routes.auth import get_current_user, require_auth
 
 router = APIRouter()
 
@@ -57,14 +58,13 @@ async def create_subscription(
 @router.get("/subscriptions", response_model=list[SubscriptionResponse])
 async def list_subscriptions(
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_auth),
     active_only: bool = True,
 ):
     """
-    List all subscriptions.
-
-    For MVP, returns all subscriptions. In production, would filter by user.
+    List subscriptions for the authenticated user.
     """
-    query = select(Subscription)
+    query = select(Subscription).where(Subscription.user_id == user.id)
     if active_only:
         query = query.where(Subscription.active == True)
 
@@ -78,6 +78,7 @@ async def list_subscriptions(
 async def get_subscription(
     subscription_id: str,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_auth),
 ):
     """
     Get subscription details.
@@ -88,7 +89,10 @@ async def get_subscription(
         raise HTTPException(status_code=400, detail="Invalid subscription ID format")
 
     result = await db.execute(
-        select(Subscription).where(Subscription.id == sub_uuid)
+        select(Subscription).where(
+            Subscription.id == sub_uuid,
+            Subscription.user_id == user.id,
+        )
     )
     subscription = result.scalar_one_or_none()
 
@@ -102,6 +106,7 @@ async def get_subscription(
 async def cancel_subscription(
     subscription_id: str,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_auth),
 ):
     """
     Cancel a subscription.
@@ -114,7 +119,10 @@ async def cancel_subscription(
         raise HTTPException(status_code=400, detail="Invalid subscription ID format")
 
     result = await db.execute(
-        select(Subscription).where(Subscription.id == sub_uuid)
+        select(Subscription).where(
+            Subscription.id == sub_uuid,
+            Subscription.user_id == user.id,
+        )
     )
     subscription = result.scalar_one_or_none()
 
@@ -147,6 +155,7 @@ async def cancel_subscription(
 async def get_subscription_history(
     subscription_id: str,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_auth),
     limit: int = 20,
 ):
     """
@@ -159,9 +168,12 @@ async def get_subscription_history(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid subscription ID format")
 
-    # Verify subscription exists
+    # Verify subscription exists and belongs to user
     sub_result = await db.execute(
-        select(Subscription).where(Subscription.id == sub_uuid)
+        select(Subscription).where(
+            Subscription.id == sub_uuid,
+            Subscription.user_id == user.id,
+        )
     )
     if not sub_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Subscription not found")

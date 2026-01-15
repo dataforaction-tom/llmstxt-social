@@ -11,7 +11,7 @@ import stripe
 
 from llmstxt_api.config import settings
 from llmstxt_api.database import get_db
-from llmstxt_api.models import GenerationJob, Subscription
+from llmstxt_api.models import GenerationJob, Subscription, User
 from llmstxt_api.schemas import CreatePaymentIntentRequest, CreatePaymentIntentResponse
 from llmstxt_api.tasks.generate import generate_paid_task
 
@@ -179,10 +179,25 @@ async def handle_checkout_session_completed(session, db: AsyncSession):
     # Get customer email from session
     customer_email = session.customer_details.email if session.customer_details else None
 
-    # Create subscription record
+    if not customer_email:
+        logger.warning(f"Checkout session {session.id} missing customer email")
+        return
+
+    # Find or create user by email
+    user_result = await db.execute(
+        select(User).where(User.email == customer_email.lower())
+    )
+    user = user_result.scalar_one_or_none()
+
+    if not user:
+        user = User(email=customer_email.lower())
+        db.add(user)
+        await db.flush()  # Get user.id
+
+    # Create subscription record linked to user
     subscription = Subscription(
         id=uuid.uuid4(),
-        user_id=uuid.uuid4(),  # Anonymous user for now
+        user_id=user.id,
         url=url,
         template=template,
         frequency="monthly",
@@ -193,7 +208,7 @@ async def handle_checkout_session_completed(session, db: AsyncSession):
     db.add(subscription)
     await db.commit()
 
-    logger.info(f"Created subscription {subscription.id} for {url}")
+    logger.info(f"Created subscription {subscription.id} for {url} (user: {user.email})")
 
 
 async def handle_subscription_updated(stripe_subscription, db: AsyncSession):

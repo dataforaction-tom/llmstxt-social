@@ -99,3 +99,21 @@ class MonitoringHistory(Base):
     llmstxt_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     assessment_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     notification_sent: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class MagicLinkToken(Base):
+    """Magic link token for passwordless authentication."""
+
+    __tablename__ = "magic_link_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    __table_args__ = (
+        Index("ix_magic_link_tokens_token", "token"),
+        Index("ix_magic_link_tokens_email", "email"),
+    )

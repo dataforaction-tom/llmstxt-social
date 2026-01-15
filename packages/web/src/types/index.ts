@@ -117,3 +117,26 @@ export interface MonitoringHistory {
   assessment_json?: Assessment;
   notification_sent: boolean;
 }
+
+// Auth types
+export interface User {
+  id: string;
+  email: string;
+  created_at: string;
+  stripe_customer_id?: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  message: string;
+}
+
+export interface AuthCheckResponse {
+  authenticated: boolean;
+  user: User | null;
+}
+
+export interface MagicLinkResponse {
+  message: string;
+  email: string;
+}

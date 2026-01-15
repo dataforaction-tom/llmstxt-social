@@ -131,13 +131,42 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     """User response."""
 
-    id: UUID
+    id: str
     email: str
     created_at: datetime
     stripe_customer_id: str | None = None
 
     class Config:
         from_attributes = True
+
+
+# === Auth Schemas ===
+
+
+class MagicLinkRequest(BaseModel):
+    """Request to send magic link."""
+
+    email: str = Field(..., description="Email address to send magic link to")
+
+
+class MagicLinkResponse(BaseModel):
+    """Response after sending magic link."""
+
+    message: str
+    email: str
+
+
+class VerifyTokenRequest(BaseModel):
+    """Request to verify magic link token."""
+
+    token: str = Field(..., description="Magic link token from email")
+
+
+class AuthResponse(BaseModel):
+    """Response after successful authentication."""
+
+    user: UserResponse
+    message: str
 
 
 # === Subscription Schemas (Phase 2) ===

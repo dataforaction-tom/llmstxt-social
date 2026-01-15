@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # Resend
     resend_api_key: str
-    from_email: str = "llmstxt <notifications@llmstxt.io>"
+    from_email: str = "llmstxt <onboarding@resend.dev>"
 
     # Security
     secret_key: str
@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     # App Settings
     base_url: str = "http://localhost:8000"
+    frontend_url: str = "http://localhost:3000"
     environment: str = "development"
 
     # Rate Limiting (free tier)

@@ -13,6 +13,10 @@ import type {
   SubscriptionCreateRequest,
   CheckoutSession,
   MonitoringHistory,
+  User,
+  AuthResponse,
+  AuthCheckResponse,
+  MagicLinkResponse,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -22,6 +26,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Enable cookies for auth
 });
 
 export const apiClient = {
@@ -81,6 +86,31 @@ export const apiClient = {
       params: { limit },
     });
     return data;
+  },
+
+  // Auth endpoints
+  sendMagicLink: async (email: string): Promise<MagicLinkResponse> => {
+    const { data } = await api.post('/api/auth/magic-link', { email });
+    return data;
+  },
+
+  verifyMagicLink: async (token: string): Promise<AuthResponse> => {
+    const { data } = await api.post('/api/auth/verify', { token });
+    return data;
+  },
+
+  checkAuth: async (): Promise<AuthCheckResponse> => {
+    const { data } = await api.get('/api/auth/check');
+    return data;
+  },
+
+  getMe: async (): Promise<User> => {
+    const { data } = await api.get('/api/auth/me');
+    return data;
+  },
+
+  logout: async (): Promise<void> => {
+    await api.post('/api/auth/logout');
   },
 };
 
