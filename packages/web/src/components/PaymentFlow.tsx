@@ -1,9 +1,15 @@
-import { useState } from 'react';
-import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
+import { useState, useEffect } from 'react';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
 import { useMutation } from '@tanstack/react-query';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, AlertCircle } from 'lucide-react';
 import apiClient from '../api/client';
 import type { Template } from '../types';
+
+// Initialize Stripe outside component to avoid recreating on each render
+const stripePromise = loadStripe(
+  import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_dummy'
+);
 
 interface PaymentFlowProps {
   url: string;
@@ -13,54 +19,23 @@ interface PaymentFlowProps {
 }
 
 export default function PaymentFlow({ url, template, onSuccess, onCancel }: PaymentFlowProps) {
-  const stripe = useStripe();
-  const elements = useElements();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Create payment intent
+  // Create payment intent on mount
   const paymentMutation = useMutation({
     mutationFn: () => apiClient.createPaymentIntent({ url, template }),
     onSuccess: (data) => {
       setClientSecret(data.client_secret);
     },
+    onError: (err: Error) => {
+      setError(err.message || 'Failed to initialize payment');
+    },
   });
 
-  // Load payment form on mount
-  useState(() => {
+  useEffect(() => {
     paymentMutation.mutate();
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!stripe || !elements || !clientSecret) {
-      return;
-    }
-
-    setProcessing(true);
-
-    try {
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: window.location.href,
-        },
-        redirect: 'if_required',
-      });
-
-      if (error) {
-        alert(error.message);
-      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-        onSuccess(paymentIntent.id);
-      }
-    } catch (err) {
-      console.error('Payment error:', err);
-      alert('Payment failed. Please try again.');
-    } finally {
-      setProcessing(false);
-    }
-  };
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -83,45 +58,123 @@ export default function PaymentFlow({ url, template, onSuccess, onCancel }: Paym
             <span className="font-semibold">£29.00</span>
           </div>
           <p className="text-sm text-gray-600">
-            One-time payment • Valid for 30 days
+            One-time payment - Valid for 30 days
           </p>
         </div>
 
         {paymentMutation.isPending && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="animate-spin w-8 h-8 text-primary-600" />
+            <span className="ml-2 text-gray-600">Loading payment form...</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-start gap-2 p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-red-800 font-medium">Payment Error</p>
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
           </div>
         )}
 
         {clientSecret && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <PaymentElement />
-
-            <button
-              type="submit"
-              disabled={!stripe || processing}
-              className="btn btn-primary w-full"
-            >
-              {processing ? (
-                <>
-                  <Loader2 className="inline-block animate-spin mr-2" />
-                  Processing...
-                </>
-              ) : (
-                'Pay £29.00'
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={onCancel}
-              className="btn btn-secondary w-full"
-            >
-              Cancel
-            </button>
-          </form>
+          <Elements
+            stripe={stripePromise}
+            options={{
+              clientSecret,
+              appearance: {
+                theme: 'stripe',
+                variables: {
+                  colorPrimary: '#6366f1',
+                },
+              },
+            }}
+          >
+            <PaymentForm onSuccess={onSuccess} onCancel={onCancel} />
+          </Elements>
         )}
       </div>
     </div>
+  );
+}
+
+interface PaymentFormProps {
+  onSuccess: (paymentIntentId: string) => void;
+  onCancel: () => void;
+}
+
+function PaymentForm({ onSuccess, onCancel }: PaymentFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!stripe || !elements) {
+      return;
+    }
+
+    setProcessing(true);
+    setError(null);
+
+    try {
+      const { error: submitError, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.href,
+        },
+        redirect: 'if_required',
+      });
+
+      if (submitError) {
+        setError(submitError.message || 'Payment failed');
+      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+        onSuccess(paymentIntent.id);
+      }
+    } catch (err) {
+      console.error('Payment error:', err);
+      setError('Payment failed. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-800 text-sm">{error}</p>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={!stripe || processing}
+        className="btn btn-primary w-full"
+      >
+        {processing ? (
+          <>
+            <Loader2 className="inline-block animate-spin mr-2 w-4 h-4" />
+            Processing...
+          </>
+        ) : (
+          'Pay £29.00'
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={onCancel}
+        className="btn btn-secondary w-full"
+      >
+        Cancel
+      </button>
+    </form>
   );
 }

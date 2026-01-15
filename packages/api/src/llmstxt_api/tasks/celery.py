@@ -1,6 +1,7 @@
 """Celery app configuration."""
 
 from celery import Celery
+from celery.schedules import crontab
 
 from llmstxt_api.config import settings
 
@@ -9,7 +10,10 @@ celery_app = Celery(
     "llmstxt_tasks",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["llmstxt_api.tasks.generate"],
+    include=[
+        "llmstxt_api.tasks.generate",
+        "llmstxt_api.tasks.monitor",
+    ],
 )
 
 # Celery configuration
@@ -25,3 +29,11 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=50,
 )
+
+# Beat schedule for periodic tasks
+celery_app.conf.beat_schedule = {
+    "check-due-subscriptions": {
+        "task": "monitor.check_due_subscriptions",
+        "schedule": crontab(hour=6, minute=0),  # Run daily at 6 AM UTC
+    },
+}

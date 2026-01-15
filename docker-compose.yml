@@ -43,6 +43,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
+      STRIPE_MONITORING_PRICE_ID: ${STRIPE_MONITORING_PRICE_ID:-price_dummy}
       RESEND_API_KEY: ${RESEND_API_KEY:-re_dummy}
       SECRET_KEY: dev-secret-key-change-in-production
       ENVIRONMENT: development
@@ -70,6 +71,7 @@ services:
       CHARITY_COMMISSION_API_KEY: ${CHARITY_COMMISSION_API_KEY}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
+      STRIPE_MONITORING_PRICE_ID: ${STRIPE_MONITORING_PRICE_ID:-price_dummy}
       RESEND_API_KEY: ${RESEND_API_KEY:-re_dummy}
       SECRET_KEY: dev-secret-key-change-in-production
       ENVIRONMENT: development
@@ -77,21 +79,28 @@ services:
       - ./packages/core:/app/core
       - ./packages/api:/app/api
 
-  # Future: Celery beat scheduler (when Phase 2 subscription monitoring is active)
-  # celery_beat:
-  #   build:
-  #     context: .
-  #     dockerfile: packages/api/Dockerfile
-  #   command: celery -A llmstxt_api.tasks.celery beat -l info
-  #   depends_on:
-  #     - postgres
-  #     - redis
-  #   environment:
-  #     DATABASE_URL: postgresql+asyncpg://postgres:dev_password@postgres/llmstxt
-  #     REDIS_URL: redis://redis:6379
-  #   volumes:
-  #     - ./packages/core:/app/core
-  #     - ./packages/api:/app/api
+  # Celery beat scheduler for subscription monitoring
+  celery_beat:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    command: celery -A llmstxt_api.tasks.celery beat -l info
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:dev_password@postgres/llmstxt
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
+      STRIPE_MONITORING_PRICE_ID: ${STRIPE_MONITORING_PRICE_ID:-price_dummy}
+      RESEND_API_KEY: ${RESEND_API_KEY:-re_dummy}
+      SECRET_KEY: dev-secret-key-change-in-production
+      ENVIRONMENT: development
+    volumes:
+      - ./packages/core:/app/core
+      - ./packages/api:/app/api
 
   # Web frontend
   web:
@@ -103,7 +112,7 @@ services:
       - "3000:3000"
     environment:
       VITE_API_URL: http://localhost:8000
-      VITE_STRIPE_PUBLIC_KEY: ${STRIPE_PUBLIC_KEY:-pk_test_dummy}
+      VITE_STRIPE_PUBLIC_KEY: ${VITE_STRIPE_PUBLIC_KEY:-pk_test_dummy}
     volumes:
       - ./packages/web:/app
       - /app/node_modules

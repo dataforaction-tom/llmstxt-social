@@ -9,7 +9,7 @@ from llmstxt_api import __version__
 from llmstxt_api.config import settings
 from llmstxt_api.database import init_db
 from llmstxt_api.middleware import RateLimitMiddleware
-from llmstxt_api.routes import generate, payment
+from llmstxt_api.routes import generate, payment, subscriptions
 from llmstxt_api.schemas import HealthResponse
 
 
@@ -50,6 +50,7 @@ app.add_middleware(RateLimitMiddleware)
 # Include routers
 app.include_router(generate.router, prefix="/api", tags=["Generation"])
 app.include_router(payment.router, prefix="/api/payment", tags=["Payment"])
+app.include_router(subscriptions.router, prefix="/api", tags=["Subscriptions"])
 
 
 @app.get("/", response_model=HealthResponse)

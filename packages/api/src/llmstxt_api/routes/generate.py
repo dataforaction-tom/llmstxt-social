@@ -11,6 +11,7 @@ from llmstxt_api.database import get_db
 from llmstxt_api.models import GenerationJob
 from llmstxt_api.schemas import GenerateRequest, GeneratePaidRequest, JobResponse
 from llmstxt_api.tasks.generate import generate_free_task, generate_paid_task
+from llmstxt_api.services.payment import verify_payment_intent, PaymentError
 
 router = APIRouter()
 
@@ -65,7 +66,23 @@ async def generate_paid(
     - Includes full quality assessment with AI analysis
     - Result valid for 30 days
     """
-    # TODO: Verify payment intent with Stripe
+    # Check for duplicate job with same payment_intent_id
+    existing_job = await db.execute(
+        select(GenerationJob).where(
+            GenerationJob.payment_intent_id == request.payment_intent_id
+        )
+    )
+    existing = existing_job.scalar_one_or_none()
+
+    if existing:
+        # Return existing job instead of creating duplicate
+        return JobResponse.model_validate(existing)
+
+    # Verify payment intent with Stripe
+    try:
+        payment_info = await verify_payment_intent(request.payment_intent_id)
+    except PaymentError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Create job
     job = GenerationJob(
@@ -75,7 +92,7 @@ async def generate_paid(
         tier="paid",
         status="pending",
         payment_intent_id=request.payment_intent_id,
-        amount_paid=2900,  # £29.00 in pence
+        amount_paid=payment_info["amount"],
         expires_at=datetime.utcnow() + timedelta(days=30),
     )
 

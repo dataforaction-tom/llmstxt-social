@@ -72,10 +72,9 @@ export default function PricingPage() {
               'Dashboard access',
               'Cancel anytime',
             ]}
-            cta="Coming Soon"
-            ctaLink="#"
+            cta="Subscribe Now"
+            ctaLink="/subscribe"
             highlighted={false}
-            comingSoon={true}
           />
         </div>
 

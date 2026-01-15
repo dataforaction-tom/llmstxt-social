@@ -40,6 +40,12 @@ export default function Layout({ children }: LayoutProps) {
               >
                 Pricing
               </Link>
+              <Link
+                to="/dashboard"
+                className="text-gray-700 hover:text-primary-600 transition-colors"
+              >
+                Dashboard
+              </Link>
               <a
                 href="https://llmstxt.org"
                 target="_blank"

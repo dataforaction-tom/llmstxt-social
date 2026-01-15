@@ -708,7 +708,56 @@ ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 # Optional: Charity Commission API
 CHARITY_COMMISSION_API_KEY=your-key-here
+
+# Stripe (required for payments)
+STRIPE_SECRET_KEY=sk_test_your-key-here
+STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
+STRIPE_MONITORING_PRICE_ID=price_your-subscription-price-id
+
+# Frontend
+VITE_STRIPE_PUBLIC_KEY=pk_test_your-key-here
 ```
+
+### Stripe Setup
+
+To enable payments for the SaaS platform:
+
+1. **Create a Stripe account** at [stripe.com](https://stripe.com)
+
+2. **Get your API keys** from the [Stripe Dashboard](https://dashboard.stripe.com/apikeys):
+   - Copy the **Secret key** (starts with `sk_test_` or `sk_live_`)
+   - Copy the **Publishable key** (starts with `pk_test_` or `pk_live_`)
+
+3. **Create a subscription product** for monitoring:
+   - Go to Products > Add product
+   - Name: "llms.txt Monitoring"
+   - Price: £9.00/month (recurring)
+   - Copy the **Price ID** (starts with `price_`)
+
+4. **Set up webhooks**:
+   - Go to Developers > Webhooks > Add endpoint
+   - Endpoint URL: `https://yourdomain.com/api/payment/webhook`
+   - Events to listen for:
+     - `payment_intent.succeeded`
+     - `payment_intent.payment_failed`
+     - `checkout.session.completed`
+     - `customer.subscription.updated`
+     - `customer.subscription.deleted`
+     - `invoice.payment_failed`
+   - Copy the **Signing secret** (starts with `whsec_`)
+
+5. **For local development**, use Stripe CLI:
+   ```bash
+   stripe listen --forward-to localhost:8000/api/payment/webhook
+   ```
+
+6. **Add environment variables** to `.env`:
+   ```bash
+   STRIPE_SECRET_KEY=sk_test_xxx
+   STRIPE_WEBHOOK_SECRET=whsec_xxx
+   STRIPE_MONITORING_PRICE_ID=price_xxx
+   VITE_STRIPE_PUBLIC_KEY=pk_test_xxx
+   ```
 
 ### Model Selection
 
@@ -753,12 +802,17 @@ Contributions welcome! Please:
   - Real-time job status updates
   - Docker deployment configuration
 
-### v0.4.0 (Next)
+### v0.4.0 (Current)
+- ✅ SaaS Platform: Subscription tier (£9/month)
+- ✅ SaaS Platform: Automated monitoring and regeneration
+- ✅ SaaS Platform: User dashboard
+- ✅ SaaS Platform: Change history tracking
+- ✅ SaaS Platform: Stripe payment verification
+- ✅ SaaS Platform: Celery beat scheduler for monitoring
+
+### v0.5.0 (Next)
 - [ ] SaaS Platform: Production deployment
-- [ ] SaaS Platform: Subscription tier (£9/month)
-- [ ] SaaS Platform: Automated monitoring and regeneration
-- [ ] SaaS Platform: User dashboard
-- [ ] SaaS Platform: Change history tracking
+- [ ] SaaS Platform: Email notifications for changes
 - [ ] API: Public API access
 - [ ] CLI: Alternative LLM providers (OpenAI, Ollama)
 - [ ] CLI: Batch processing
@@ -766,7 +820,6 @@ Contributions welcome! Please:
 ### Future
 - [ ] WordPress plugin
 - [ ] Assessment history tracking and comparison
-- [ ] Email notifications for changes
 - [ ] Zapier/Make.com integrations
 - [ ] White-label options for agencies
 

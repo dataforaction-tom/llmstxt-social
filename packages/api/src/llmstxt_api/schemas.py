@@ -147,10 +147,14 @@ class SubscriptionCreate(BaseModel):
     """Create monitoring subscription."""
 
     url: HttpUrl = Field(..., description="URL to monitor")
-    template: str = Field(..., description="Template type")
-    frequency: str = Field(
-        "weekly", description="Check frequency: weekly or monthly", pattern="^(weekly|monthly)$"
+    template: str = Field(
+        "charity",
+        description="Template type",
+        pattern="^(charity|funder|public_sector|startup)$",
     )
+    email: str | None = Field(None, description="Customer email for checkout")
+    success_url: str = Field(..., description="Redirect URL on successful payment")
+    cancel_url: str = Field(..., description="Redirect URL on cancelled payment")
 
 
 class SubscriptionResponse(BaseModel):
@@ -164,6 +168,29 @@ class SubscriptionResponse(BaseModel):
     last_check: datetime | None
     last_change_detected: datetime | None
     created_at: datetime
+    cancelled_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class CheckoutSessionResponse(BaseModel):
+    """Checkout session for subscription."""
+
+    session_id: str = Field(..., description="Stripe checkout session ID")
+    checkout_url: str = Field(..., description="URL to redirect user to")
+
+
+class MonitoringHistoryResponse(BaseModel):
+    """Monitoring history entry."""
+
+    id: UUID
+    subscription_id: UUID
+    checked_at: datetime
+    changed: bool
+    llmstxt_content: str | None = None
+    assessment_json: dict | None = None
+    notification_sent: bool
 
     class Config:
         from_attributes = True

@@ -81,3 +81,39 @@ export interface HealthResponse {
   version: string;
   environment: string;
 }
+
+// Subscription types
+export interface Subscription {
+  id: string;
+  url: string;
+  template: Template;
+  frequency: 'weekly' | 'monthly';
+  active: boolean;
+  last_check?: string;
+  last_change_detected?: string;
+  created_at: string;
+  cancelled_at?: string;
+}
+
+export interface SubscriptionCreateRequest {
+  url: string;
+  template: Template;
+  email?: string;
+  success_url: string;
+  cancel_url: string;
+}
+
+export interface CheckoutSession {
+  session_id: string;
+  checkout_url: string;
+}
+
+export interface MonitoringHistory {
+  id: string;
+  subscription_id: string;
+  checked_at: string;
+  changed: boolean;
+  llmstxt_content?: string;
+  assessment_json?: Assessment;
+  notification_sent: boolean;
+}

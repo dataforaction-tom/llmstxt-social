@@ -119,12 +119,25 @@ async def assess_llmstxt(
         enrichment_data=enrichment_data,
     )
 
+    # Compute grade from overall score
+    score = assessment_result.overall_score
+    if score >= 90:
+        grade = "A"
+    elif score >= 80:
+        grade = "B"
+    elif score >= 70:
+        grade = "C"
+    elif score >= 60:
+        grade = "D"
+    else:
+        grade = "F"
+
     # Convert to dict
     return {
         "overall_score": assessment_result.overall_score,
         "completeness_score": assessment_result.completeness_score,
         "quality_score": assessment_result.quality_score,
-        "grade": assessment_result.grade,
+        "grade": grade,
         "findings": [
             {
                 "category": f.category.value,
@@ -134,7 +147,7 @@ async def assess_llmstxt(
             }
             for f in assessment_result.findings
         ],
-        "recommendations": assessment_result.top_recommendations,
+        "recommendations": assessment_result.recommendations,
         "sections": [
             {
                 "name": s.name,
@@ -142,7 +155,7 @@ async def assess_llmstxt(
                 "quality": s.quality,
                 "issues": s.issues,
             }
-            for s in assessment_result.sections
+            for s in assessment_result.section_assessments
         ],
         "website_gaps": (
             {

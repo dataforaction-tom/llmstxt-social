@@ -232,12 +232,25 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
                 enrichment_data=enrichment_data,
             )
 
+            # Compute grade from overall score
+            score = assessment_result.overall_score
+            if score >= 90:
+                grade = "A"
+            elif score >= 80:
+                grade = "B"
+            elif score >= 70:
+                grade = "C"
+            elif score >= 60:
+                grade = "D"
+            else:
+                grade = "F"
+
             # Convert assessment to dict
             assessment = {
                 "overall_score": assessment_result.overall_score,
                 "completeness_score": assessment_result.completeness_score,
                 "quality_score": assessment_result.quality_score,
-                "grade": assessment_result.grade,
+                "grade": grade,
                 "findings": [
                     {
                         "category": f.category.value,
@@ -247,7 +260,7 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
                     }
                     for f in assessment_result.findings
                 ],
-                "recommendations": assessment_result.top_recommendations,
+                "recommendations": assessment_result.recommendations,
             }
 
             # Complete
