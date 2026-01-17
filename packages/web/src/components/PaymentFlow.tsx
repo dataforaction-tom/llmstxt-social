@@ -24,10 +24,17 @@ interface PaymentFlowProps {
 export default function PaymentFlow({ url, template, sector, goal, userEmail, onSuccess, onCancel }: PaymentFlowProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState(userEmail || '');
 
   // Create payment intent on mount
   const paymentMutation = useMutation({
-    mutationFn: () => apiClient.createPaymentIntent({ url, template, sector, goal, customer_email: userEmail }),
+    mutationFn: () => apiClient.createPaymentIntent({
+      url,
+      template,
+      sector,
+      goal,
+      customer_email: (userEmail || email) || undefined,
+    }),
     onSuccess: (data) => {
       setClientSecret(data.client_secret);
     },
@@ -37,8 +44,10 @@ export default function PaymentFlow({ url, template, sector, goal, userEmail, on
   });
 
   useEffect(() => {
-    paymentMutation.mutate();
-  }, []);
+    if (userEmail || email) {
+      paymentMutation.mutate();
+    }
+  }, [userEmail, email]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -64,6 +73,23 @@ export default function PaymentFlow({ url, template, sector, goal, userEmail, on
             One-time payment - Valid for 30 days
           </p>
         </div>
+
+        {!userEmail && (
+          <div className="mb-6">
+            <label htmlFor="email" className="label">
+              Email for receipt and dashboard access
+            </label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="input"
+              required
+            />
+          </div>
+        )}
 
         {paymentMutation.isPending && (
           <div className="flex items-center justify-center py-8">

@@ -3,13 +3,15 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Loader2, Globe, Check, AlertCircle } from 'lucide-react';
 import apiClient from '../api/client';
 import type { Template } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function SubscribePage() {
+  const { user } = useAuth();
   const [url, setUrl] = useState('');
   const [template, setTemplate] = useState<Template>('charity');
   const [sector, setSector] = useState<string>('general');
   const [goal, setGoal] = useState<string>('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(user?.email || '');
 
   // Fetch template options (sectors/goals) when template changes
   const { data: templateOptions, isLoading: optionsLoading } = useQuery({
@@ -25,6 +27,12 @@ export default function SubscribePage() {
     }
   }, [templateOptions]);
 
+  useEffect(() => {
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user?.email]);
+
   const createSubscriptionMutation = useMutation({
     mutationFn: () =>
       apiClient.createSubscription({
@@ -32,7 +40,7 @@ export default function SubscribePage() {
         template,
         sector,
         goal,
-        email: email || undefined,
+        email: (email || user?.email) || undefined,
         success_url: `${window.location.origin}/dashboard?subscription=success`,
         cancel_url: `${window.location.origin}/subscribe?cancelled=true`,
       }),

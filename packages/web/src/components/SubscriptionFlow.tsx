@@ -8,14 +8,16 @@ interface SubscriptionFlowProps {
   url: string;
   template: Template;
   onCancel: () => void;
+  userEmail?: string;
 }
 
 export default function SubscriptionFlow({
   url,
   template,
   onCancel,
+  userEmail,
 }: SubscriptionFlowProps) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(userEmail || '');
 
   const createSubscriptionMutation = useMutation({
     mutationFn: () =>

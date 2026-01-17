@@ -112,6 +112,19 @@ async def generate_paid(
     sector = request.sector or DEFAULT_SECTOR
     goal = request.goal or get_default_goal(request.template)
 
+    # Link to user via payment metadata if not authenticated
+    if not user:
+        customer_email = payment_info.get("metadata", {}).get("customer_email")
+        if customer_email:
+            user_result = await db.execute(
+                select(User).where(User.email == customer_email.lower())
+            )
+            user = user_result.scalar_one_or_none()
+            if not user:
+                user = User(email=customer_email.lower())
+                db.add(user)
+                await db.flush()
+
     # Create job - link to user if authenticated
     job = GenerationJob(
         id=uuid.uuid4(),
