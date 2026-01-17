@@ -1,6 +1,7 @@
 """Application configuration using Pydantic settings."""
 
-from pydantic import field_validator
+import json
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -44,10 +45,7 @@ class Settings(BaseSettings):
     max_crawl_pages: int = 30
 
     # CORS
-    cors_origins: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",  # Vite default
-    ]
+    cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
     # Web build directory (served by FastAPI in single-VM deploys)
     web_dist_dir: str = "web/dist"
@@ -58,13 +56,20 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, value):
-        if isinstance(value, str):
-            items = [item.strip() for item in value.split(",") if item.strip()]
-            return items
-        return value
+    @property
+    def cors_origins_list(self) -> list[str]:
+        value = self.cors_origins.strip()
+        if not value:
+            return []
+        if value.startswith("["):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                return []
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+            return []
+        return [item.strip() for item in value.split(",") if item.strip()]
 
 
 # Global settings instance
