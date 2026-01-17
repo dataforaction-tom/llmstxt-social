@@ -1,0 +1,249 @@
+# llms.txt Generator
+
+> AI-ready documentation generator for the social sector
+
+Generate spec-compliant llms.txt files for charities, foundations, public sector organisations, and social enterprises. Make your organisation discoverable by AI assistants.
+
+## About
+
+llms.txt Generator is a service that creates standardised documentation files following the llms.txt specification. These files help AI systems understand and accurately describe organisations in the social sector.
+
+The llms.txt specification provides a standard way for organisations to describe themselves in a format optimised for large language models. By placing an llms.txt file at the root of your website, AI assistants can quickly understand your organisation's purpose, services, and key information.
+
+### Why llms.txt?
+
+As AI assistants become more prevalent, organisations need a way to ensure they are accurately represented in AI-generated responses. Traditional SEO optimises for search engines, but llms.txt optimises for AI comprehension.
+
+Benefits include:
+- Accurate AI representations of your organisation
+- Consistent information across different AI systems
+- Structured data that AI can parse efficiently
+- Control over what information AI systems prioritise
+
+## Pages
+
+- [Home](/): Main landing page featuring an overview of the service, key features, available templates, and call-to-action for generation
+- [Generate](/generate): The generation interface where users can enter their website URL, select a template, and generate their llms.txt file. Supports both free (basic) and paid (with assessment) options
+- [Pricing](/pricing): Detailed pricing information for all three tiers (Free, Paid, Subscription) with feature comparison and FAQ section
+- [Login](/login): Magic link authentication - enter your email to receive a secure login link
+- [Dashboard](/dashboard): Protected page for authenticated users to manage their monitoring subscriptions, view monitoring history, see change detection results, and download generated llms.txt files
+
+## Features in Detail
+
+### AI-Discoverable Format
+Your organisation becomes easy for AI assistants like ChatGPT, Claude, and others to understand and accurately recommend. The structured format ensures consistent representation across different AI systems.
+
+### Spec Compliance
+All generated files follow the official llms.txt specification, ensuring maximum compatibility with AI systems that support the standard. The format includes proper markdown structure, section organisation, and metadata.
+
+### Quality Assessment (Paid)
+Our AI-powered assessment system analyses your generated llms.txt file for:
+- Completeness: Are all recommended sections present?
+- Clarity: Is the information easy to parse and understand?
+- Accuracy: Does the content match your actual website?
+- Specificity: Is there enough detail to be useful?
+- Compliance: Does it follow the specification correctly?
+
+Each assessment provides an overall grade (A-F) and detailed findings with recommendations.
+
+### Data Enrichment (Paid)
+Automatic integration with official data sources:
+- **Charity Commission**: Registration details, financial information, trustees, activities
+- **360Giving**: Grant history, funding received, grant amounts
+
+This enrichment adds verified, authoritative data to your llms.txt file.
+
+### Monitoring (Subscription)
+Automated monthly checks of your website:
+- Regenerates your llms.txt based on current website content
+- Compares with previous version to detect changes
+- Sends email notification when significant changes are detected
+- Maintains full history of all versions for comparison
+
+## Templates
+
+### Charity Template
+Designed for UK charities and VCSE (Voluntary, Community and Social Enterprise) organisations.
+
+Sections include:
+- Organisation name and registration number
+- Mission statement and description
+- Services provided to beneficiaries
+- Impact metrics and outcomes
+- Geographic coverage
+- Beneficiary demographics
+- How to get help / referral process
+- Volunteering opportunities
+- Donation information
+- Contact details
+
+### Funder Template
+Designed for foundations, trusts, and grant-making organisations.
+
+Sections include:
+- Organisation name and type
+- Funding priorities and themes
+- Geographic focus
+- Types of grants available
+- Typical grant sizes
+- Eligibility criteria
+- Application process and deadlines
+- What you fund / don't fund
+- Contact for enquiries
+
+### Public Sector Template
+Designed for local authorities, NHS trusts, and government bodies.
+
+Sections include:
+- Organisation name and type
+- Services organised by category
+- Eligibility criteria for services
+- How to access services
+- Opening hours and locations
+- Online services available
+- Emergency contacts
+- Complaints process
+
+### Startup Template
+Designed for social enterprises and impact-focused startups.
+
+Sections include:
+- Company name and description
+- Products or services
+- Target customers
+- Social impact mission
+- Business model
+- Team and leadership
+- Investors and funding
+- Contact information
+
+## API Reference
+
+### Authentication
+The API uses session-based authentication via magic links for user-specific endpoints (subscriptions, dashboard).
+
+Public endpoints (free generation, job status) do not require authentication but may be rate-limited by IP address.
+
+### Endpoints
+
+#### POST /api/generate/free
+Generate a basic llms.txt file (free tier).
+
+Request body:
+```json
+{
+  "url": "https://example-charity.org.uk",
+  "template": "charity"
+}
+```
+
+Template options: `charity`, `funder`, `public_sector`, `startup`
+
+Response (202 Accepted):
+```json
+{
+  "id": "uuid",
+  "url": "https://example-charity.org.uk",
+  "template": "charity",
+  "tier": "free",
+  "status": "pending",
+  "created_at": "2024-01-15T10:00:00Z",
+  "expires_at": "2024-01-22T10:00:00Z"
+}
+```
+
+Rate limit: 10 requests per day per IP address.
+
+#### POST /api/generate/paid
+Generate llms.txt with full assessment (paid tier).
+
+Requires valid Stripe payment intent.
+
+Request body:
+```json
+{
+  "url": "https://example-charity.org.uk",
+  "template": "charity",
+  "payment_intent_id": "pi_xxx"
+}
+```
+
+Response: Same as free tier, with `tier: "paid"` and 30-day expiry.
+
+#### GET /api/jobs/{job_id}
+Check generation status and retrieve results.
+
+Response when completed:
+```json
+{
+  "id": "uuid",
+  "url": "https://example-charity.org.uk",
+  "template": "charity",
+  "tier": "paid",
+  "status": "completed",
+  "llms_txt": "# Example Charity\n\n> ...",
+  "assessment": {
+    "overall_grade": "B",
+    "scores": {
+      "completeness": 85,
+      "clarity": 90,
+      "accuracy": 80,
+      "specificity": 75
+    },
+    "findings": [...],
+    "recommendations": [...]
+  },
+  "created_at": "2024-01-15T10:00:00Z",
+  "completed_at": "2024-01-15T10:02:30Z",
+  "expires_at": "2024-02-14T10:00:00Z"
+}
+```
+
+Status values: `pending`, `processing`, `completed`, `failed`
+
+#### POST /api/subscriptions
+Create a monitoring subscription (authenticated).
+
+Returns Stripe Checkout URL for payment.
+
+#### GET /api/subscriptions
+List user's subscriptions (authenticated).
+
+#### GET /api/subscriptions/{id}/history
+Get monitoring history for a subscription (authenticated).
+
+### Payment Flow
+
+1. Create payment intent via POST /api/payment/create-intent
+2. Complete payment using Stripe Elements on frontend
+3. Submit to POST /api/generate/paid with payment_intent_id
+4. Poll GET /api/jobs/{id} until status is "completed"
+
+## Technology Stack
+
+### Frontend
+- **React 18**: Modern React with hooks and functional components
+- **TypeScript**: Full type safety across the codebase
+- **Tailwind CSS**: Utility-first styling with custom design tokens
+- **Vite**: Fast development server and optimised production builds
+- **React Query**: Data fetching with caching and automatic refetching
+- **React Router**: Client-side routing with protected routes
+
+### Backend
+- **Python 3.11+**: Modern Python with type hints
+- **FastAPI**: High-performance async API framework
+- **SQLAlchemy 2.0**: Async ORM with PostgreSQL
+- **Celery**: Distributed task queue for background processing
+- **Redis**: Task queue broker and result backend
+
+### Infrastructure
+- **PostgreSQL**: Primary database for all application data
+- **Docker**: Containerised deployment
+- **Stripe**: Payment processing for one-time and subscription payments
+- **Resend**: Transactional email for magic links and notifications
+
+## Contact
+
+For technical support, feature requests, or bug reports, please visit our GitHub repository.
+
+For business enquiries about enterprise features or custom integrations, use the contact form on the website.
