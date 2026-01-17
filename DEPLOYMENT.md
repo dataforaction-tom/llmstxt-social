@@ -7,6 +7,7 @@ This guide covers deploying the llmstxt-social SaaS platform (API + Web frontend
 - [Architecture Overview](#architecture-overview)
 - [Prerequisites](#prerequisites)
 - [Local Development](#local-development)
+- [Single-VM Docker (Recommended)](#single-vm-docker-recommended)
 - [Railway Deployment](#railway-deployment)
 - [DigitalOcean Deployment](#digitalocean-deployment)
 - [Self-Hosted VPS](#self-hosted-vps)
@@ -80,6 +81,105 @@ docker-compose exec api alembic upgrade head
 - **Web Frontend**: http://localhost:3000
 - **API Docs**: http://localhost:8000/docs
 - **API Health**: http://localhost:8000/health
+
+---
+
+## Single-VM Docker (Recommended)
+
+This is the simplest reliable production setup: one VM running all services
+(API + web UI + worker + beat + Postgres + Redis) via Docker Compose.
+
+### 1. Provision a VM
+
+- **Minimum:** 2GB RAM, 1 vCPU, 25GB SSD
+- **Recommended:** 4GB RAM, 2 vCPU, 50GB SSD
+- **OS:** Ubuntu 22.04 LTS
+
+### 2. Install Docker
+
+```bash
+sudo apt update && sudo apt upgrade -y
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+sudo apt install docker-compose-plugin -y
+```
+
+### 3. Configure Environment
+
+```bash
+git clone https://github.com/dataforaction-tom/llmstxt-social.git
+cd llmstxt-social
+cp .env.example .env
+```
+
+Edit `.env` and set at least:
+
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_MONITORING_PRICE_ID=price_...
+VITE_STRIPE_PUBLIC_KEY=pk_live_...
+RESEND_API_KEY=re_...
+SECRET_KEY=your-random-64-character-string
+POSTGRES_PASSWORD=your-db-password
+BASE_URL=https://yourdomain.com
+FRONTEND_URL=https://yourdomain.com
+CORS_ORIGINS=https://yourdomain.com
+```
+
+Optional templates/scripts:
+
+- `.env.production.example` for a minimal paid-tier config.
+- `deploy/scripts/check-env.sh` to validate required keys before deploy.
+- `deploy/scripts/setup-vm.sh yourdomain.com` to install Docker/Caddy, copy the repo to `/opt/llmstxt-social`, and start the systemd unit.
+- `deploy/scripts/update-stack.sh` to pull, rebuild, migrate, and restart the stack.
+
+### 4. Run the Stack
+
+```bash
+docker compose -f docker-compose.single.yml up -d --build
+./deploy/scripts/check-env.sh .env
+docker compose -f docker-compose.single.yml exec api alembic upgrade head
+```
+
+### 5. Add a Reverse Proxy (Recommended)
+
+Run Caddy on the VM to expose port 80/443 with automatic HTTPS and proxy to `localhost:8000`.
+This single domain serves both the API and the web UI.
+
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy
+```
+
+Copy `deploy/caddy/Caddyfile` to `/etc/caddy/Caddyfile` and set your domain:
+
+```bash
+sudo cp deploy/caddy/Caddyfile /etc/caddy/Caddyfile
+sudo sed -i 's/yourdomain.com/yourdomain.com/' /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+### 6. Verify
+
+```bash
+curl https://yourdomain.com/health
+open https://yourdomain.com
+```
+
+### Optional: Run via systemd
+
+```bash
+sudo mkdir -p /opt/llmstxt-social
+sudo rsync -a ./ /opt/llmstxt-social/
+sudo cp deploy/systemd/llmstxt.service /etc/systemd/system/llmstxt.service
+sudo systemctl daemon-reload
+sudo systemctl enable llmstxt.service
+sudo systemctl start llmstxt.service
+```
 
 ---
 

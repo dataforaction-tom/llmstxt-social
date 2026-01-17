@@ -6,9 +6,18 @@ from sqlalchemy.orm import DeclarativeBase
 from llmstxt_api.config import settings
 
 
+def normalize_database_url(database_url: str) -> str:
+    """Normalize database URL for async SQLAlchemy."""
+    if database_url.startswith("postgres://"):
+        return database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    if database_url.startswith("postgresql://") and "+asyncpg" not in database_url:
+        return database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return database_url
+
+
 # Create async engine
 engine = create_async_engine(
-    settings.database_url,
+    normalize_database_url(settings.database_url),
     echo=settings.environment == "development",
     pool_pre_ping=True,
     pool_size=5,
