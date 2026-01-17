@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
     # Web build directory (served by FastAPI in single-VM deploys)
-    web_dist_dir: str = "web/dist"
+    web_dist_dir: str = "/app/web/dist"
 
     model_config = SettingsConfigDict(
         env_file=".env",
