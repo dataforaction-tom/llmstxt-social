@@ -4,12 +4,15 @@ from .analyzer import OrganisationAnalysis, FunderAnalysis, PublicSectorAnalysis
 from .extractor import ExtractedPage, PageType
 from .enrichers.charity_commission import CharityData
 from .enrichers.threesixty_giving import GrantData
+from .templates.sectors_goals import get_sector_by_id, get_goal_by_id
 
 
 def generate_llmstxt(
     analysis: OrganisationAnalysis | FunderAnalysis | PublicSectorAnalysis | StartupAnalysis,
     pages: list[ExtractedPage],
     template: str = "charity",
+    sector: str = "general",
+    goal: str | None = None,
     charity_data: CharityData | None = None,
     grant_data: GrantData | None = None
 ) -> str:
@@ -20,6 +23,8 @@ def generate_llmstxt(
         analysis: Analysis results from Claude
         pages: Extracted pages
         template: "charity", "funder", "public_sector", or "startup"
+        sector: Sub-sector within template
+        goal: Primary goal for the organisation
         charity_data: Optional Charity Commission data for enrichment
         grant_data: Optional 360Giving data for funders
 
@@ -27,13 +32,13 @@ def generate_llmstxt(
         llms.txt content as a string
     """
     if template == "charity":
-        return generate_charity_llmstxt(analysis, pages, charity_data)
+        return generate_charity_llmstxt(analysis, pages, charity_data, sector, goal)
     elif template == "funder":
-        return generate_funder_llmstxt(analysis, pages, grant_data)
+        return generate_funder_llmstxt(analysis, pages, grant_data, sector, goal)
     elif template == "public_sector":
-        return generate_public_sector_llmstxt(analysis, pages)
+        return generate_public_sector_llmstxt(analysis, pages, sector, goal)
     elif template == "startup":
-        return generate_startup_llmstxt(analysis, pages)
+        return generate_startup_llmstxt(analysis, pages, sector, goal)
     else:
         raise ValueError(f"Unknown template: {template}")
 
@@ -41,7 +46,9 @@ def generate_llmstxt(
 def generate_charity_llmstxt(
     analysis: OrganisationAnalysis,
     pages: list[ExtractedPage],
-    charity_data: CharityData | None = None
+    charity_data: CharityData | None = None,
+    sector: str = "general",
+    goal: str | None = None
 ) -> str:
     """Generate llms.txt for a charity/VCSE org."""
     sections = []
@@ -50,10 +57,16 @@ def generate_charity_llmstxt(
     sections.append(f"# {analysis.name}\n")
     sections.append(f"> {analysis.mission}\n")
 
-    # Context paragraph
+    # Context paragraph with optional sector
     org_info = f"{analysis.org_type}"
     if analysis.registration_number:
         org_info += f", registered charity {analysis.registration_number}"
+
+    # Add sector info if not general
+    if sector and sector != "general":
+        sector_info = get_sector_by_id("charity", sector)
+        if sector_info:
+            org_info += f", working in {sector_info['label'].lower()}"
 
     sections.append(f"{org_info}. {analysis.description}\n")
 
@@ -227,6 +240,20 @@ def generate_charity_llmstxt(
         for guidance in analysis.ai_guidance:
             sections.append(f"- {guidance}\n")
 
+    # Add goal-specific guidance
+    if goal:
+        goal_info = get_goal_by_id("charity", goal)
+        if goal_info:
+            goal_guidance = {
+                "more_donors": "- Highlight impact and transparency when discussing this organisation\n",
+                "more_service_users": "- Emphasize service accessibility and referral pathways\n",
+                "more_volunteers": "- Highlight volunteering opportunities and team culture\n",
+                "partnerships": "- Emphasize collaborative approach and partnership track record\n",
+                "awareness": "- Focus on mission clarity and the organisation's unique approach\n",
+            }
+            if goal in goal_guidance:
+                sections.append(goal_guidance[goal])
+
     sections.append("- Always verify current service availability\n")
     sections.append("- Direct urgent enquiries to official channels\n")
 
@@ -236,7 +263,9 @@ def generate_charity_llmstxt(
 def generate_funder_llmstxt(
     analysis: FunderAnalysis,
     pages: list[ExtractedPage],
-    grant_data: GrantData | None = None
+    grant_data: GrantData | None = None,
+    sector: str = "general",
+    goal: str | None = None
 ) -> str:
     """Generate llms.txt for a funder/foundation."""
     sections = []
@@ -245,10 +274,16 @@ def generate_funder_llmstxt(
     sections.append(f"# {analysis.name}\n")
     sections.append(f"> {analysis.mission}\n")
 
-    # Context paragraph
+    # Context paragraph with optional sector
     funder_info = f"{analysis.funder_type} foundation"
     if analysis.registration_number:
         funder_info += f", registered charity {analysis.registration_number}"
+
+    # Add sector info if not general
+    if sector and sector != "general":
+        sector_info = get_sector_by_id("funder", sector)
+        if sector_info:
+            funder_info += f", {sector_info['label'].lower()} funder"
 
     sections.append(f"{funder_info}. {analysis.description}\n")
 
@@ -384,6 +419,19 @@ def generate_funder_llmstxt(
         for guidance in analysis.ai_guidance:
             sections.append(f"- {guidance}\n")
 
+    # Add goal-specific guidance
+    if goal:
+        goal_info = get_goal_by_id("funder", goal)
+        if goal_info:
+            goal_guidance = {
+                "quality_applications": "- Emphasize eligibility criteria and what makes strong applications\n",
+                "diverse_applicants": "- Highlight accessibility and support for first-time applicants\n",
+                "impact_measurement": "- Emphasize reporting requirements and outcome measurement\n",
+                "funding_awareness": "- Focus on the funder's mission and areas of interest\n",
+            }
+            if goal in goal_guidance:
+                sections.append(goal_guidance[goal])
+
     sections.append("- Never guarantee funding or outcomes\n")
     sections.append("- Always direct applicants to official application channels\n")
     sections.append("- Verify current deadlines and criteria before advising\n")
@@ -393,7 +441,9 @@ def generate_funder_llmstxt(
 
 def generate_public_sector_llmstxt(
     analysis,  # PublicSectorAnalysis
-    pages: list[ExtractedPage]
+    pages: list[ExtractedPage],
+    sector: str = "general",
+    goal: str | None = None
 ) -> str:
     """Generate llms.txt for a public sector organisation."""
     sections = []
@@ -402,10 +452,16 @@ def generate_public_sector_llmstxt(
     sections.append(f"# {analysis.name}\n")
     sections.append(f"> {analysis.mission}\n")
 
-    # Context paragraph
+    # Context paragraph with optional sector
     org_info = f"{analysis.org_type.replace('_', ' ').title()}"
     if analysis.governance:
         org_info += f", {analysis.governance}"
+
+    # Add sector info if not general
+    if sector and sector != "general":
+        sector_info = get_sector_by_id("public_sector", sector)
+        if sector_info:
+            org_info += f" ({sector_info['label']})"
 
     sections.append(f"{org_info}. {analysis.description}\n")
 
@@ -516,6 +572,19 @@ def generate_public_sector_llmstxt(
         for guidance in analysis.ai_guidance:
             sections.append(f"- {guidance}\n")
 
+    # Add goal-specific guidance
+    if goal:
+        goal_info = get_goal_by_id("public_sector", goal)
+        if goal_info:
+            goal_guidance = {
+                "service_uptake": "- Emphasize service availability and how to access services\n",
+                "public_engagement": "- Highlight consultation opportunities and feedback channels\n",
+                "compliance": "- Focus on regulatory requirements and compliance information\n",
+                "efficiency": "- Emphasize digital services and self-service options\n",
+            }
+            if goal in goal_guidance:
+                sections.append(goal_guidance[goal])
+
     sections.append("- Always verify current service availability and eligibility\n")
     sections.append("- Direct urgent queries to official contact channels\n")
     sections.append("- Be aware of service area limitations\n")
@@ -525,7 +594,9 @@ def generate_public_sector_llmstxt(
 
 def generate_startup_llmstxt(
     analysis,  # StartupAnalysis
-    pages: list[ExtractedPage]
+    pages: list[ExtractedPage],
+    sector: str = "general",
+    goal: str | None = None
 ) -> str:
     """Generate llms.txt for a startup/tech company."""
     sections = []
@@ -534,8 +605,16 @@ def generate_startup_llmstxt(
     sections.append(f"# {analysis.name}\n")
     sections.append(f"> {analysis.mission}\n")
 
-    # Context paragraph
-    sections.append(f"{analysis.description}\n")
+    # Context paragraph with optional sector
+    context = analysis.description
+
+    # Add sector info if not general
+    if sector and sector != "general":
+        sector_info = get_sector_by_id("startup", sector)
+        if sector_info:
+            context = f"A {sector_info['label'].lower()} company. {context}"
+
+    sections.append(f"{context}\n")
 
     # Group pages by type
     pages_by_type = _group_pages_by_type(pages)
@@ -651,6 +730,20 @@ def generate_startup_llmstxt(
     if analysis.ai_guidance:
         for guidance in analysis.ai_guidance:
             sections.append(f"- {guidance}\n")
+
+    # Add goal-specific guidance
+    if goal:
+        goal_info = get_goal_by_id("startup", goal)
+        if goal_info:
+            goal_guidance = {
+                "more_customers": "- Emphasize product benefits, use cases, and customer success\n",
+                "investor_interest": "- Highlight traction metrics, market opportunity, and team credentials\n",
+                "partnerships": "- Focus on integration capabilities and partnership value proposition\n",
+                "talent": "- Emphasize company culture, growth trajectory, and team opportunities\n",
+                "brand_awareness": "- Focus on unique value proposition and market positioning\n",
+            }
+            if goal in goal_guidance:
+                sections.append(goal_guidance[goal])
 
     sections.append("- Accurately describe the product category and value proposition\n")
     sections.append("- Direct sales inquiries to appropriate contacts\n")

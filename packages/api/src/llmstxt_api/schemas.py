@@ -18,6 +18,14 @@ class GenerateRequest(BaseModel):
         description="Template type: charity, funder, public_sector, or startup",
         pattern="^(charity|funder|public_sector|startup)$",
     )
+    sector: str | None = Field(
+        None,
+        description="Sub-sector within template (e.g., 'housing', 'mental_health'). Defaults to 'general'",
+    )
+    goal: str | None = Field(
+        None,
+        description="Primary goal for the organisation (e.g., 'more_donors', 'more_customers')",
+    )
 
 
 class GeneratePaidRequest(GenerateRequest):
@@ -33,6 +41,8 @@ class JobResponse(BaseModel):
     status: str = Field(..., description="Job status: pending, processing, completed, or failed")
     url: str = Field(..., description="URL being processed")
     template: str = Field(..., description="Template type")
+    sector: str | None = Field(None, description="Sub-sector within template")
+    goal: str | None = Field(None, description="Primary goal")
     tier: str = Field(..., description="Tier: free, paid, or subscription")
     created_at: datetime = Field(..., description="Job creation timestamp")
     completed_at: datetime | None = Field(None, description="Job completion timestamp")
@@ -47,6 +57,9 @@ class JobResponse(BaseModel):
     # Output (only available when completed)
     llmstxt_content: str | None = Field(None, description="Generated llms.txt content")
     assessment_json: dict | None = Field(None, description="Assessment results (paid tier only)")
+
+    # User feedback
+    dismissed_findings: list[int] | None = Field(None, description="Indices of findings marked as not relevant")
 
     # Error (only available when failed)
     error_message: str | None = Field(None, description="Error message if job failed")
@@ -78,6 +91,15 @@ class CreatePaymentIntentRequest(BaseModel):
         description="Template type",
         pattern="^(charity|funder|public_sector|startup)$",
     )
+    sector: str | None = Field(
+        None,
+        description="Sub-sector within template. Defaults to 'general'",
+    )
+    goal: str | None = Field(
+        None,
+        description="Primary goal for the organisation",
+    )
+    customer_email: str | None = Field(None, description="Customer email for linking to account")
 
 
 class CreatePaymentIntentResponse(BaseModel):
@@ -106,6 +128,23 @@ class AssessRequest(BaseModel):
     template: str | None = Field(
         None, description="Template type (auto-detected if not specified)"
     )
+
+
+class DismissFindingsRequest(BaseModel):
+    """Request to dismiss findings and recalculate score."""
+
+    dismissed_indices: list[int] = Field(..., description="Indices of findings to dismiss as not relevant")
+
+
+class RecalculatedScoreResponse(BaseModel):
+    """Response with recalculated assessment scores."""
+
+    overall_score: int = Field(..., description="Recalculated overall score (0-100)")
+    completeness_score: int = Field(..., description="Completeness score (unchanged)")
+    quality_score: int = Field(..., description="Recalculated quality score (0-100)")
+    grade: str = Field(..., description="Recalculated letter grade")
+    dismissed_count: int = Field(..., description="Number of findings dismissed")
+    remaining_findings: list[dict] = Field(..., description="Findings after dismissals")
 
 
 class AssessResponse(BaseModel):
@@ -181,6 +220,14 @@ class SubscriptionCreate(BaseModel):
         description="Template type",
         pattern="^(charity|funder|public_sector|startup)$",
     )
+    sector: str | None = Field(
+        None,
+        description="Sub-sector within template. Defaults to 'general'",
+    )
+    goal: str | None = Field(
+        None,
+        description="Primary goal for the organisation",
+    )
     email: str | None = Field(None, description="Customer email for checkout")
     success_url: str = Field(..., description="Redirect URL on successful payment")
     cancel_url: str = Field(..., description="Redirect URL on cancelled payment")
@@ -192,6 +239,8 @@ class SubscriptionResponse(BaseModel):
     id: UUID
     url: str
     template: str
+    sector: str | None = None
+    goal: str | None = None
     frequency: str
     active: bool
     last_check: datetime | None
@@ -220,6 +269,7 @@ class MonitoringHistoryResponse(BaseModel):
     llmstxt_content: str | None = None
     assessment_json: dict | None = None
     notification_sent: bool
+    dismissed_findings: list[int] | None = None
 
     class Config:
         from_attributes = True
@@ -234,3 +284,31 @@ class HealthResponse(BaseModel):
     status: str = Field(default="healthy", description="API status")
     version: str = Field(..., description="API version")
     environment: str = Field(..., description="Environment: development, staging, production")
+
+
+# === Template Options Schemas ===
+
+
+class SectorOptionSchema(BaseModel):
+    """A sector option for a template."""
+
+    id: str = Field(..., description="Sector ID")
+    label: str = Field(..., description="Display label")
+    description: str = Field(..., description="Description of the sector")
+
+
+class GoalOptionSchema(BaseModel):
+    """A goal option for a template."""
+
+    id: str = Field(..., description="Goal ID")
+    label: str = Field(..., description="Display label")
+
+
+class TemplateOptionsResponse(BaseModel):
+    """Available sectors and goals for a template type."""
+
+    template: str = Field(..., description="Template type")
+    sectors: list[SectorOptionSchema] = Field(..., description="Available sectors")
+    goals: list[GoalOptionSchema] = Field(..., description="Available goals")
+    default_sector: str = Field(..., description="Default sector ID")
+    default_goal: str = Field(..., description="Default goal ID")

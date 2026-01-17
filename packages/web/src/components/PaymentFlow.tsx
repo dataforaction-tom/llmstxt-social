@@ -14,17 +14,20 @@ const stripePromise = loadStripe(
 interface PaymentFlowProps {
   url: string;
   template: Template;
+  sector?: string;
+  goal?: string;
+  userEmail?: string;
   onSuccess: (paymentIntentId: string) => void;
   onCancel: () => void;
 }
 
-export default function PaymentFlow({ url, template, onSuccess, onCancel }: PaymentFlowProps) {
+export default function PaymentFlow({ url, template, sector, goal, userEmail, onSuccess, onCancel }: PaymentFlowProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Create payment intent on mount
   const paymentMutation = useMutation({
-    mutationFn: () => apiClient.createPaymentIntent({ url, template }),
+    mutationFn: () => apiClient.createPaymentIntent({ url, template, sector, goal, customer_email: userEmail }),
     onSuccess: (data) => {
       setClientSecret(data.client_secret);
     },

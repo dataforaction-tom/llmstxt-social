@@ -16,6 +16,8 @@ from llmstxt_api.config import settings
 async def generate_llmstxt_from_url(
     url: str,
     template: str = "charity",
+    sector: str = "general",
+    goal: str | None = None,
     max_pages: int = None,
 ) -> str:
     """
@@ -24,6 +26,8 @@ async def generate_llmstxt_from_url(
     Args:
         url: Website URL to crawl
         template: Template type (charity, funder, public_sector, startup)
+        sector: Sub-sector within template
+        goal: Primary goal for the organisation
         max_pages: Maximum pages to crawl (defaults to settings)
 
     Returns:
@@ -39,10 +43,10 @@ async def generate_llmstxt_from_url(
     pages = [extract_content(page) for page in crawl_result.pages]
 
     # Analyze with Claude
-    analysis = await analyze_organisation(pages, template, api_key=settings.anthropic_api_key)
+    analysis = await analyze_organisation(pages, template, sector=sector, goal=goal, api_key=settings.anthropic_api_key)
 
     # Generate llms.txt
-    llmstxt_content = generate_llmstxt(analysis, pages, template)
+    llmstxt_content = generate_llmstxt(analysis, pages, template, sector=sector, goal=goal)
 
     return llmstxt_content
 
@@ -50,6 +54,8 @@ async def generate_llmstxt_from_url(
 async def generate_with_enrichment(
     url: str,
     template: str = "charity",
+    sector: str = "general",
+    goal: str | None = None,
     max_pages: int = None,
 ) -> tuple[str, dict | None]:
     """
@@ -58,6 +64,8 @@ async def generate_with_enrichment(
     Args:
         url: Website URL to crawl
         template: Template type
+        sector: Sub-sector within template
+        goal: Primary goal for the organisation
         max_pages: Maximum pages to crawl
 
     Returns:
@@ -83,10 +91,10 @@ async def generate_with_enrichment(
             )
 
     # Analyze with Claude
-    analysis = await analyze_organisation(pages, template, api_key=settings.anthropic_api_key)
+    analysis = await analyze_organisation(pages, template, sector=sector, goal=goal, api_key=settings.anthropic_api_key)
 
     # Generate llms.txt
-    llmstxt_content = generate_llmstxt(analysis, pages, template)
+    llmstxt_content = generate_llmstxt(analysis, pages, template, sector=sector, goal=goal)
 
     return llmstxt_content, enrichment_data
 
@@ -96,6 +104,8 @@ async def assess_llmstxt(
     template: str,
     website_url: str | None = None,
     enrichment_data: dict | None = None,
+    sector: str = "general",
+    goal: str | None = None,
 ) -> dict:
     """
     Assess llms.txt quality.
@@ -105,6 +115,8 @@ async def assess_llmstxt(
         template: Template type
         website_url: Optional website URL for context
         enrichment_data: Optional enrichment data
+        sector: Sub-sector within template
+        goal: Primary goal for the organisation
 
     Returns:
         Assessment results as dict
@@ -117,6 +129,8 @@ async def assess_llmstxt(
         llmstxt_content=llmstxt_content,
         website_url=website_url,
         enrichment_data=enrichment_data,
+        sector=sector,
+        goal=goal,
     )
 
     # Compute grade from overall score
@@ -160,8 +174,8 @@ async def assess_llmstxt(
         "website_gaps": (
             {
                 "missing_page_types": assessment_result.website_gaps.missing_page_types,
-                "has_sitemap": assessment_result.website_gaps.has_sitemap,
-                "crawl_coverage": assessment_result.website_gaps.crawl_coverage,
+                "has_sitemap": assessment_result.website_gaps.sitemap_detected,
+                "suggested_pages": assessment_result.website_gaps.suggested_pages,
             }
             if assessment_result.website_gaps
             else None

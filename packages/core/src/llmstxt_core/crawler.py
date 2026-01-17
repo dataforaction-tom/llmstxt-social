@@ -81,16 +81,21 @@ class WebCrawler:
                 urls_to_crawl = await self._discover_urls(client, url, base_url)
 
             # Step 4: Fetch each page
+            print(f"URLs to crawl: {len(urls_to_crawl)}")
             for page_url in urls_to_crawl[:self.max_pages]:
                 if len(result.pages) >= self.max_pages:
                     break
 
                 if not self._can_fetch(page_url):
+                    print(f"  Skipping (robots.txt): {page_url}")
                     continue
 
                 page = await self._fetch_page(client, page_url)
                 if page:
                     result.pages.append(page)
+                    print(f"  Fetched: {page_url} ({len(page.html)} bytes)")
+                else:
+                    print(f"  Failed to fetch: {page_url}")
 
                 # Rate limiting
                 await asyncio.sleep(self.rate_limit)
@@ -123,23 +128,52 @@ class WebCrawler:
             try:
                 response = await client.get(sitemap_url)
                 if response.status_code == 200:
-                    return self._parse_sitemap(response.text)
+                    return await self._parse_sitemap(client, response.text)
             except Exception:
                 continue
 
         return []
 
-    def _parse_sitemap(self, sitemap_xml: str) -> list[str]:
-        """Parse sitemap XML and extract URLs."""
+    async def _parse_sitemap(self, client: httpx.AsyncClient, sitemap_xml: str) -> list[str]:
+        """Parse sitemap XML and extract URLs. Handles sitemap index files recursively."""
         urls = []
+        sub_sitemaps = []
         soup = BeautifulSoup(sitemap_xml, "lxml-xml")
 
-        # Handle regular sitemap
-        for loc in soup.find_all("loc"):
-            url = loc.text.strip()
-            # Skip non-HTML resources
-            if not any(url.endswith(ext) for ext in [".pdf", ".jpg", ".png", ".gif", ".css", ".js"]):
+        # Check for sitemap index (contains <sitemap> elements)
+        for sitemap in soup.find_all("sitemap"):
+            loc = sitemap.find("loc")
+            if loc:
+                sub_sitemaps.append(loc.text.strip())
+
+        # If this is a sitemap index, recursively fetch sub-sitemaps
+        if sub_sitemaps:
+            print(f"  Found sitemap index with {len(sub_sitemaps)} sub-sitemaps")
+            for sub_url in sub_sitemaps:
+                try:
+                    print(f"    Fetching sub-sitemap: {sub_url}")
+                    response = await client.get(sub_url)
+                    if response.status_code == 200:
+                        sub_urls = await self._parse_sitemap(client, response.text)
+                        urls.extend(sub_urls)
+                except Exception as e:
+                    print(f"    Error fetching sub-sitemap {sub_url}: {e}")
+                    continue
+        else:
+            # Regular sitemap - extract URLs
+            for loc in soup.find_all("loc"):
+                url = loc.text.strip()
+                # Skip non-HTML resources, XML files, and external image hosts
+                if any(url.endswith(ext) for ext in [".pdf", ".jpg", ".png", ".gif", ".css", ".js", ".xml"]):
+                    continue
+                # Skip common image hosting domains
+                if any(domain in url for domain in ["images.unsplash.com", "cdn.pixabay.com", "cloudinary.com", "imgur.com"]):
+                    continue
                 urls.append(url)
+
+        print(f"  Parsed sitemap: found {len(urls)} page URLs")
+        if urls:
+            print(f"  First few URLs: {urls[:5]}")
 
         return urls
 
@@ -219,6 +253,11 @@ class WebCrawler:
             # Only process successful HTML responses
             content_type = response.headers.get("content-type", "")
             if "text/html" not in content_type:
+                print(f"    Non-HTML content-type: {content_type} for {url}")
+                return None
+
+            if response.status_code != 200:
+                print(f"    Non-200 status: {response.status_code} for {url}")
                 return None
 
             soup = BeautifulSoup(response.text, "lxml")
@@ -241,7 +280,8 @@ class WebCrawler:
                 status_code=response.status_code
             )
 
-        except Exception:
+        except Exception as e:
+            print(f"    Exception fetching {url}: {e}")
             return None
 
 

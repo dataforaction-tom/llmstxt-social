@@ -14,6 +14,8 @@ from llmstxt_api.database import get_db
 from llmstxt_api.models import GenerationJob, Subscription, User
 from llmstxt_api.schemas import CreatePaymentIntentRequest, CreatePaymentIntentResponse
 from llmstxt_api.tasks.generate import generate_paid_task
+from llmstxt_api.tasks.monitor import check_subscription_task
+from llmstxt_core.templates import DEFAULT_SECTOR, get_default_goal
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -33,15 +35,26 @@ async def create_payment_intent(request: CreatePaymentIntentRequest):
         # Calculate amount (could vary by template in future)
         amount = 900  # £9.00 in pence for one-time assessment
 
+        # Apply defaults for sector and goal
+        sector = request.sector or DEFAULT_SECTOR
+        goal = request.goal or get_default_goal(request.template)
+
+        # Build metadata
+        metadata = {
+            "url": str(request.url),
+            "template": request.template,
+            "sector": sector,
+            "goal": goal,
+            "tier": "paid",
+        }
+        if request.customer_email:
+            metadata["customer_email"] = request.customer_email.lower()
+
         # Create payment intent
         intent = stripe.PaymentIntent.create(
             amount=amount,
             currency="gbp",
-            metadata={
-                "url": str(request.url),
-                "template": request.template,
-                "tier": "paid",
-            },
+            metadata=metadata,
             automatic_payment_methods={"enabled": True},
         )
 
@@ -118,22 +131,51 @@ async def handle_payment_intent_succeeded(payment_intent, db: AsyncSession):
             GenerationJob.payment_intent_id == payment_intent_id
         )
     )
-    if existing.scalar_one_or_none():
+    existing_job = existing.scalar_one_or_none()
+    if existing_job:
+        # If job exists but has no user, try to link user by email from payment
+        if not existing_job.user_id:
+            customer_email = metadata.get("customer_email")
+            if customer_email:
+                user_result = await db.execute(
+                    select(User).where(User.email == customer_email.lower())
+                )
+                user = user_result.scalar_one_or_none()
+                if user:
+                    existing_job.user_id = user.id
+                    await db.commit()
+                    logger.info(f"Linked job {existing_job.id} to user {user.email}")
         logger.info(f"Job already exists for payment {payment_intent_id}")
         return
 
     # Create job from webhook if metadata contains url and template
     url = metadata.get("url")
     template = metadata.get("template")
+    sector = metadata.get("sector", DEFAULT_SECTOR)
+    goal = metadata.get("goal") or get_default_goal(template) if template else None
+    customer_email = metadata.get("customer_email")
 
     if not url or not template:
         logger.warning(f"Payment {payment_intent_id} missing url/template metadata")
         return
 
+    # Find user by email if provided
+    user_id = None
+    if customer_email:
+        user_result = await db.execute(
+            select(User).where(User.email == customer_email.lower())
+        )
+        user = user_result.scalar_one_or_none()
+        if user:
+            user_id = user.id
+
     job = GenerationJob(
         id=uuid.uuid4(),
+        user_id=user_id,
         url=url,
         template=template,
+        sector=sector,
+        goal=goal,
         tier="paid",
         status="pending",
         payment_intent_id=payment_intent_id,
@@ -145,7 +187,7 @@ async def handle_payment_intent_succeeded(payment_intent, db: AsyncSession):
     await db.commit()
 
     # Queue background task
-    generate_paid_task.delay(str(job.id), url, template)
+    generate_paid_task.delay(str(job.id), url, template, sector, goal)
     logger.info(f"Created job {job.id} from webhook for payment {payment_intent_id}")
 
 
@@ -171,6 +213,8 @@ async def handle_checkout_session_completed(session, db: AsyncSession):
 
     url = metadata.get("url")
     template = metadata.get("template", "charity")
+    sector = metadata.get("sector", DEFAULT_SECTOR)
+    goal = metadata.get("goal") or get_default_goal(template)
 
     if not url:
         logger.warning(f"Checkout session {session.id} missing url metadata")
@@ -200,6 +244,8 @@ async def handle_checkout_session_completed(session, db: AsyncSession):
         user_id=user.id,
         url=url,
         template=template,
+        sector=sector,
+        goal=goal,
         frequency="monthly",
         active=True,
         stripe_subscription_id=subscription_id,
@@ -209,6 +255,10 @@ async def handle_checkout_session_completed(session, db: AsyncSession):
     await db.commit()
 
     logger.info(f"Created subscription {subscription.id} for {url} (user: {user.email})")
+
+    # Trigger initial monitoring check immediately so user has something in their dashboard
+    check_subscription_task.delay(str(subscription.id))
+    logger.info(f"Queued initial monitoring check for subscription {subscription.id}")
 
 
 async def handle_subscription_updated(stripe_subscription, db: AsyncSession):

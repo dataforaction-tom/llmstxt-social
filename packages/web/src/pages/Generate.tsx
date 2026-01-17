@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Download, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import apiClient from '../api/client';
@@ -6,17 +6,35 @@ import type { Template, Job } from '../types';
 import AssessmentDisplay from '../components/AssessmentDisplay';
 import PaymentFlow from '../components/PaymentFlow';
 import ProgressIndicator from '../components/ProgressIndicator';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function GeneratePage() {
+  const { user } = useAuth();
   const [url, setUrl] = useState('');
   const [template, setTemplate] = useState<Template>('charity');
+  const [sector, setSector] = useState<string>('general');
+  const [goal, setGoal] = useState<string>('');
   const [tier, setTier] = useState<'free' | 'paid'>('free');
   const [jobId, setJobId] = useState<string | null>(null);
   const [showPayment, setShowPayment] = useState(false);
 
+  // Fetch template options (sectors/goals) when template changes
+  const { data: templateOptions, isLoading: optionsLoading } = useQuery({
+    queryKey: ['templateOptions', template],
+    queryFn: () => apiClient.getTemplateOptions(template),
+  });
+
+  // Reset sector/goal to defaults when template changes
+  useEffect(() => {
+    if (templateOptions) {
+      setSector(templateOptions.default_sector);
+      setGoal(templateOptions.default_goal);
+    }
+  }, [templateOptions]);
+
   // Mutation for free generation
   const generateMutation = useMutation({
-    mutationFn: () => apiClient.generateFree({ url, template }),
+    mutationFn: () => apiClient.generateFree({ url, template, sector, goal }),
     onSuccess: (data) => {
       setJobId(data.job_id);
     },
@@ -47,7 +65,7 @@ export default function GeneratePage() {
   };
 
   const handlePaymentSuccess = (paymentIntentId: string) => {
-    apiClient.generatePaid({ url, template, payment_intent_id: paymentIntentId })
+    apiClient.generatePaid({ url, template, sector, goal, payment_intent_id: paymentIntentId })
       .then((data) => {
         setJobId(data.job_id);
         setShowPayment(false);
@@ -116,39 +134,91 @@ export default function GeneratePage() {
               </select>
             </div>
 
-            {/* Tier Selection */}
+            {/* Sector Selection */}
             <div>
-              <label className="label">Tier</label>
-              <div className="grid grid-cols-2 gap-4">
+              <label htmlFor="sector" className="label">
+                Sector
+              </label>
+              <select
+                id="sector"
+                value={sector}
+                onChange={(e) => setSector(e.target.value)}
+                className="input"
+                disabled={optionsLoading}
+              >
+                {templateOptions?.sectors.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              {templateOptions?.sectors.find(s => s.id === sector)?.description && (
+                <p className="text-sm text-gray-500 mt-1">
+                  {templateOptions.sectors.find(s => s.id === sector)?.description}
+                </p>
+              )}
+            </div>
+
+            {/* Goal Selection */}
+            <div>
+              <label htmlFor="goal" className="label">
+                Primary Goal
+              </label>
+              <select
+                id="goal"
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                className="input"
+                disabled={optionsLoading}
+              >
+                {templateOptions?.goals.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-sm text-gray-500 mt-1">
+                This helps us tune the generation and assessment to your needs
+              </p>
+            </div>
+
+            {/* Tier Selection */}
+            <fieldset>
+              <legend className="label">Tier</legend>
+              <div className="grid grid-cols-2 gap-4" role="radiogroup" aria-label="Select pricing tier">
                 <button
                   type="button"
                   onClick={() => setTier('free')}
-                  className={`p-4 border-2 rounded-lg transition-colors ${
+                  role="radio"
+                  aria-checked={tier === 'free'}
+                  className={`p-4 border-2 rounded-lg transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
                     tier === 'free'
                       ? 'border-primary-600 bg-primary-50'
                       : 'border-gray-300 hover:border-gray-400'
                   }`}
                 >
-                  <h3 className="font-semibold mb-1">Free</h3>
-                  <p className="text-sm text-gray-600">Basic generation</p>
-                  <p className="text-xs text-gray-500 mt-2">10/day limit</p>
+                  <span className="font-semibold mb-1 block">Free</span>
+                  <span className="text-sm text-gray-600 block">Basic generation</span>
+                  <span className="text-xs text-gray-500 mt-2 block">10/day limit</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setTier('paid')}
-                  className={`p-4 border-2 rounded-lg transition-colors ${
+                  role="radio"
+                  aria-checked={tier === 'paid'}
+                  className={`p-4 border-2 rounded-lg transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
                     tier === 'paid'
                       ? 'border-primary-600 bg-primary-50'
                       : 'border-gray-300 hover:border-gray-400'
                   }`}
                 >
-                  <h3 className="font-semibold mb-1">Paid - £9</h3>
-                  <p className="text-sm text-gray-600">Full assessment</p>
-                  <p className="text-xs text-gray-500 mt-2">+ enrichment data</p>
+                  <span className="font-semibold mb-1 block">Paid - £9</span>
+                  <span className="text-sm text-gray-600 block">Full assessment</span>
+                  <span className="text-xs text-gray-500 mt-2 block">+ enrichment data</span>
                 </button>
               </div>
-            </div>
+            </fieldset>
 
             {/* Submit Button */}
             <button
@@ -173,6 +243,9 @@ export default function GeneratePage() {
           <PaymentFlow
             url={url}
             template={template}
+            sector={sector}
+            goal={goal}
+            userEmail={user?.email}
             onSuccess={handlePaymentSuccess}
             onCancel={() => setShowPayment(false)}
           />
@@ -180,7 +253,15 @@ export default function GeneratePage() {
 
         {/* Job Progress */}
         {job && (
-          <div className="space-y-6">
+          <div className="space-y-6" role="region" aria-label="Generation progress">
+            {/* Status announcement for screen readers */}
+            <div className="sr-only" aria-live="polite" aria-atomic="true">
+              {job.status === 'completed' && 'Generation complete. Your llms.txt file is ready.'}
+              {job.status === 'failed' && `Generation failed. ${job.error_message || 'An error occurred.'}`}
+              {job.status === 'processing' && 'Processing your request...'}
+              {job.status === 'pending' && 'Your request is queued...'}
+            </div>
+
             {/* Status Card */}
             <div className="card">
               <div className="flex items-center justify-between mb-4">

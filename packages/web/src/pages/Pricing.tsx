@@ -14,7 +14,7 @@ export default function PricingPage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto" role="list" aria-label="Pricing tiers">
           {/* Free Tier */}
           <PricingCard
             name="Free"
@@ -138,13 +138,15 @@ function PricingCard({
   comingSoon,
 }: PricingCardProps) {
   return (
-    <div
+    <article
+      role="listitem"
+      aria-label={`${name} tier - ${price}${period ? ` per ${period}` : ''}`}
       className={`bg-white rounded-2xl shadow-lg overflow-hidden ${
         highlighted ? 'ring-2 ring-primary-600 scale-105' : ''
       }`}
     >
       {highlighted && (
-        <div className="bg-primary-600 text-white text-center py-2 text-sm font-semibold">
+        <div className="bg-primary-600 text-white text-center py-2 text-sm font-semibold" aria-label="Most popular tier">
           Most Popular
         </div>
       )}
@@ -158,34 +160,34 @@ function PricingCard({
           {period && <span className="text-gray-600 ml-2">/ {period}</span>}
         </div>
 
-        <ul className="space-y-3 mb-8">
+        <ul className="space-y-3 mb-8" aria-label={`${name} tier features`}>
           {features.map((feature, idx) => (
             <li key={idx} className="flex items-start gap-3">
-              <Check className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
+              <Check className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
               <span className="text-gray-700">{feature}</span>
             </li>
           ))}
         </ul>
 
         {comingSoon ? (
-          <button disabled className="btn btn-secondary w-full opacity-50 cursor-not-allowed">
+          <button disabled className="btn btn-secondary w-full opacity-50 cursor-not-allowed" aria-disabled="true">
             {cta}
           </button>
         ) : (
-          <Link to={ctaLink} className={`btn ${highlighted ? 'btn-primary' : 'btn-outline'} w-full block text-center`}>
+          <Link to={ctaLink} className={`btn ${highlighted ? 'btn-primary' : 'btn-outline'} w-full block text-center focus:ring-2 focus:ring-primary-500 focus:ring-offset-2`}>
             {cta}
           </Link>
         )}
       </div>
-    </div>
+    </article>
   );
 }
 
 function FAQItem({ question, answer }: { question: string; answer: string }) {
   return (
-    <div className="bg-white rounded-lg p-6 shadow-sm">
+    <article className="bg-white rounded-lg p-6 shadow-sm">
       <h3 className="text-lg font-semibold text-gray-900 mb-2">{question}</h3>
       <p className="text-gray-600">{answer}</p>
-    </div>
+    </article>
   );
 }

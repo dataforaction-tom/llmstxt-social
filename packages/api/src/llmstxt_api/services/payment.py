@@ -71,6 +71,8 @@ async def create_checkout_session(
     template: str,
     success_url: str,
     cancel_url: str,
+    sector: str = "general",
+    goal: str | None = None,
     customer_email: str | None = None,
 ) -> dict:
     """
@@ -81,6 +83,8 @@ async def create_checkout_session(
         template: The template type (charity, funder, etc.)
         success_url: URL to redirect to on success
         cancel_url: URL to redirect to on cancel
+        sector: Sub-sector within template
+        goal: Primary goal for the organisation
         customer_email: Optional customer email
 
     Returns:
@@ -90,6 +94,14 @@ async def create_checkout_session(
         raise PaymentError("Subscription pricing not configured")
 
     try:
+        metadata = {
+            "url": url,
+            "template": template,
+            "sector": sector,
+        }
+        if goal:
+            metadata["goal"] = goal
+
         session_params = {
             "mode": "subscription",
             "line_items": [{
@@ -98,15 +110,9 @@ async def create_checkout_session(
             }],
             "success_url": success_url,
             "cancel_url": cancel_url,
-            "metadata": {
-                "url": url,
-                "template": template,
-            },
+            "metadata": metadata,
             "subscription_data": {
-                "metadata": {
-                    "url": url,
-                    "template": template,
-                },
+                "metadata": metadata,
             },
         }
 

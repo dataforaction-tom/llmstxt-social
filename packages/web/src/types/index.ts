@@ -8,9 +8,32 @@ export type Tier = 'free' | 'paid' | 'subscription';
 
 export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
+// Sector and Goal types
+export interface SectorOption {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface GoalOption {
+  id: string;
+  label: string;
+}
+
+export interface TemplateOptions {
+  template: Template;
+  sectors: SectorOption[];
+  goals: GoalOption[];
+  default_sector: string;
+  default_goal: string;
+}
+
 export interface GenerateRequest {
   url: string;
   template: Template;
+  sector?: string;
+  goal?: string;
+  customer_email?: string;
 }
 
 export interface GeneratePaidRequest extends GenerateRequest {
@@ -24,6 +47,8 @@ export interface Job {
   status: JobStatus;
   url: string;
   template: Template;
+  sector?: string;
+  goal?: string;
   tier: Tier;
   created_at: string;
   completed_at?: string;
@@ -67,6 +92,7 @@ export interface SectionAssessment {
 export interface WebsiteGaps {
   missing_page_types: string[];
   has_sitemap: boolean;
+  suggested_pages?: string[];
   crawl_coverage?: number;
 }
 
@@ -87,6 +113,8 @@ export interface Subscription {
   id: string;
   url: string;
   template: Template;
+  sector?: string;
+  goal?: string;
   frequency: 'weekly' | 'monthly';
   active: boolean;
   last_check?: string;
@@ -98,6 +126,8 @@ export interface Subscription {
 export interface SubscriptionCreateRequest {
   url: string;
   template: Template;
+  sector?: string;
+  goal?: string;
   email?: string;
   success_url: string;
   cancel_url: string;
@@ -139,4 +169,18 @@ export interface AuthCheckResponse {
 export interface MagicLinkResponse {
   message: string;
   email: string;
+}
+
+// Dismiss findings types
+export interface DismissFindingsRequest {
+  dismissed_indices: number[];
+}
+
+export interface RecalculatedScoreResponse {
+  overall_score: number;
+  completeness_score: number;
+  quality_score: number;
+  grade: string;
+  dismissed_count: number;
+  remaining_findings: AssessmentFinding[];
 }

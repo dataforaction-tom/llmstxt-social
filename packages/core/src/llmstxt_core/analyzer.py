@@ -7,6 +7,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from .extractor import ExtractedPage
+from .templates.sectors_goals import get_sector_by_id, get_goal_by_id
 
 # Load environment variables
 load_dotenv()
@@ -220,6 +221,8 @@ Focus on information that would help customers understand the product and invest
 async def analyze_organisation(
     pages: list[ExtractedPage],
     template: str = "charity",
+    sector: str = "general",
+    goal: str | None = None,
     model: str = "claude-sonnet-4-20250514",
     api_key: str | None = None
 ) -> OrganisationAnalysis | FunderAnalysis | PublicSectorAnalysis | StartupAnalysis:
@@ -229,6 +232,8 @@ async def analyze_organisation(
     Args:
         pages: List of extracted pages from the website
         template: "charity", "funder", "public_sector", or "startup"
+        sector: Sub-sector within template (e.g., "housing", "mental_health")
+        goal: Primary goal (e.g., "more_donors", "more_customers")
         model: Claude model to use
         api_key: Anthropic API key (or will use env var)
 
@@ -244,7 +249,7 @@ async def analyze_organisation(
     # Prepare the content for Claude
     content = _prepare_content(pages)
 
-    # Choose system prompt
+    # Choose base system prompt
     prompt_map = {
         "charity": CHARITY_SYSTEM_PROMPT,
         "funder": FUNDER_SYSTEM_PROMPT,
@@ -252,6 +257,27 @@ async def analyze_organisation(
         "startup": STARTUP_SYSTEM_PROMPT
     }
     system_prompt = prompt_map.get(template, CHARITY_SYSTEM_PROMPT)
+
+    # Add sector context if not "general"
+    if sector and sector != "general":
+        sector_info = get_sector_by_id(template, sector)
+        if sector_info:
+            system_prompt += f"""
+
+SECTOR CONTEXT: This is a {sector_info['label']} organisation. Pay special attention to:
+- Sector-specific terminology and services relevant to {sector_info['description'].lower()}
+- Common stakeholders and beneficiaries in this sector
+- Typical services and programmes offered by {sector_info['label'].lower()} organisations"""
+
+    # Add goal context
+    if goal:
+        goal_info = get_goal_by_id(template, goal)
+        if goal_info:
+            system_prompt += f"""
+
+PRIMARY GOAL CONTEXT: This organisation wants to {goal_info['label'].lower()}.
+{goal_info['prompt_context']}
+Ensure the extracted information supports this goal and helps the llms.txt file be most useful for this purpose."""
 
     # Call Claude API
     client = Anthropic(api_key=api_key)
@@ -350,6 +376,9 @@ async def analyze_organisation(
 
 def _prepare_content(pages: list[ExtractedPage]) -> str:
     """Prepare page content for Claude analysis."""
+    if not pages:
+        return "No pages were successfully crawled from this website. Please analyze based on any available context."
+
     content_parts = []
 
     # Group pages by type for better organization
@@ -365,7 +394,7 @@ def _prepare_content(pages: list[ExtractedPage]) -> str:
         content_parts.append(f"\n## {page_type.upper()} PAGES\n")
 
         for page in type_pages:
-            content_parts.append(f"\n### {page.title}\n")
+            content_parts.append(f"\n### {page.title or 'Untitled'}\n")
             content_parts.append(f"URL: {page.url}\n")
 
             if page.description:
@@ -375,11 +404,13 @@ def _prepare_content(pages: list[ExtractedPage]) -> str:
                 content_parts.append(f"Headings: {', '.join(page.headings[:5])}\n")
 
             # Include first 1500 chars of body text
-            body_snippet = page.body_text[:1500]
-            if len(page.body_text) > 1500:
+            body_text = page.body_text or ""
+            body_snippet = body_text[:1500]
+            if len(body_text) > 1500:
                 body_snippet += "..."
 
-            content_parts.append(f"Content: {body_snippet}\n")
+            if body_snippet.strip():
+                content_parts.append(f"Content: {body_snippet}\n")
 
             if page.contact_info:
                 content_parts.append(f"Contact info found: {page.contact_info}\n")
@@ -387,4 +418,9 @@ def _prepare_content(pages: list[ExtractedPage]) -> str:
             if page.charity_number:
                 content_parts.append(f"Charity number found: {page.charity_number}\n")
 
-    return "\n".join(content_parts)
+    result = "\n".join(content_parts)
+    # Ensure we never return empty content
+    if not result.strip():
+        return "No content could be extracted from the crawled pages. Please provide a basic analysis."
+
+    return result

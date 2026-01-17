@@ -10,6 +10,7 @@ from .validator import validate_llmstxt, ValidationLevel
 from .extractor import PageType, ExtractedPage
 from .crawler import CrawlResult
 from .enrichers.charity_commission import CharityData
+from .templates.sectors_goals import get_sector_by_id, get_goal_by_id
 
 
 class AssessmentCategory(Enum):
@@ -97,6 +98,19 @@ class AssessmentResult:
 
 class LLMSTxtAssessor:
     """Assesses llms.txt files for completeness and quality."""
+
+    # Section aliases - sections that are equivalent for assessment purposes
+    # Key is the canonical name, values are alternative names that count as the same
+    SECTION_ALIASES = {
+        "Get Help": ["Get Involved", "How to Help", "Take Action", "Support Us", "Ways to Help", "Join Us"],
+        "Get Involved": ["Get Help", "How to Help", "Take Action", "Support Us", "Ways to Help", "Join Us", "Volunteer"],
+        "Services": ["What We Do", "Our Work", "Our Services", "How We Help", "Our Programmes", "Programs"],
+        "About": ["About Us", "Who We Are", "Our Story", "Our Mission"],
+        "Impact": ["Our Impact", "Outcomes", "Results", "What We've Achieved", "Success Stories"],
+        "Projects": ["Our Projects", "Programmes", "Programs", "Initiatives", "What We Do"],
+        "For Funders": ["For Donors", "For Supporters", "Support Our Work", "Funding", "Partner With Us"],
+        "Contact": ["Contact Us", "Get in Touch", "Reach Us"],
+    }
 
     # Template definitions
     TEMPLATE_DEFINITIONS = {
@@ -189,12 +203,40 @@ class LLMSTxtAssessor:
         self.template_def = self.TEMPLATE_DEFINITIONS.get(template_type, self.TEMPLATE_DEFINITIONS["charity"])
         self.client = anthropic_client
 
+    def _find_section(self, section_name: str, parsed: dict) -> tuple[bool, str | None, str | None]:
+        """
+        Find a section by name, checking aliases.
+
+        Returns:
+            Tuple of (found, actual_section_name, content)
+        """
+        sections = parsed.get("sections", {})
+
+        # Direct match
+        if section_name in sections:
+            return True, section_name, sections[section_name]
+
+        # Check aliases
+        aliases = self.SECTION_ALIASES.get(section_name, [])
+        for alias in aliases:
+            if alias in sections:
+                return True, alias, sections[alias]
+
+        # Also check if this section_name is an alias of a canonical name
+        for canonical, alias_list in self.SECTION_ALIASES.items():
+            if section_name in alias_list and canonical in sections:
+                return True, canonical, sections[canonical]
+
+        return False, None, None
+
     async def assess(
         self,
         llmstxt_content: str,
         website_url: str | None = None,
         crawl_result: CrawlResult | None = None,
-        enrichment_data: CharityData | None = None
+        enrichment_data: CharityData | None = None,
+        sector: str = "general",
+        goal: str | None = None
     ) -> AssessmentResult:
         """
         Comprehensive assessment of llms.txt file.
@@ -204,6 +246,8 @@ class LLMSTxtAssessor:
             website_url: Optional website URL to compare against
             crawl_result: Optional crawl data for website gap analysis
             enrichment_data: Optional enrichment data for sizing
+            sector: Sub-sector within template (e.g., "housing", "mental_health")
+            goal: Primary goal (e.g., "more_donors", "more_customers")
 
         Returns:
             AssessmentResult with scores, findings, and recommendations
@@ -257,7 +301,7 @@ class LLMSTxtAssessor:
 
         # 7. AI-powered quality analysis
         if self.client:
-            quality_findings = await self._ai_quality_analysis(llmstxt_content, parsed)
+            quality_findings = await self._ai_quality_analysis(llmstxt_content, parsed, sector, goal)
             findings.extend(quality_findings)
 
         # 8. Calculate scores
@@ -339,15 +383,14 @@ class LLMSTxtAssessor:
         return findings
 
     def _assess_section(self, section_name: str, parsed: dict) -> SectionAssessment:
-        """Assess a specific section."""
-        present = section_name in parsed["sections"]
+        """Assess a specific section, checking aliases."""
+        found, actual_name, content = self._find_section(section_name, parsed)
         findings = []
 
-        if not present:
+        if not found:
             content_quality = 0.0
             completeness = 0.0
         else:
-            content = parsed["sections"][section_name]
             lines = [l.strip() for l in content.split('\n') if l.strip()]
 
             # Basic completeness check (has content)
@@ -373,7 +416,7 @@ class LLMSTxtAssessor:
 
         return SectionAssessment(
             section_name=section_name,
-            present=present,
+            present=found,
             content_quality=content_quality,
             completeness=completeness,
             findings=findings
@@ -405,9 +448,10 @@ class LLMSTxtAssessor:
         findings = []
         expectations = org_size.expectations
 
-        # Check required sections for size
+        # Check required sections for size (with alias support)
         for section in expectations["required"]:
-            if section not in parsed["sections"]:
+            found, actual_name, _ = self._find_section(section, parsed)
+            if not found:
                 findings.append(AssessmentFinding(
                     category=AssessmentCategory.SIZE_APPROPRIATE,
                     severity=IssueSeverity.MAJOR,
@@ -416,8 +460,9 @@ class LLMSTxtAssessor:
                     suggestion=f"Add '{section}' section - organizations of your size typically include this"
                 ))
 
-        # Check service count
-        services_content = parsed["sections"].get("Services", "")
+        # Check service count (with alias support)
+        found, _, services_content = self._find_section("Services", parsed)
+        services_content = services_content or ""
         service_count = len([l for l in services_content.split('\n') if l.strip().startswith('-')])
 
         if service_count < expectations["min_services"]:
@@ -515,41 +560,169 @@ class LLMSTxtAssessor:
 
         return findings
 
-    async def _ai_quality_analysis(self, llmstxt_content: str, parsed: dict) -> list[AssessmentFinding]:
-        """Use Claude to assess content quality."""
+    # Template-specific assessment criteria
+    TEMPLATE_ASSESSMENT_CRITERIA = {
+        "charity": """
+Focus on these charity-specific aspects:
+- Does it clearly describe who the charity helps (beneficiaries)?
+- Are services described in a way that helps potential service users find help?
+- Is there clear information for funders/donors?
+- Are impact/outcomes mentioned where relevant?
+- Is the charitable purpose clear?""",
+        "funder": """
+Focus on these funder-specific aspects:
+- Are funding priorities clearly stated?
+- Is eligibility criteria clear (who can/cannot apply)?
+- Is the application process explained?
+- Are grant sizes/ranges mentioned?
+- Would an applicant know if they're a good fit?""",
+        "public_sector": """
+Focus on these public sector-specific aspects:
+- Are services clearly described for residents/users?
+- Is it clear how to access each service?
+- Are eligibility requirements stated?
+- Is contact information comprehensive?
+- Are opening hours/availability mentioned where relevant?""",
+        "startup": """
+Focus on these startup-specific aspects:
+- Is the product/service clearly explained?
+- Is the value proposition clear?
+- Would a potential customer understand what problem it solves?
+- Is pricing or business model information included (if public)?
+- Is there information for potential investors (if seeking funding)?
+- Are target customers clearly identified?"""
+    }
 
-        QUALITY_ANALYSIS_PROMPT = f"""You are assessing the quality of an llms.txt file for a {self.template_type} organization.
+    # Sector-specific assessment criteria
+    SECTOR_ASSESSMENT_CRITERIA = {
+        "charity": {
+            "housing": "Is housing eligibility clear? Are referral pathways mentioned? Is crisis/emergency housing info present?",
+            "climate": "Are environmental outcomes quantified? Is the theory of change clear? Are partnerships mentioned?",
+            "young_people": "Is age range specified? Are safeguarding measures mentioned? Are activities/programmes clear?",
+            "older_people": "Are services accessible? Is support for carers mentioned? Are eligibility criteria clear?",
+            "mental_health": "Is crisis support info present? Are services clearly described? Is professional accreditation mentioned?",
+            "disability": "Is accessibility info clear? Are specific conditions/needs addressed? Is advocacy support mentioned?",
+            "education": "Are programmes clearly described? Is target age/level specified? Are outcomes measured?",
+            "arts_culture": "Are programmes accessible? Is community engagement described? Are participation opportunities clear?",
+            "animals": "Is the organisation's approach to animal welfare clear? Is geographic coverage mentioned? Are ways to get involved described?",
+            "international": "Are geographic focus areas clear? Are local partnerships mentioned? Is impact measurement robust?",
+        },
+        "startup": {
+            "technology_saas": "Is the technical value proposition clear? Are integrations mentioned? Is security/compliance addressed?",
+            "ai_ml": "Are AI capabilities clearly explained? Is the data approach mentioned? Are use cases specific?",
+            "b2b_services": "Are target industries specified? Is ROI/value proposition clear? Are case studies mentioned?",
+            "consumer": "Is the consumer benefit clear? Is pricing transparent? Is the user experience described?",
+            "health_medtech": "Are regulatory approvals mentioned? Is clinical evidence referenced? Is patient benefit clear?",
+            "fintech": "Is regulatory compliance mentioned? Is security addressed? Are financial benefits clear?",
+            "ecommerce": "Is the product range clear? Are delivery/returns mentioned? Is customer support addressed?",
+        },
+        "funder": {
+            "corporate": "Is the corporate giving focus clear? Are CSR priorities mentioned? Is employee engagement covered?",
+            "family": "Is the family's philanthropic mission clear? Are values/approach mentioned? Is the giving style described?",
+            "community": "Is geographic focus specific? Are local priorities clear? Is community voice mentioned?",
+            "government": "Are statutory requirements clear? Is compliance criteria mentioned? Are reporting requirements specified?",
+            "lottery": "Are distribution criteria clear? Is application process transparent? Are deadlines mentioned?",
+        },
+        "public_sector": {
+            "local_authority": "Are all council services covered? Is democratic accountability mentioned? Are service standards clear?",
+            "nhs_health": "Are patient pathways clear? Is referral information present? Are service eligibility criteria specified?",
+            "education": "Are admissions criteria clear? Is curriculum information present? Are support services mentioned?",
+            "transport": "Are routes/timetables referenced? Is accessibility info present? Are fare/pricing details clear?",
+            "housing": "Is allocation policy clear? Are eligibility criteria specified? Is the application process described?",
+        },
+    }
+
+    # Goal-specific assessment criteria
+    GOAL_ASSESSMENT_CRITERIA = {
+        "charity": {
+            "more_donors": "Is impact clearly demonstrated? Are donation options mentioned? Is financial transparency evident?",
+            "more_service_users": "Are services easy to find? Is referral process clear? Is eligibility accessible?",
+            "more_volunteers": "Are volunteer opportunities clear? Is commitment required specified? Is the volunteer journey described?",
+            "partnerships": "Are partnership types mentioned? Is collaborative approach evident? Are shared goals described?",
+            "awareness": "Is the mission compelling? Is unique value proposition clear? Are success stories included?",
+        },
+        "startup": {
+            "more_customers": "Is the problem/solution clear? Are benefits highlighted? Is pricing accessible?",
+            "investor_interest": "Are traction metrics present? Is market opportunity described? Is team credibility evident?",
+            "partnerships": "Are integration capabilities clear? Is partnership value proposition described? Are existing partners mentioned?",
+            "talent": "Is company culture described? Are growth opportunities clear? Is team information present?",
+            "brand_awareness": "Is positioning clear? Is differentiation evident? Is the brand story compelling?",
+        },
+        "funder": {
+            "quality_applications": "Is eligibility criteria comprehensive? Are strong application factors mentioned? Is process clear?",
+            "diverse_applicants": "Is accessibility info present? Is support for first-time applicants mentioned? Are barriers addressed?",
+            "impact_measurement": "Are outcome expectations clear? Is reporting process described? Are impact frameworks mentioned?",
+            "funding_awareness": "Is mission clearly stated? Are funding themes accessible? Is geographic scope clear?",
+        },
+        "public_sector": {
+            "service_uptake": "Are services easy to find? Is access information clear? Are eligibility criteria accessible?",
+            "public_engagement": "Are consultation opportunities mentioned? Is feedback mechanism described? Is transparency evident?",
+            "compliance": "Are regulatory requirements mentioned? Is reporting addressed? Are standards referenced?",
+            "efficiency": "Are digital services highlighted? Is self-service information present? Are process improvements mentioned?",
+        },
+    }
+
+    async def _ai_quality_analysis(self, llmstxt_content: str, parsed: dict, sector: str = "general", goal: str | None = None) -> list[AssessmentFinding]:
+        """Use Claude to assess content quality."""
+        # Skip AI analysis if content is empty or too short
+        if not llmstxt_content or len(llmstxt_content.strip()) < 50:
+            return []
+
+        template_criteria = self.TEMPLATE_ASSESSMENT_CRITERIA.get(
+            self.template_type,
+            self.TEMPLATE_ASSESSMENT_CRITERIA["charity"]
+        )
+
+        # Add sector-specific criteria
+        sector_criteria = ""
+        if sector and sector != "general":
+            sector_info = get_sector_by_id(self.template_type, sector)
+            if sector_info:
+                sector_specific = self.SECTOR_ASSESSMENT_CRITERIA.get(self.template_type, {}).get(sector, "")
+                if sector_specific:
+                    sector_criteria = f"\n\nSECTOR-SPECIFIC ({sector_info['label']}):\n{sector_specific}"
+
+        # Add goal-specific criteria
+        goal_criteria = ""
+        if goal:
+            goal_info = get_goal_by_id(self.template_type, goal)
+            if goal_info:
+                goal_specific = self.GOAL_ASSESSMENT_CRITERIA.get(self.template_type, {}).get(goal, "")
+                if goal_specific:
+                    goal_criteria = f"\n\nGOAL-SPECIFIC ({goal_info['label']}):\n{goal_specific}"
+
+        QUALITY_ANALYSIS_PROMPT = f"""You are assessing the quality of an llms.txt file for a {self.template_type}.
 
 llms.txt content:
 {llmstxt_content}
 
-Assess the quality on these dimensions:
+{template_criteria}{sector_criteria}{goal_criteria}
 
+Also assess general quality:
 1. **Clarity**: Are descriptions clear and understandable?
 2. **Usefulness**: Would this help AI systems represent the organization accurately?
 3. **Completeness**: Are descriptions sufficiently detailed?
 4. **Accuracy concerns**: Any red flags or inconsistencies?
-5. **Voice/tone**: Appropriate for the organization type?
 
 For each issue found, provide:
 - Which section has the issue
 - What the problem is
-- Why it matters
+- Why it matters for a {self.template_type}{f" in the {sector} sector" if sector != "general" else ""}{f" with goal of {goal}" if goal else ""}
 - How to fix it
 - Severity (critical/major/minor/info)
 
 Return as JSON array:
 [
   {{
-    "section": "Services",
+    "section": "Product/Services",
     "issue": "Descriptions are too vague",
-    "why_matters": "AI systems won't understand what services are actually offered",
-    "suggestion": "Add specific details about what each service involves",
+    "why_matters": "AI systems won't understand what the product actually does",
+    "suggestion": "Add specific details about features and use cases",
     "severity": "major"
   }}
 ]
 
-Only return the JSON array, no other text."""
+Only return the JSON array, no other text. Focus on issues relevant to a {self.template_type}{f" in the {sector} sector" if sector != "general" else ""}{f" with goal of {goal}" if goal else ""}."""
 
         try:
             message = self.client.messages.create(
@@ -642,13 +815,42 @@ Only return the JSON array, no other text."""
             "structure": round(structure_score, 1)
         }
 
+    # Template-specific default recommendations
+    TEMPLATE_RECOMMENDATIONS = {
+        "charity": [
+            "Ensure beneficiaries are clearly described so people know who you help",
+            "Add impact metrics to demonstrate outcomes",
+            "Include clear information for potential funders",
+            "Make sure service descriptions help people find the right support",
+        ],
+        "funder": [
+            "Clearly state funding priorities and themes",
+            "Include eligibility criteria so applicants can self-assess fit",
+            "Describe the application process and timeline",
+            "Mention typical grant sizes or ranges if possible",
+        ],
+        "public_sector": [
+            "Ensure each service has clear access information",
+            "Include eligibility criteria for services",
+            "Add comprehensive contact information including hours",
+            "Describe how residents can access support",
+        ],
+        "startup": [
+            "Clearly explain what problem your product solves",
+            "Define your target customers specifically",
+            "Include pricing information if publicly available",
+            "Add customer success stories or use cases",
+            "Include investor-relevant information if seeking funding",
+        ],
+    }
+
     def _generate_recommendations(
         self,
         findings: list[AssessmentFinding],
         website_gaps: WebsiteDataGaps | None,
         org_size: OrganizationSize | None
     ) -> list[str]:
-        """Generate actionable recommendations."""
+        """Generate actionable recommendations based on template type."""
         recommendations = []
 
         # Group findings by severity
@@ -657,37 +859,56 @@ Only return the JSON array, no other text."""
 
         # Priority 1: Critical issues
         if critical_findings:
-            recommendations.append(f"Fix {len(critical_findings)} critical issue(s): " + ", ".join(set(f.section or "structure" for f in critical_findings)))
+            missing_sections = set(f.section for f in critical_findings if f.section)
+            if missing_sections:
+                recommendations.append(f"Add required sections: " + ", ".join(missing_sections))
 
         # Priority 2: Major quality/completeness issues
         if major_findings:
-            major_by_category = {}
-            for f in major_findings:
-                cat = f.category.value
-                if cat not in major_by_category:
-                    major_by_category[cat] = []
-                major_by_category[cat].append(f)
+            quality_issues = [f for f in major_findings if f.category == AssessmentCategory.QUALITY]
+            completeness_issues = [f for f in major_findings if f.category == AssessmentCategory.COMPLETENESS]
 
-            for category, issues in major_by_category.items():
-                if category == "completeness":
-                    recommendations.append(f"Add missing sections: " + ", ".join(set(f.section for f in issues if f.section)))
-                elif category == "quality":
-                    recommendations.append(f"Improve content quality in: " + ", ".join(set(f.section for f in issues if f.section)))
+            if completeness_issues:
+                sections = set(f.section for f in completeness_issues if f.section)
+                if sections:
+                    recommendations.append(f"Expand content in: " + ", ".join(sections))
+
+            if quality_issues:
+                sections = set(f.section for f in quality_issues if f.section)
+                if sections:
+                    recommendations.append(f"Improve content quality in: " + ", ".join(sections))
 
         # Priority 3: Website improvements
         if website_gaps and website_gaps.suggested_pages:
-            recommendations.append("Website improvements: " + website_gaps.suggested_pages[0])
+            recommendations.append("Website: " + website_gaps.suggested_pages[0])
 
-        # Priority 4: Size-specific recommendations
-        if org_size:
+        # Priority 4: Template-specific recommendations
+        template_recs = self.TEMPLATE_RECOMMENDATIONS.get(self.template_type, [])
+
+        # Add template-specific recommendations that aren't already addressed
+        existing_sections = set(f.section for f in findings if f.section)
+        for rec in template_recs:
+            if len(recommendations) >= 4:
+                break
+            # Only add if not already covered by findings
+            if not any(section in rec.lower() for section in [s.lower() for s in existing_sections if s]):
+                recommendations.append(rec)
+
+        # Priority 5: Size-specific recommendations (charities only)
+        if org_size and self.template_type == "charity":
             if org_size.category in ["large", "major"]:
-                if not any("Impact" in str(f.section) for f in findings):
-                    pass  # Already has impact
-                else:
-                    recommendations.append("Add impact metrics and outcomes data (expected for organizations of your size)")
+                impact_issues = [f for f in findings if f.section and "Impact" in f.section]
+                if impact_issues:
+                    recommendations.append("Add detailed impact metrics and outcomes data (expected for organizations of your size)")
 
-        # If no recommendations, add generic one
+        # If no recommendations, add template-appropriate positive message
         if not recommendations:
-            recommendations.append("Your llms.txt file is in good shape! Consider adding more detail to existing sections.")
+            messages = {
+                "charity": "Your llms.txt is in good shape! Consider adding more impact metrics or beneficiary stories.",
+                "funder": "Your llms.txt is comprehensive! Consider adding examples of successful past grants.",
+                "public_sector": "Your llms.txt covers the essentials! Consider adding more service-specific details.",
+                "startup": "Your llms.txt is well-structured! Consider adding customer testimonials or case studies.",
+            }
+            recommendations.append(messages.get(self.template_type, "Your llms.txt file is in good shape!"))
 
         return recommendations[:5]  # Limit to top 5 recommendations

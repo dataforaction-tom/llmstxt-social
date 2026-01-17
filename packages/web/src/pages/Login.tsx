@@ -8,7 +8,7 @@ import { Mail, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
-  const { isAuthenticated, login, isLoading } = useAuth();
+  const { isAuthenticated, login } = useAuth();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -76,7 +76,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6" aria-label="Login form">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Email address
@@ -88,12 +88,19 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              aria-describedby={error ? 'email-error' : undefined}
+              aria-invalid={error ? 'true' : undefined}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:outline-none"
             />
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div
+              id="email-error"
+              role="alert"
+              aria-live="assertive"
+              className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"
+            >
               {error}
             </div>
           )}

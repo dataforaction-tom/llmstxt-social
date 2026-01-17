@@ -17,6 +17,9 @@ import type {
   AuthResponse,
   AuthCheckResponse,
   MagicLinkResponse,
+  TemplateOptions,
+  Template,
+  RecalculatedScoreResponse,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -49,6 +52,24 @@ export const apiClient = {
 
   getJob: async (jobId: string): Promise<Job> => {
     const { data } = await api.get(`/api/jobs/${jobId}`);
+    return data;
+  },
+
+  dismissFindings: async (jobId: string, dismissedIndices: number[]): Promise<RecalculatedScoreResponse> => {
+    const { data } = await api.post(`/api/jobs/${jobId}/dismiss-findings`, {
+      dismissed_indices: dismissedIndices,
+    });
+    return data;
+  },
+
+  listAssessments: async (): Promise<Job[]> => {
+    const { data } = await api.get('/api/assessments');
+    return data;
+  },
+
+  // Template options (sectors/goals)
+  getTemplateOptions: async (template: Template): Promise<TemplateOptions> => {
+    const { data } = await api.get(`/api/templates/${template}/options`);
     return data;
   },
 

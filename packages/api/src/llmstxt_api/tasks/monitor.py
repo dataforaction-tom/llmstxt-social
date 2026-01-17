@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from llmstxt_api.config import settings
-from llmstxt_api.models import Subscription, MonitoringHistory
+from llmstxt_api.models import Subscription, MonitoringHistory, User
 from llmstxt_api.tasks.celery import celery_app
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,8 @@ async def run_monitoring_check(subscription_id: str) -> dict:
             new_content, enrichment_data = await generate_with_enrichment(
                 url=subscription.url,
                 template=subscription.template,
+                sector=subscription.sector or "general",
+                goal=subscription.goal,
             )
 
             # Assess the generated content
@@ -56,6 +58,8 @@ async def run_monitoring_check(subscription_id: str) -> dict:
                 template=subscription.template,
                 website_url=subscription.url,
                 enrichment_data=enrichment_data,
+                sector=subscription.sector or "general",
+                goal=subscription.goal,
             )
 
             # Get previous monitoring entry
@@ -127,17 +131,56 @@ async def send_change_notification(
 
     resend.api_key = settings.resend_api_key
 
-    # For MVP, we don't have user email stored with subscription
-    # In production, would look up user email
-    logger.info(f"Would send change notification for subscription {subscription.id}")
+    # Look up user email from subscription
+    user_result = await db.execute(
+        select(User).where(User.id == subscription.user_id)
+    )
+    user = user_result.scalar_one_or_none()
 
-    # TODO: Implement email sending when user management is added
-    # resend.Emails.send({
-    #     "from": settings.from_email,
-    #     "to": [user_email],
-    #     "subject": f"llms.txt changed for {subscription.url}",
-    #     "html": f"<p>Your monitored website has updated content...</p>"
-    # })
+    if not user:
+        logger.warning(f"No user found for subscription {subscription.id}")
+        return
+
+    try:
+        # Format URL for display
+        try:
+            from urllib.parse import urlparse
+            domain = urlparse(subscription.url).netloc
+        except Exception:
+            domain = subscription.url
+
+        resend.Emails.send({
+            "from": settings.from_email,
+            "to": [user.email],
+            "subject": f"llms.txt updated for {domain}",
+            "html": f"""
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #6366f1;">llms.txt Changes Detected</h2>
+                    <p>We've detected changes in the llms.txt file for <strong>{domain}</strong>.</p>
+                    <p style="color: #666;">
+                        Your monitored website's content has changed since our last check.
+                        We've automatically regenerated your llms.txt file with the updated information.
+                    </p>
+                    <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
+                        <p style="margin: 0; font-size: 14px;"><strong>URL:</strong> {subscription.url}</p>
+                        <p style="margin: 8px 0 0 0; font-size: 14px;"><strong>Template:</strong> {subscription.template}</p>
+                        <p style="margin: 8px 0 0 0; font-size: 14px;"><strong>Checked:</strong> {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</p>
+                    </div>
+                    <a href="{settings.frontend_url}/dashboard"
+                       style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px;
+                              text-decoration: none; border-radius: 8px; margin: 16px 0;">
+                        View in Dashboard
+                    </a>
+                    <p style="color: #666; font-size: 14px; margin-top: 32px;">
+                        You're receiving this because you have an active monitoring subscription.
+                        You can manage your subscriptions in your <a href="{settings.frontend_url}/dashboard" style="color: #6366f1;">dashboard</a>.
+                    </p>
+                </div>
+            """,
+        })
+        logger.info(f"Sent change notification to {user.email} for subscription {subscription.id}")
+    except Exception as e:
+        logger.error(f"Failed to send notification email: {e}")
 
 
 @celery_app.task(name="monitor.check_subscription")

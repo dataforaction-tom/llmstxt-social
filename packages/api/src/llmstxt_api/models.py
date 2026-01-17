@@ -30,6 +30,8 @@ class GenerationJob(Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
     template: Mapped[str] = mapped_column(String(50), nullable=False)
+    sector: Mapped[str | None] = mapped_column(String(50), nullable=True, default="general")
+    goal: Mapped[str | None] = mapped_column(String(50), nullable=True)
     tier: Mapped[str] = mapped_column(String(20), nullable=False)  # 'free', 'paid', 'subscription'
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
@@ -44,6 +46,9 @@ class GenerationJob(Base):
     # Output
     llmstxt_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     assessment_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # User feedback - indices of findings dismissed as "not relevant"
+    dismissed_findings: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     # Error handling
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -74,6 +79,8 @@ class Subscription(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
     template: Mapped[str] = mapped_column(String(50), nullable=False)
+    sector: Mapped[str | None] = mapped_column(String(50), nullable=True, default="general")
+    goal: Mapped[str | None] = mapped_column(String(50), nullable=True)
     frequency: Mapped[str] = mapped_column(String(20), nullable=False)  # 'weekly', 'monthly'
 
     active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -99,6 +106,9 @@ class MonitoringHistory(Base):
     llmstxt_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     assessment_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     notification_sent: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # User feedback - indices of findings dismissed as "not relevant"
+    dismissed_findings: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
 
 class MagicLinkToken(Base):

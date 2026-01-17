@@ -22,6 +22,7 @@ from llmstxt_api.services.payment import (
     PaymentError,
 )
 from llmstxt_api.routes.auth import get_current_user, require_auth
+from llmstxt_core.templates import DEFAULT_SECTOR, get_default_goal
 
 router = APIRouter()
 
@@ -37,10 +38,16 @@ async def create_subscription(
     Initiates Stripe Checkout session for subscription payment.
     Returns checkout URL for frontend to redirect user to.
     """
+    # Apply defaults for sector and goal
+    sector = request.sector or DEFAULT_SECTOR
+    goal = request.goal or get_default_goal(request.template)
+
     try:
         checkout = await create_checkout_session(
             url=str(request.url),
             template=request.template,
+            sector=sector,
+            goal=goal,
             success_url=request.success_url,
             cancel_url=request.cancel_url,
             customer_email=request.email,

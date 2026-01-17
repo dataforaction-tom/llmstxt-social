@@ -34,7 +34,7 @@ async def update_job_progress(session_maker, job_id: uuid.UUID, **kwargs):
 
 
 @celery_app.task(name="generate_free_task", bind=True)
-def generate_free_task(self, job_id_str: str, url: str, template: str):
+def generate_free_task(self, job_id_str: str, url: str, template: str, sector: str = "general", goal: str | None = None):
     """
     Background task for free tier generation.
 
@@ -42,6 +42,8 @@ def generate_free_task(self, job_id_str: str, url: str, template: str):
         job_id_str: Job ID as string
         url: Website URL
         template: Template type
+        sector: Sub-sector within template
+        goal: Primary goal for the organisation
     """
     import asyncio
 
@@ -79,6 +81,16 @@ def generate_free_task(self, job_id_str: str, url: str, template: str):
 
             pages = [extract_content(page) for page in crawl_result.pages]
 
+            # Log extraction results for debugging
+            print(f"Extracted {len(pages)} pages:")
+            for p in pages:
+                print(f"  - {p.url}: {len(p.body_text)} chars, type={p.page_type.value}")
+
+            # Check if we have any usable content
+            total_content = sum(len(p.body_text) for p in pages)
+            if total_content == 0:
+                raise ValueError(f"No content could be extracted from {url}. The site may be JavaScript-rendered or blocking crawlers.")
+
             # Stage 3: Analyzing with AI
             await update_job_progress(
                 session_maker,
@@ -87,7 +99,7 @@ def generate_free_task(self, job_id_str: str, url: str, template: str):
                 progress_detail="Analyzing content with Claude AI",
             )
 
-            analysis = await analyze_organisation(pages, template, api_key=settings.anthropic_api_key)
+            analysis = await analyze_organisation(pages, template, sector=sector, goal=goal, api_key=settings.anthropic_api_key)
 
             # Stage 4: Generating llms.txt
             await update_job_progress(
@@ -97,7 +109,7 @@ def generate_free_task(self, job_id_str: str, url: str, template: str):
                 progress_detail="Generating llms.txt file",
             )
 
-            llmstxt_content = generate_llmstxt(analysis, pages, template)
+            llmstxt_content = generate_llmstxt(analysis, pages, template, sector=sector, goal=goal)
 
             # Complete
             await update_job_progress(
@@ -131,7 +143,7 @@ def generate_free_task(self, job_id_str: str, url: str, template: str):
 
 
 @celery_app.task(name="generate_paid_task", bind=True)
-def generate_paid_task(self, job_id_str: str, url: str, template: str):
+def generate_paid_task(self, job_id_str: str, url: str, template: str, sector: str = "general", goal: str | None = None):
     """
     Background task for paid tier generation.
 
@@ -141,6 +153,8 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
         job_id_str: Job ID as string
         url: Website URL
         template: Template type
+        sector: Sub-sector within template
+        goal: Primary goal for the organisation
     """
     import asyncio
     from anthropic import Anthropic
@@ -181,6 +195,16 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
 
             pages = [extract_content(page) for page in crawl_result.pages]
 
+            # Log extraction results for debugging
+            print(f"Extracted {len(pages)} pages:")
+            for p in pages:
+                print(f"  - {p.url}: {len(p.body_text)} chars, type={p.page_type.value}")
+
+            # Check if we have any usable content
+            total_content = sum(len(p.body_text) for p in pages)
+            if total_content == 0:
+                raise ValueError(f"No content could be extracted from {url}. The site may be JavaScript-rendered or blocking crawlers.")
+
             # Stage 3: Enrichment (for charities)
             enrichment_data = None
             if template == "charity" and settings.charity_commission_api_key:
@@ -204,7 +228,7 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
                 progress_detail="Analyzing content with Claude AI",
             )
 
-            analysis = await analyze_organisation(pages, template, api_key=settings.anthropic_api_key)
+            analysis = await analyze_organisation(pages, template, sector=sector, goal=goal, api_key=settings.anthropic_api_key)
 
             # Stage 5: Generating llms.txt
             await update_job_progress(
@@ -214,7 +238,7 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
                 progress_detail="Generating llms.txt file",
             )
 
-            llmstxt_content = generate_llmstxt(analysis, pages, template)
+            llmstxt_content = generate_llmstxt(analysis, pages, template, sector=sector, goal=goal)
 
             # Stage 6: Assessment
             await update_job_progress(
@@ -230,6 +254,8 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
                 llmstxt_content=llmstxt_content,
                 website_url=url,
                 enrichment_data=enrichment_data,
+                sector=sector,
+                goal=goal,
             )
 
             # Compute grade from overall score
@@ -273,8 +299,8 @@ def generate_paid_task(self, job_id_str: str, url: str, template: str):
                 "website_gaps": (
                     {
                         "missing_page_types": assessment_result.website_gaps.missing_page_types,
-                        "has_sitemap": assessment_result.website_gaps.has_sitemap,
-                        "crawl_coverage": assessment_result.website_gaps.crawl_coverage,
+                        "has_sitemap": assessment_result.website_gaps.sitemap_detected,
+                        "suggested_pages": assessment_result.website_gaps.suggested_pages,
                     }
                     if assessment_result.website_gaps
                     else None

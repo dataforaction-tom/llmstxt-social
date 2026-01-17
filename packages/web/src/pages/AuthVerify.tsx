@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, Navigate, Link } from 'react-router-dom';
-import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function AuthVerifyPage() {

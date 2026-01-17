@@ -1,21 +1,37 @@
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Loader2, Globe, Check, AlertCircle } from 'lucide-react';
 import apiClient from '../api/client';
 import type { Template } from '../types';
 
 export default function SubscribePage() {
-  const navigate = useNavigate();
   const [url, setUrl] = useState('');
   const [template, setTemplate] = useState<Template>('charity');
+  const [sector, setSector] = useState<string>('general');
+  const [goal, setGoal] = useState<string>('');
   const [email, setEmail] = useState('');
+
+  // Fetch template options (sectors/goals) when template changes
+  const { data: templateOptions, isLoading: optionsLoading } = useQuery({
+    queryKey: ['templateOptions', template],
+    queryFn: () => apiClient.getTemplateOptions(template),
+  });
+
+  // Reset sector/goal to defaults when template changes
+  useEffect(() => {
+    if (templateOptions) {
+      setSector(templateOptions.default_sector);
+      setGoal(templateOptions.default_goal);
+    }
+  }, [templateOptions]);
 
   const createSubscriptionMutation = useMutation({
     mutationFn: () =>
       apiClient.createSubscription({
         url,
         template,
+        sector,
+        goal,
         email: email || undefined,
         success_url: `${window.location.origin}/dashboard?subscription=success`,
         cancel_url: `${window.location.origin}/subscribe?cancelled=true`,
@@ -79,6 +95,49 @@ export default function SubscribePage() {
                   <option value="funder">Funder / Foundation</option>
                   <option value="public_sector">Public Sector</option>
                   <option value="startup">Startup / Social Enterprise</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="sector" className="label">
+                  Sector
+                </label>
+                <select
+                  id="sector"
+                  value={sector}
+                  onChange={(e) => setSector(e.target.value)}
+                  className="input"
+                  disabled={optionsLoading}
+                >
+                  {templateOptions?.sectors.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                {templateOptions?.sectors.find(s => s.id === sector)?.description && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {templateOptions.sectors.find(s => s.id === sector)?.description}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="goal" className="label">
+                  Primary Goal
+                </label>
+                <select
+                  id="goal"
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value)}
+                  className="input"
+                  disabled={optionsLoading}
+                >
+                  {templateOptions?.goals.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
