@@ -31,6 +31,7 @@ router = APIRouter()
 async def create_subscription(
     request: SubscriptionCreate,
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_current_user),
 ):
     """
     Create a new monitoring subscription.
@@ -43,6 +44,7 @@ async def create_subscription(
     goal = request.goal or get_default_goal(request.template)
 
     try:
+        customer_email = request.email or (user.email if user else None)
         checkout = await create_checkout_session(
             url=str(request.url),
             template=request.template,
@@ -50,7 +52,8 @@ async def create_subscription(
             goal=goal,
             success_url=request.success_url,
             cancel_url=request.cancel_url,
-            customer_email=request.email,
+            customer_email=customer_email,
+            user_email=user.email if user else None,
         )
 
         return CheckoutSessionResponse(

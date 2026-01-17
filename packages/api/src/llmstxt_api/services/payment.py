@@ -74,6 +74,7 @@ async def create_checkout_session(
     sector: str = "general",
     goal: str | None = None,
     customer_email: str | None = None,
+    user_email: str | None = None,
 ) -> dict:
     """
     Create a Stripe Checkout Session for subscription.
@@ -101,6 +102,8 @@ async def create_checkout_session(
         }
         if goal:
             metadata["goal"] = goal
+        if user_email:
+            metadata["user_email"] = user_email
 
         session_params = {
             "mode": "subscription",

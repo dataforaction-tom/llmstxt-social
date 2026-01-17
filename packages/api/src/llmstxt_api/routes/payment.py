@@ -220,8 +220,10 @@ async def handle_checkout_session_completed(session, db: AsyncSession):
         logger.warning(f"Checkout session {session.id} missing url metadata")
         return
 
-    # Get customer email from session
+    # Get customer email from session or metadata
     customer_email = session.customer_details.email if session.customer_details else None
+    if not customer_email:
+        customer_email = (metadata.get("user_email") or metadata.get("customer_email"))
 
     if not customer_email:
         logger.warning(f"Checkout session {session.id} missing customer email")
