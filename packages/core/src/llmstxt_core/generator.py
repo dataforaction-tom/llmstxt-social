@@ -218,9 +218,9 @@ def generate_charity_llmstxt(
     sections.append(f"- Beneficiaries: {analysis.beneficiaries}\n")
 
     # Use enriched contact data if available
-    if charity_data and charity_data.contact.get('email'):
+    if charity_data and charity_data.contact and charity_data.contact.get('email'):
         sections.append(f"- Contact: {charity_data.contact['email']}\n")
-    elif analysis.contact.get('email'):
+    elif analysis.contact and analysis.contact.get('email'):
         sections.append(f"- Contact: {analysis.contact['email']}\n")
 
     # Add charitable objects if available from official data
