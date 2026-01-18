@@ -1,5 +1,4 @@
-import helmetAsync from 'react-helmet-async';
-const { Helmet } = helmetAsync;
+import { Helmet } from 'react-helmet-async';
 
 interface SEOHeadProps {
   title?: string;

@@ -13,4 +13,8 @@ export default defineConfig({
       },
     },
   },
+  ssr: {
+    // Bundle these packages for SSR to handle CommonJS/ESM differences
+    noExternal: ['react-helmet-async'],
+  },
 })
