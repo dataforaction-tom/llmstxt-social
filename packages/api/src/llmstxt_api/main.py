@@ -95,7 +95,7 @@ async def health():
     )
 
 
-@app.get("/robots.txt", include_in_schema=False)
+@app.api_route("/robots.txt", methods=["GET", "HEAD"], include_in_schema=False)
 async def robots():
     if not web_available():
         raise HTTPException(status_code=404)
@@ -105,7 +105,7 @@ async def robots():
     raise HTTPException(status_code=404)
 
 
-@app.get("/sitemap.xml", include_in_schema=False)
+@app.api_route("/sitemap.xml", methods=["GET", "HEAD"], include_in_schema=False)
 async def sitemap():
     if not web_available():
         raise HTTPException(status_code=404)
@@ -115,7 +115,7 @@ async def sitemap():
     raise HTTPException(status_code=404)
 
 
-@app.get("/llms.txt", include_in_schema=False)
+@app.api_route("/llms.txt", methods=["GET", "HEAD"], include_in_schema=False)
 async def llms_txt():
     if not web_available():
         raise HTTPException(status_code=404)
@@ -125,7 +125,7 @@ async def llms_txt():
     raise HTTPException(status_code=404)
 
 
-@app.get("/llms-full.txt", include_in_schema=False)
+@app.api_route("/llms-full.txt", methods=["GET", "HEAD"], include_in_schema=False)
 async def llms_full_txt():
     if not web_available():
         raise HTTPException(status_code=404)
