@@ -47,6 +47,7 @@ Thumbs.db
 
 # Output files
 llms.txt
+!packages/web/public/llms.txt
 
 # Node
 node_modules/

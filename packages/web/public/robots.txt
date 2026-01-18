@@ -4,13 +4,13 @@
 User-agent: *
 Allow: /
 
-# Sitemap location
-Sitemap: https://llmstxt.social/sitemap.xml
+# Allow llms.txt files for AI crawlers
+Allow: /llms.txt
+Allow: /llms-full.txt
 
 # Block sensitive paths
 Disallow: /api/
 Disallow: /auth/
 
-# Allow llms.txt files for AI crawlers
-Allow: /llms.txt
-Allow: /llms-full.txt
+# Sitemap location
+Sitemap: https://llmstxt.social/sitemap.xml
