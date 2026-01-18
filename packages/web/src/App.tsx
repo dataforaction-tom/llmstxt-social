@@ -10,15 +10,18 @@ import AuthVerifyPage from './pages/AuthVerify';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
-// Create a client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
+export function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
     },
-  },
-});
+  });
+}
+
+const defaultQueryClient = createQueryClient();
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -39,32 +42,50 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function App() {
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/generate" element={<GeneratePage />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/verify" element={<AuthVerifyPage />} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/subscribe" element={<SubscribePage />} />
+    </Routes>
+  );
+}
+
+export function AppProviders({
+  children,
+  queryClient = defaultQueryClient,
+}: {
+  children: React.ReactNode;
+  queryClient?: QueryClient;
+}) {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/generate" element={<GeneratePage />} />
-              <Route path="/pricing" element={<PricingPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/auth/verify" element={<AuthVerifyPage />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <DashboardPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/subscribe" element={<SubscribePage />} />
-            </Routes>
-          </Layout>
-        </AuthProvider>
-      </BrowserRouter>
+      <AuthProvider>{children}</AuthProvider>
     </QueryClientProvider>
+  );
+}
+
+function App() {
+  return (
+    <AppProviders>
+      <BrowserRouter>
+        <Layout>
+          <AppRoutes />
+        </Layout>
+      </BrowserRouter>
+    </AppProviders>
   );
 }
 

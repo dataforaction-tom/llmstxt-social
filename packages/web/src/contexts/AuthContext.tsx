@@ -21,6 +21,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [verifying, setVerifying] = useState(false);
+  const isBrowser = typeof window !== 'undefined';
 
   // Check auth status on mount
   const { data: authData, isPending, isFetching, refetch } = useQuery({
@@ -28,10 +29,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryFn: apiClient.checkAuth,
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: false,
+    enabled: isBrowser,
   });
 
   // Consider loading if query is pending (no data yet) or actively fetching
-  const isLoading = isPending || isFetching || verifying;
+  const isLoading = isBrowser && (isPending || isFetching || verifying);
 
   const user = authData?.authenticated ? authData.user : null;
 
