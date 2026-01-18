@@ -39,7 +39,7 @@ def validate_llmstxt(
 
     Args:
         content: The llms.txt file content
-        template: "charity" or "funder"
+        template: "charity", "funder", "public_sector", or "startup"
 
     Returns:
         ValidationResult with issues and scores
@@ -56,8 +56,17 @@ def validate_llmstxt(
     # Template-specific validations
     if template == "charity":
         _validate_charity_sections(lines, issues)
-    else:
+    elif template == "funder":
         _validate_funder_sections(lines, issues)
+    elif template == "public_sector":
+        _validate_public_sector_sections(lines, issues)
+    elif template == "startup":
+        _validate_startup_sections(lines, issues)
+    else:
+        issues.append(ValidationIssue(
+            level=ValidationLevel.ERROR,
+            message=f"Unknown template '{template}'. Expected one of: charity, funder, public_sector, startup.",
+        ))
 
     # Calculate scores
     spec_compliance = _calculate_spec_compliance(issues)
@@ -269,6 +278,49 @@ def _validate_funder_sections(lines: list[str], issues: list[ValidationIssue]) -
             ))
 
 
+def _validate_public_sector_sections(lines: list[str], issues: list[ValidationIssue]) -> None:
+    """Validate recommended sections for public sector template."""
+    content = '\n'.join(lines).lower()
+
+    recommended_sections = [
+        ("## about", "About section"),
+        ("## services", "Services section"),
+        ("## get help", "Get Help section"),
+        ("## contact", "Contact section"),
+        ("## for service users", "For Service Users section"),
+        ("## for ai systems", "For AI Systems section"),
+    ]
+
+    for section_marker, section_name in recommended_sections:
+        if section_marker not in content:
+            issues.append(ValidationIssue(
+                level=ValidationLevel.WARNING,
+                message=f"Recommended section missing: {section_name}",
+            ))
+
+
+def _validate_startup_sections(lines: list[str], issues: list[ValidationIssue]) -> None:
+    """Validate recommended sections for startup template."""
+    content = '\n'.join(lines).lower()
+
+    recommended_sections = [
+        ("## about", "About section"),
+        ("## product/services", "Product/Services section"),
+        ("## customers", "Customers section"),
+        ("## pricing", "Pricing section"),
+        ("## for investors", "For Investors section"),
+        ("## contact", "Contact section"),
+        ("## for ai systems", "For AI Systems section"),
+    ]
+
+    for section_marker, section_name in recommended_sections:
+        if section_marker not in content:
+            issues.append(ValidationIssue(
+                level=ValidationLevel.WARNING,
+                message=f"Recommended section missing: {section_name}",
+            ))
+
+
 def _calculate_spec_compliance(issues: list[ValidationIssue]) -> float:
     """Calculate spec compliance score (0-1)."""
     if not issues:
@@ -297,23 +349,44 @@ def _calculate_completeness(lines: list[str], template: str) -> float:
     """Calculate completeness score based on sections present."""
     content = '\n'.join(lines).lower()
 
-    if template == "charity":
-        expected_sections = [
+    expected_sections_by_template = {
+        "charity": [
             "## about",
             "## services",
             "## get help",
             "## get involved",
             "## for funders",
-            "## for ai systems"
-        ]
-    else:  # funder
-        expected_sections = [
+            "## for ai systems",
+        ],
+        "funder": [
             "## about",
             "## what we fund",
             "## how to apply",
             "## for applicants",
-            "## for ai systems"
-        ]
+            "## for ai systems",
+        ],
+        "public_sector": [
+            "## about",
+            "## services",
+            "## get help",
+            "## contact",
+            "## for service users",
+            "## for ai systems",
+        ],
+        "startup": [
+            "## about",
+            "## product/services",
+            "## customers",
+            "## pricing",
+            "## for investors",
+            "## contact",
+            "## for ai systems",
+        ],
+    }
+
+    expected_sections = expected_sections_by_template.get(template)
+    if not expected_sections:
+        return 0.0
 
     present = sum(1 for section in expected_sections if section in content)
     score = present / len(expected_sections)
