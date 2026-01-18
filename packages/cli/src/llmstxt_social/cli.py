@@ -396,14 +396,14 @@ def validate(
         "charity",
         "-t",
         "--template",
-        help="Template to validate against: charity or funder"
+        help="Template to validate against: charity, funder, public_sector, or startup"
     ),
 ):
     """Validate an llms.txt file against the spec."""
 
     # Validate template
-    if template not in ["charity", "funder"]:
-        console.print("[red]Error:[/red] Template must be 'charity' or 'funder'")
+    if template not in ["charity", "funder", "public_sector", "startup"]:
+        console.print("[red]Error:[/red] Template must be 'charity', 'funder', 'public_sector', or 'startup'")
         raise typer.Exit(1)
 
     try:
