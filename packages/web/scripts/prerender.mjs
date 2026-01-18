@@ -4,7 +4,8 @@ import { readFile, writeFile, mkdir, access, constants } from 'node:fs/promises'
 import { createServer } from 'vite';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom/server.js';
-import { HelmetProvider } from 'react-helmet-async';
+import pkg from 'react-helmet-async';
+const { HelmetProvider } = pkg;
 
 const routes = ['/', '/pricing', '/login', '/generate', '/subscribe'];
 const rootDir = process.cwd();
