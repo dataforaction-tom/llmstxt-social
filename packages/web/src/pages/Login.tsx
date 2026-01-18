@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Mail, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import SEOHead from '../components/SEOHead';
 
 export default function LoginPage() {
   const { isAuthenticated, login } = useAuth();
@@ -36,36 +37,50 @@ export default function LoginPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <div className="max-w-md w-full text-center">
-          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
-            <CheckCircle2 className="w-8 h-8 text-green-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Check your email</h1>
+      <>
+        <SEOHead
+          title="Check Your Email"
+          canonicalPath="/login"
+          description="Check your email for a magic link to log in to your llms.txt Generator dashboard."
+          noIndex={true}
+        />
+        <div className="min-h-[60vh] flex items-center justify-center px-4">
+          <div className="max-w-md w-full text-center">
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Check your email</h1>
           <p className="text-gray-600 mb-6">
             We've sent a magic link to <strong>{email}</strong>.
             Click the link in the email to log in.
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-600">
             The link expires in 15 minutes. Check your spam folder if you don't see it.
           </p>
-          <button
-            onClick={() => {
-              setSubmitted(false);
-              setEmail('');
-            }}
-            className="mt-6 text-primary-600 hover:text-primary-700 text-sm"
-          >
-            Use a different email
-          </button>
+            <button
+              onClick={() => {
+                setSubmitted(false);
+                setEmail('');
+              }}
+              className="mt-6 text-primary-600 hover:text-primary-700 text-sm"
+            >
+              Use a different email
+            </button>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-[60vh] flex items-center justify-center px-4">
-      <div className="max-w-md w-full">
+    <>
+      <SEOHead
+        title="Login"
+        canonicalPath="/login"
+        description="Log in to your llms.txt Generator dashboard to view your assessments and manage monitoring subscriptions."
+      />
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-6">
             <Mail className="w-8 h-8 text-primary-600" />
@@ -79,7 +94,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-6" aria-label="Login form">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email address
+              Email address <span aria-hidden="true" className="text-red-500">*</span>
             </label>
             <input
               id="email"
@@ -88,6 +103,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
+              aria-required="true"
               aria-describedby={error ? 'email-error' : undefined}
               aria-invalid={error ? 'true' : undefined}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:outline-none"
@@ -124,13 +140,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-gray-500">
+        <p className="mt-8 text-center text-sm text-gray-600">
           Don't have an account?{' '}
           <Link to="/pricing" className="text-primary-600 hover:text-primary-700">
             View pricing
           </Link>
         </p>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

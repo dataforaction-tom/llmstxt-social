@@ -4,6 +4,7 @@ import { Loader2, Globe, Check, AlertCircle } from 'lucide-react';
 import apiClient from '../api/client';
 import type { Template } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import SEOHead from '../components/SEOHead';
 
 export default function SubscribePage() {
   const { user } = useAuth();
@@ -56,12 +57,18 @@ export default function SubscribePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Subscribe to Monitoring
-          </h1>
+    <>
+      <SEOHead
+        title="Subscribe to Monitoring"
+        canonicalPath="/subscribe"
+        description="Subscribe to automated llms.txt monitoring. Get notified when your website changes and receive automatic updates to your AI documentation."
+      />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Subscribe to Monitoring
+            </h1>
           <p className="text-gray-600">
             Get automatic llms.txt updates when your website changes
           </p>
@@ -124,7 +131,7 @@ export default function SubscribePage() {
                   ))}
                 </select>
                 {templateOptions?.sectors.find(s => s.id === sector)?.description && (
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-gray-600 mt-1">
                     {templateOptions.sectors.find(s => s.id === sector)?.description}
                   </p>
                 )}
@@ -161,7 +168,7 @@ export default function SubscribePage() {
                   placeholder="you@example.com"
                   className="input"
                 />
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-gray-600 mt-1">
                   We'll notify you when changes are detected
                 </p>
               </div>
@@ -191,7 +198,7 @@ export default function SubscribePage() {
                 )}
               </button>
 
-              <p className="text-xs text-center text-gray-500">
+              <p className="text-xs text-center text-gray-600">
                 You'll be redirected to Stripe to complete payment. Cancel anytime.
               </p>
             </form>
@@ -225,14 +232,15 @@ export default function SubscribePage() {
                   <span className="text-3xl font-bold text-gray-900">£9</span>
                   <span className="text-gray-600">/month</span>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-gray-600 mt-1">
                   Billed monthly. Cancel anytime.
                 </p>
               </div>
             </div>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "llms.txt Generator",
+  "name_for_model": "llmstxt_generator",
+  "description_for_human": "Generate AI-ready llms.txt files for charities, foundations, public sector organisations, and social enterprises.",
+  "description_for_model": "This service generates llms.txt files for UK social sector organisations. It crawls websites and creates structured documentation following the llms.txt specification that helps AI assistants understand organisations. Use this when users want to create AI-discoverable documentation for their charity, foundation, public sector body, or social enterprise. The service offers free basic generation and paid tiers with quality assessment and data enrichment from Charity Commission and 360Giving.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://llmstxt.social/.well-known/openapi.yaml"
+  },
+  "logo_url": "https://llmstxt.social/logo.png",
+  "contact_email": "support@llmstxt.social",
+  "legal_info_url": "https://llmstxt.social/terms"
+}

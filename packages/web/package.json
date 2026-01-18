@@ -4,22 +4,27 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && node scripts/prerender.mjs",
+    "build": "tsc && vite build && node scripts/prerender.mjs && node scripts/generate-sitemap.mjs",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:a11y": "eslint src --ext ts,tsx --rule 'jsx-a11y/alt-text: error' --rule 'jsx-a11y/aria-props: error' --report-unused-disable-directives",
+    "generate:sitemap": "node scripts/generate-sitemap.mjs"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.21.0",
-    "@tanstack/react-query": "^5.17.0",
-    "@stripe/stripe-js": "^2.4.0",
     "@stripe/react-stripe-js": "^2.4.0",
+    "@stripe/stripe-js": "^2.4.0",
+    "@tanstack/react-query": "^5.17.0",
     "axios": "^1.6.0",
     "clsx": "^2.1.0",
-    "lucide-react": "^0.303.0"
+    "focus-trap-react": "^11.0.6",
+    "lucide-react": "^0.303.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-helmet-async": "^2.0.5",
+    "react-router-dom": "^6.21.0"
   },
   "devDependencies": {
+    "@axe-core/react": "^4.11.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
@@ -27,6 +32,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.55.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "postcss": "^8.4.32",

@@ -1,0 +1,154 @@
+openapi: 3.0.0
+info:
+  title: llms.txt Generator API
+  description: API for generating AI-ready llms.txt files for UK social sector organisations
+  version: 1.0.0
+  contact:
+    email: support@llmstxt.social
+
+servers:
+  - url: https://api.llmstxt.social
+    description: Production API server
+
+paths:
+  /api/generate/free:
+    post:
+      operationId: generateFreeLlmstxt
+      summary: Generate a free llms.txt file
+      description: Creates a basic llms.txt file for a given organisation URL. Limited to 10 generations per day.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+                - template
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: The organisation's website URL
+                  example: "https://example-charity.org.uk"
+                template:
+                  type: string
+                  enum: [charity, funder, public_sector, startup]
+                  description: The type of organisation
+                sector:
+                  type: string
+                  description: The sector the organisation operates in
+                  default: general
+                goal:
+                  type: string
+                  description: The primary goal for the llms.txt file
+                  default: general
+      responses:
+        '200':
+          description: Job created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                    description: Unique identifier for the generation job
+        '400':
+          description: Invalid request parameters
+        '429':
+          description: Rate limit exceeded (10 per day for free tier)
+
+  /api/jobs/{jobId}:
+    get:
+      operationId: getJobStatus
+      summary: Get the status of a generation job
+      description: Returns the current status and results of a llms.txt generation job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The job ID returned from the generate endpoint
+      responses:
+        '200':
+          description: Job status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [pending, processing, completed, failed]
+                  url:
+                    type: string
+                  template:
+                    type: string
+                  tier:
+                    type: string
+                    enum: [free, paid]
+                  llmstxt_content:
+                    type: string
+                    description: The generated llms.txt content (only when status is completed)
+                  error_message:
+                    type: string
+                    description: Error details (only when status is failed)
+                  progress_stage:
+                    type: string
+                    description: Current processing stage
+                  pages_crawled:
+                    type: integer
+                  total_pages:
+                    type: integer
+        '404':
+          description: Job not found
+
+  /api/templates/{template}/options:
+    get:
+      operationId: getTemplateOptions
+      summary: Get available options for a template
+      description: Returns the sectors and goals available for a specific organisation template
+      parameters:
+        - name: template
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [charity, funder, public_sector, startup]
+          description: The organisation template type
+      responses:
+        '200':
+          description: Template options retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sectors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        label:
+                          type: string
+                        description:
+                          type: string
+                  goals:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        label:
+                          type: string
+                  default_sector:
+                    type: string
+                  default_goal:
+                    type: string

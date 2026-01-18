@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import SEOHead from '../components/SEOHead';
 import type { Subscription, MonitoringHistory, Job } from '../types';
 
 export default function DashboardPage() {
@@ -61,13 +62,20 @@ export default function DashboardPage() {
   const assessmentCount = assessments?.length || 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+    <>
+      <SEOHead
+        title="Dashboard"
+        canonicalPath="/dashboard"
+        description="View your llms.txt assessments and manage monitoring subscriptions."
+        noIndex={true}
+      />
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-primary-600 to-primary-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-white">Dashboard</h1>
               <p className="text-primary-100 mt-1">
                 Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}
               </p>
@@ -76,7 +84,7 @@ export default function DashboardPage() {
               to="/subscribe"
               className="mt-4 md:mt-0 inline-flex items-center gap-2 bg-white text-primary-600 px-5 py-2.5 rounded-lg font-medium hover:bg-primary-50 transition-colors shadow-sm"
             >
-              <Globe className="w-4 h-4" />
+              <Globe className="w-4 h-4" aria-hidden="true" />
               New Subscription
             </Link>
           </div>
@@ -88,7 +96,7 @@ export default function DashboardPage() {
         {subscriptionSuccess && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3 shadow-sm">
             <div className="p-1 bg-green-100 rounded-full">
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <CheckCircle2 className="w-5 h-5 text-green-600" aria-hidden="true" />
             </div>
             <div>
               <p className="font-semibold text-green-800">Subscription activated!</p>
@@ -101,7 +109,7 @@ export default function DashboardPage() {
         {paymentSuccess && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3 shadow-sm">
             <div className="p-1 bg-green-100 rounded-full">
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <CheckCircle2 className="w-5 h-5 text-green-600" aria-hidden="true" />
             </div>
             <div>
               <p className="font-semibold text-green-800">Assessment purchased!</p>
@@ -116,25 +124,25 @@ export default function DashboardPage() {
         {(subscriptions?.length || assessments?.length) ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <StatsCard
-              icon={<Award className="w-5 h-5" />}
+              icon={<Award className="w-5 h-5" aria-hidden="true" />}
               label="Assessments"
               value={assessmentCount}
               color="purple"
             />
             <StatsCard
-              icon={<Activity className="w-5 h-5" />}
+              icon={<Activity className="w-5 h-5" aria-hidden="true" />}
               label="Active Subscriptions"
               value={activeCount}
               color="primary"
             />
             <StatsCard
-              icon={<Clock className="w-5 h-5" />}
+              icon={<Clock className="w-5 h-5" aria-hidden="true" />}
               label="Monitoring Checks"
               value={totalChecks}
               color="blue"
             />
             <StatsCard
-              icon={<Bell className="w-5 h-5" />}
+              icon={<Bell className="w-5 h-5" aria-hidden="true" />}
               label="Changes Detected"
               value={changesDetected}
               color="orange"
@@ -144,9 +152,9 @@ export default function DashboardPage() {
 
         {/* Loading State */}
         {isLoading && (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
             <div className="text-center">
-              <Loader2 className="w-10 h-10 animate-spin text-primary-600 mx-auto mb-4" />
+              <Loader2 className="w-10 h-10 animate-spin text-primary-600 mx-auto mb-4" aria-hidden="true" />
               <p className="text-gray-500">Loading your subscriptions...</p>
             </div>
           </div>
@@ -156,7 +164,7 @@ export default function DashboardPage() {
         {(!subscriptions?.length && !assessments?.length) && !isLoading && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
             <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Globe className="w-8 h-8 text-primary-600" />
+              <Globe className="w-8 h-8 text-primary-600" aria-hidden="true" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Welcome to your dashboard</h2>
             <p className="text-gray-600 mb-8 max-w-md mx-auto">
@@ -168,14 +176,14 @@ export default function DashboardPage() {
                 to="/generate"
                 className="inline-flex items-center justify-center gap-2 btn btn-primary text-lg px-6 py-3"
               >
-                <Award className="w-5 h-5" />
+                <Award className="w-5 h-5" aria-hidden="true" />
                 Generate Assessment
               </Link>
               <Link
                 to="/subscribe"
                 className="inline-flex items-center justify-center gap-2 btn btn-outline text-lg px-6 py-3"
               >
-                <Globe className="w-5 h-5" />
+                <Globe className="w-5 h-5" aria-hidden="true" />
                 Start Monitoring
               </Link>
             </div>
@@ -202,8 +210,9 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -314,7 +323,7 @@ function AssessmentCard({ assessment }: { assessment: Job }) {
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4 min-w-0">
             <div className="p-3 rounded-xl flex-shrink-0 bg-gradient-to-br from-purple-400 to-purple-500">
-              <Award className="w-6 h-6 text-white" />
+              <Award className="w-6 h-6 text-white" aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -362,7 +371,7 @@ function AssessmentCard({ assessment }: { assessment: Job }) {
             </div>
           </div>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-purple-100 text-purple-700">
-            <Timer className="w-4 h-4" />
+            <Timer className="w-4 h-4" aria-hidden="true" />
             {daysRemaining} days left
           </span>
         </div>
@@ -370,12 +379,12 @@ function AssessmentCard({ assessment }: { assessment: Job }) {
         {/* Metadata Row */}
         <div className="mt-5 pt-5 border-t border-gray-100 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
           <div className="flex items-center gap-2 text-gray-500">
-            <Calendar className="w-4 h-4" />
+            <Calendar className="w-4 h-4" aria-hidden="true" />
             <span>Created {new Date(assessment.created_at).toLocaleDateString()}</span>
           </div>
           {assessment.expires_at && (
             <div className="flex items-center gap-2 text-gray-500">
-              <Clock className="w-4 h-4" />
+              <Clock className="w-4 h-4" aria-hidden="true" />
               <span>Expires {new Date(assessment.expires_at).toLocaleDateString()}</span>
             </div>
           )}
@@ -389,12 +398,12 @@ function AssessmentCard({ assessment }: { assessment: Job }) {
           >
             {showContent ? (
               <>
-                <ChevronUp className="w-4 h-4" />
+                <ChevronUp className="w-4 h-4" aria-hidden="true" />
                 Hide Details
               </>
             ) : (
               <>
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="w-4 h-4" aria-hidden="true" />
                 View Details
               </>
             )}
@@ -404,7 +413,7 @@ function AssessmentCard({ assessment }: { assessment: Job }) {
               onClick={downloadLlmstxt}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-4 h-4" aria-hidden="true" />
               Download llms.txt
             </button>
           )}
@@ -473,7 +482,7 @@ function AssessmentCard({ assessment }: { assessment: Job }) {
                   <ul className="space-y-2">
                     {assessment.assessment_json.recommendations.map((rec, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                        <TrendingUp className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" />
+                        <TrendingUp className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
                         <span>{rec}</span>
                       </li>
                     ))}
@@ -543,9 +552,9 @@ function AssessmentCard({ assessment }: { assessment: Job }) {
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-900">{section.name}</span>
                           {section.present ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
                           ) : (
-                            <XCircle className="w-4 h-4 text-gray-400" />
+                            <XCircle className="w-4 h-4 text-gray-400" aria-hidden="true" />
                           )}
                         </div>
                         {section.present && section.quality && (
@@ -564,9 +573,9 @@ function AssessmentCard({ assessment }: { assessment: Job }) {
                   <div className="bg-gray-50 rounded-lg p-4 text-sm">
                     <div className="flex items-center gap-2 mb-2">
                       {assessment.assessment_json.website_gaps.has_sitemap ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
                       ) : (
-                        <XCircle className="w-4 h-4 text-red-500" />
+                        <XCircle className="w-4 h-4 text-red-500" aria-hidden="true" />
                       )}
                       <span>Sitemap {assessment.assessment_json.website_gaps.has_sitemap ? 'detected' : 'not found'}</span>
                     </div>
@@ -659,7 +668,7 @@ function SubscriptionCard({ subscription }: { subscription: Subscription }) {
                 ? 'bg-gradient-to-br from-green-400 to-green-500'
                 : 'bg-gray-200'
             }`}>
-              <Globe className="w-6 h-6 text-white" />
+              <Globe className="w-6 h-6 text-white" aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -698,18 +707,18 @@ function SubscriptionCard({ subscription }: { subscription: Subscription }) {
         {/* Metadata Row */}
         <div className="mt-5 pt-5 border-t border-gray-100 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
           <div className="flex items-center gap-2 text-gray-500">
-            <Calendar className="w-4 h-4" />
+            <Calendar className="w-4 h-4" aria-hidden="true" />
             <span>Created {new Date(subscription.created_at).toLocaleDateString()}</span>
           </div>
           {subscription.last_check && (
             <div className="flex items-center gap-2 text-gray-500">
-              <Clock className="w-4 h-4" />
+              <Clock className="w-4 h-4" aria-hidden="true" />
               <span>Checked {new Date(subscription.last_check).toLocaleDateString()}</span>
             </div>
           )}
           {subscription.last_change_detected && (
             <div className="flex items-center gap-2 text-orange-600 font-medium">
-              <TrendingUp className="w-4 h-4" />
+              <TrendingUp className="w-4 h-4" aria-hidden="true" />
               <span>Changed {new Date(subscription.last_change_detected).toLocaleDateString()}</span>
             </div>
           )}
@@ -725,12 +734,12 @@ function SubscriptionCard({ subscription }: { subscription: Subscription }) {
           >
             {expanded ? (
               <>
-                <ChevronUp className="w-4 h-4" />
+                <ChevronUp className="w-4 h-4" aria-hidden="true" />
                 Hide History
               </>
             ) : (
               <>
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="w-4 h-4" aria-hidden="true" />
                 View History
               </>
             )}
@@ -755,19 +764,20 @@ function SubscriptionCard({ subscription }: { subscription: Subscription }) {
           className="border-t border-gray-100 bg-gray-50 p-6"
         >
           <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-gray-400" />
+            <Activity className="w-4 h-4 text-gray-400" aria-hidden="true" />
             Monitoring History
           </h4>
 
           {historyLoading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-primary-600" />
+            <div className="flex items-center justify-center py-8" role="status" aria-live="polite">
+              <Loader2 className="w-6 h-6 animate-spin text-primary-600" aria-hidden="true" />
+              <span className="sr-only">Loading history...</span>
             </div>
           )}
 
           {history && history.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              <Clock className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+              <Clock className="w-8 h-8 mx-auto mb-2 text-gray-300" aria-hidden="true" />
               <p>No monitoring checks yet</p>
               <p className="text-sm">First check will run soon</p>
             </div>
@@ -826,11 +836,11 @@ function HistoryEntry({ entry, isLatest }: { entry: MonitoringHistory; isLatest:
           <div className="flex items-start gap-3">
             {entry.changed ? (
               <div className="p-2 rounded-full bg-orange-100 flex-shrink-0">
-                <AlertCircle className="w-4 h-4 text-orange-600" />
+                <AlertCircle className="w-4 h-4 text-orange-600" aria-hidden="true" />
               </div>
             ) : (
               <div className="p-2 rounded-full bg-green-100 flex-shrink-0">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
               </div>
             )}
             <div>
@@ -858,7 +868,7 @@ function HistoryEntry({ entry, isLatest }: { entry: MonitoringHistory; isLatest:
                 )}
                 {entry.notification_sent && (
                   <span className="ml-2 inline-flex items-center gap-1">
-                    <Bell className="w-3 h-3" />
+                    <Bell className="w-3 h-3" aria-hidden="true" />
                     Notified
                   </span>
                 )}
@@ -889,7 +899,7 @@ function HistoryEntry({ entry, isLatest }: { entry: MonitoringHistory; isLatest:
                 title="Download llms.txt"
                 aria-label="Download llms.txt file"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-4 h-4" aria-hidden="true" />
               </button>
             )}
             {(entry.llmstxt_content || entry.assessment_json) && (
@@ -900,12 +910,12 @@ function HistoryEntry({ entry, isLatest }: { entry: MonitoringHistory; isLatest:
               >
                 {showContent ? (
                   <>
-                    <ChevronUp className="w-4 h-4" />
+                    <ChevronUp className="w-4 h-4" aria-hidden="true" />
                     Hide Details
                   </>
                 ) : (
                   <>
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="w-4 h-4" aria-hidden="true" />
                     View Details
                   </>
                 )}
@@ -977,7 +987,7 @@ function HistoryEntry({ entry, isLatest }: { entry: MonitoringHistory; isLatest:
                   <ul className="space-y-1">
                     {entry.assessment_json.recommendations.map((rec, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                        <TrendingUp className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" />
+                        <TrendingUp className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
                         <span>{rec}</span>
                       </li>
                     ))}
@@ -1024,9 +1034,9 @@ function HistoryEntry({ entry, isLatest }: { entry: MonitoringHistory; isLatest:
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-medium text-gray-900">{section.name}</span>
                           {section.present ? (
-                            <CheckCircle2 className="w-3 h-3 text-green-600" />
+                            <CheckCircle2 className="w-3 h-3 text-green-600" aria-hidden="true" />
                           ) : (
-                            <XCircle className="w-3 h-3 text-gray-400" />
+                            <XCircle className="w-3 h-3 text-gray-400" aria-hidden="true" />
                           )}
                         </div>
                         {section.present && section.quality && (
@@ -1045,9 +1055,9 @@ function HistoryEntry({ entry, isLatest }: { entry: MonitoringHistory; isLatest:
                   <div className="bg-gray-50 rounded-lg p-3 text-sm">
                     <div className="flex items-center gap-2 mb-2">
                       {entry.assessment_json.website_gaps.has_sitemap ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
                       ) : (
-                        <XCircle className="w-4 h-4 text-red-500" />
+                        <XCircle className="w-4 h-4 text-red-500" aria-hidden="true" />
                       )}
                       <span>Sitemap {entry.assessment_json.website_gaps.has_sitemap ? 'detected' : 'not found'}</span>
                     </div>
@@ -1101,14 +1111,14 @@ function StatusBadge({ active }: { active: boolean }) {
   if (active) {
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-700">
-        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" aria-hidden="true" />
         Active
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-      <XCircle className="w-4 h-4" />
+      <XCircle className="w-4 h-4" aria-hidden="true" />
       Cancelled
     </span>
   );

@@ -1,9 +1,18 @@
 import { Link } from 'react-router-dom';
 import { FileText, Zap, CheckCircle, TrendingUp, ArrowRight, Bot, Globe, Search, MessageSquare } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
+import SchemaScript, { generateOrganizationSchema, generateWebSiteSchema } from '../components/SchemaScript';
 
 export default function HomePage() {
   return (
-    <div className="bg-gradient-to-b from-primary-50 to-white">
+    <>
+      <SEOHead
+        canonicalPath="/"
+        description="Generate spec-compliant llms.txt files for charities, foundations, public sector organisations, and social enterprises. Make your organisation AI-discoverable with free or paid assessment options."
+      />
+      <SchemaScript schema={generateOrganizationSchema()} />
+      <SchemaScript schema={generateWebSiteSchema()} />
+      <div className="bg-gradient-to-b from-primary-50 to-white">
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center">
@@ -240,7 +249,8 @@ individuals across London since 1995.
           </Link>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

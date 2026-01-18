@@ -6,7 +6,17 @@ import type { Template, Job } from '../types';
 import AssessmentDisplay from '../components/AssessmentDisplay';
 import PaymentFlow from '../components/PaymentFlow';
 import ProgressIndicator from '../components/ProgressIndicator';
+import SEOHead from '../components/SEOHead';
+import SchemaScript, { generateHowToSchema } from '../components/SchemaScript';
 import { useAuth } from '../contexts/AuthContext';
+
+const howToSteps = [
+  { name: 'Enter your URL', text: 'Enter your organisation\'s website URL in the form' },
+  { name: 'Select a template', text: 'Choose from Charity, Funder, Public Sector, or Startup template' },
+  { name: 'Choose your tier', text: 'Select Free for basic generation or Paid for full assessment' },
+  { name: 'Generate', text: 'Click generate and wait for your AI-powered llms.txt file' },
+  { name: 'Download', text: 'Download your llms.txt file and add it to your website root' },
+];
 
 export default function GeneratePage() {
   const { user } = useAuth();
@@ -85,11 +95,22 @@ export default function GeneratePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Generate llms.txt
-        </h1>
+    <>
+      <SEOHead
+        title="Generate llms.txt"
+        canonicalPath="/generate"
+        description="Create your AI-ready llms.txt file. Enter your website URL, choose a template, and generate documentation that helps AI assistants understand your organisation."
+      />
+      <SchemaScript schema={generateHowToSchema(
+        'How to Generate an llms.txt File',
+        'Create AI-ready documentation for your organisation in 5 simple steps',
+        howToSteps
+      )} />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-3xl mx-auto">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Generate llms.txt
+          </h1>
         <p className="text-lg text-gray-600 mb-8">
           Create AI-ready documentation for your organization in minutes
         </p>
@@ -100,7 +121,7 @@ export default function GeneratePage() {
             {/* URL Input */}
             <div>
               <label htmlFor="url" className="label">
-                Website URL
+                Website URL <span aria-hidden="true" className="text-red-500">*</span>
               </label>
               <input
                 type="url"
@@ -110,8 +131,9 @@ export default function GeneratePage() {
                 placeholder="https://example-charity.org.uk"
                 className="input"
                 required
+                aria-required="true"
               />
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-gray-600 mt-1">
                 Enter your organization's website URL
               </p>
             </div>
@@ -153,7 +175,7 @@ export default function GeneratePage() {
                 ))}
               </select>
               {templateOptions?.sectors.find(s => s.id === sector)?.description && (
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-gray-600 mt-1">
                   {templateOptions.sectors.find(s => s.id === sector)?.description}
                 </p>
               )}
@@ -177,7 +199,7 @@ export default function GeneratePage() {
                   </option>
                 ))}
               </select>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-gray-600 mt-1">
                 This helps us tune the generation and assessment to your needs
               </p>
             </div>
@@ -185,12 +207,23 @@ export default function GeneratePage() {
             {/* Tier Selection */}
             <fieldset>
               <legend className="label">Tier</legend>
-              <div className="grid grid-cols-2 gap-4" role="radiogroup" aria-label="Select pricing tier">
+              <div
+                className="grid grid-cols-2 gap-4"
+                role="radiogroup"
+                aria-label="Select pricing tier"
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    setTier(tier === 'free' ? 'paid' : 'free');
+                  }
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setTier('free')}
                   role="radio"
                   aria-checked={tier === 'free'}
+                  tabIndex={tier === 'free' ? 0 : -1}
                   className={`p-4 border-2 rounded-lg transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
                     tier === 'free'
                       ? 'border-primary-600 bg-primary-50'
@@ -199,7 +232,7 @@ export default function GeneratePage() {
                 >
                   <span className="font-semibold mb-1 block">Free</span>
                   <span className="text-sm text-gray-600 block">Basic generation</span>
-                  <span className="text-xs text-gray-500 mt-2 block">10/day limit</span>
+                  <span className="text-xs text-gray-600 mt-2 block">10/day limit</span>
                 </button>
 
                 <button
@@ -207,6 +240,7 @@ export default function GeneratePage() {
                   onClick={() => setTier('paid')}
                   role="radio"
                   aria-checked={tier === 'paid'}
+                  tabIndex={tier === 'paid' ? 0 : -1}
                   className={`p-4 border-2 rounded-lg transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
                     tier === 'paid'
                       ? 'border-primary-600 bg-primary-50'
@@ -215,7 +249,7 @@ export default function GeneratePage() {
                 >
                   <span className="font-semibold mb-1 block">Paid - £9</span>
                   <span className="text-sm text-gray-600 block">Full assessment</span>
-                  <span className="text-xs text-gray-500 mt-2 block">+ enrichment data</span>
+                  <span className="text-xs text-gray-600 mt-2 block">+ enrichment data</span>
                 </button>
               </div>
             </fieldset>
@@ -332,8 +366,9 @@ export default function GeneratePage() {
             </button>
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

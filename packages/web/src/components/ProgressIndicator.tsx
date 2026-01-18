@@ -17,19 +17,19 @@ interface StageConfig {
 }
 
 const FREE_STAGES: StageConfig[] = [
-  { id: 'crawling', label: 'Crawling', icon: <Globe className="w-5 h-5" />, description: 'Discovering website pages' },
-  { id: 'extracting', label: 'Extracting', icon: <FileText className="w-5 h-5" />, description: 'Reading page content' },
-  { id: 'analyzing', label: 'Analyzing', icon: <Brain className="w-5 h-5" />, description: 'AI analysis with Claude' },
-  { id: 'generating', label: 'Generating', icon: <FileCode className="w-5 h-5" />, description: 'Creating llms.txt' },
+  { id: 'crawling', label: 'Crawling', icon: <Globe className="w-5 h-5" aria-hidden="true" />, description: 'Discovering website pages' },
+  { id: 'extracting', label: 'Extracting', icon: <FileText className="w-5 h-5" aria-hidden="true" />, description: 'Reading page content' },
+  { id: 'analyzing', label: 'Analyzing', icon: <Brain className="w-5 h-5" aria-hidden="true" />, description: 'AI analysis with Claude' },
+  { id: 'generating', label: 'Generating', icon: <FileCode className="w-5 h-5" aria-hidden="true" />, description: 'Creating llms.txt' },
 ];
 
 const PAID_STAGES: StageConfig[] = [
-  { id: 'crawling', label: 'Crawling', icon: <Globe className="w-5 h-5" />, description: 'Discovering website pages' },
-  { id: 'extracting', label: 'Extracting', icon: <FileText className="w-5 h-5" />, description: 'Reading page content' },
-  { id: 'enriching', label: 'Enriching', icon: <Sparkles className="w-5 h-5" />, description: 'Fetching additional data' },
-  { id: 'analyzing', label: 'Analyzing', icon: <Brain className="w-5 h-5" />, description: 'AI analysis with Claude' },
-  { id: 'generating', label: 'Generating', icon: <FileCode className="w-5 h-5" />, description: 'Creating llms.txt' },
-  { id: 'assessing', label: 'Assessing', icon: <ClipboardCheck className="w-5 h-5" />, description: 'Quality assessment' },
+  { id: 'crawling', label: 'Crawling', icon: <Globe className="w-5 h-5" aria-hidden="true" />, description: 'Discovering website pages' },
+  { id: 'extracting', label: 'Extracting', icon: <FileText className="w-5 h-5" aria-hidden="true" />, description: 'Reading page content' },
+  { id: 'enriching', label: 'Enriching', icon: <Sparkles className="w-5 h-5" aria-hidden="true" />, description: 'Fetching additional data' },
+  { id: 'analyzing', label: 'Analyzing', icon: <Brain className="w-5 h-5" aria-hidden="true" />, description: 'AI analysis with Claude' },
+  { id: 'generating', label: 'Generating', icon: <FileCode className="w-5 h-5" aria-hidden="true" />, description: 'Creating llms.txt' },
+  { id: 'assessing', label: 'Assessing', icon: <ClipboardCheck className="w-5 h-5" aria-hidden="true" />, description: 'Quality assessment' },
 ];
 
 function getStageIndex(stages: StageConfig[], currentStage?: ProgressStage): number {
@@ -50,9 +50,16 @@ export default function ProgressIndicator({
   const isCompleted = stage === 'completed';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" role="region" aria-label="Generation progress">
+      {/* Screen reader announcement for stage changes */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {isCompleted && 'Generation complete. Your llms.txt file is ready to download.'}
+        {isFailed && 'Generation failed. Please try again.'}
+        {!isCompleted && !isFailed && stages[currentIndex]?.description}
+      </div>
+
       {/* Stage progress bar */}
-      <div className="relative">
+      <div className="relative" aria-hidden="true">
         {/* Background line */}
         <div className="absolute top-5 left-0 right-0 h-0.5 bg-gray-200" />
 
@@ -86,9 +93,9 @@ export default function ProgressIndicator({
                   `}
                 >
                   {isPast && !isCurrent ? (
-                    <CheckCircle2 className="w-5 h-5" />
+                    <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
                   ) : isFailed && isCurrent ? (
-                    <XCircle className="w-5 h-5" />
+                    <XCircle className="w-5 h-5" aria-hidden="true" />
                   ) : (
                     stageConfig.icon
                   )}
@@ -112,19 +119,19 @@ export default function ProgressIndicator({
           {!isCompleted && !isFailed && (
             <div className="relative">
               <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-                {stages[currentIndex]?.icon || <Globe className="w-4 h-4 text-primary-600" />}
+                {stages[currentIndex]?.icon || <Globe className="w-4 h-4 text-primary-600" aria-hidden="true" />}
               </div>
-              <div className="absolute inset-0 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
+              <div className="absolute inset-0 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" aria-hidden="true" />
             </div>
           )}
           {isCompleted && (
             <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4 text-green-600" />
+              <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
             </div>
           )}
           {isFailed && (
             <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-              <XCircle className="w-4 h-4 text-red-600" />
+              <XCircle className="w-4 h-4 text-red-600" aria-hidden="true" />
             </div>
           )}
           <div className="flex-1">
@@ -134,7 +141,7 @@ export default function ProgressIndicator({
                stages[currentIndex]?.description || 'Starting...'}
             </p>
             {detail && (
-              <p className="text-sm text-gray-500 mt-0.5">{detail}</p>
+              <p className="text-sm text-gray-600 mt-0.5">{detail}</p>
             )}
           </div>
         </div>
@@ -142,7 +149,7 @@ export default function ProgressIndicator({
         {/* Pages crawled indicator */}
         {stage === 'crawling' && totalPages && (
           <div className="mt-4">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <div className="flex justify-between text-xs text-gray-600 mb-1">
               <span>Pages discovered</span>
               <span>{pagesCrawled || 0} / {totalPages} max</span>
             </div>
@@ -157,8 +164,8 @@ export default function ProgressIndicator({
 
         {/* Extracted pages count */}
         {(stage === 'extracting' || stage === 'analyzing' || stage === 'generating') && pagesCrawled && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
-            <FileText className="w-4 h-4" />
+          <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+            <FileText className="w-4 h-4" aria-hidden="true" />
             <span>Processing {pagesCrawled} pages</span>
           </div>
         )}
@@ -166,7 +173,7 @@ export default function ProgressIndicator({
 
       {/* Estimated time */}
       {!isCompleted && !isFailed && (
-        <p className="text-center text-sm text-gray-500">
+        <p className="text-center text-sm text-gray-600">
           This typically takes 30-60 seconds depending on website size
         </p>
       )}

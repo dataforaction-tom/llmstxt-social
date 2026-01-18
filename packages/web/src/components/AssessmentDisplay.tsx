@@ -52,7 +52,7 @@ export default function AssessmentDisplay({ assessment, websiteUrl }: Assessment
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-lg">
-                <Award className="w-6 h-6 text-white" />
+                <Award className="w-6 h-6 text-white" aria-hidden="true" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-white">Quality Assessment</h2>
@@ -63,7 +63,7 @@ export default function AssessmentDisplay({ assessment, websiteUrl }: Assessment
               onClick={downloadAssessment}
               className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-4 h-4" aria-hidden="true" />
               <span className="hidden sm:inline">Download Report</span>
             </button>
           </div>
@@ -106,7 +106,7 @@ export default function AssessmentDisplay({ assessment, websiteUrl }: Assessment
       {assessment.recommendations && assessment.recommendations.length > 0 && (
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-primary-600" />
+            <TrendingUp className="w-5 h-5 text-primary-600" aria-hidden="true" />
             <h3 className="text-lg font-semibold">Top Recommendations</h3>
           </div>
           <div className="space-y-3">
@@ -130,7 +130,7 @@ export default function AssessmentDisplay({ assessment, websiteUrl }: Assessment
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-amber-600" />
+              <AlertCircle className="w-5 h-5 text-amber-600" aria-hidden="true" />
               <h3 className="text-lg font-semibold">Detailed Findings</h3>
               <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-sm rounded-full">
                 {assessment.findings.length}
@@ -143,11 +143,11 @@ export default function AssessmentDisplay({ assessment, websiteUrl }: Assessment
               >
                 {showAllFindings ? (
                   <>
-                    Show less <ChevronUp className="w-4 h-4" />
+                    Show less <ChevronUp className="w-4 h-4" aria-hidden="true" />
                   </>
                 ) : (
                   <>
-                    Show all ({assessment.findings.length}) <ChevronDown className="w-4 h-4" />
+                    Show all ({assessment.findings.length}) <ChevronDown className="w-4 h-4" aria-hidden="true" />
                   </>
                 )}
               </button>
@@ -166,7 +166,7 @@ export default function AssessmentDisplay({ assessment, websiteUrl }: Assessment
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-600" />
+              <FileText className="w-5 h-5 text-blue-600" aria-hidden="true" />
               <h3 className="text-lg font-semibold">Section Analysis</h3>
             </div>
             {assessment.sections.length > 4 && (
@@ -176,11 +176,11 @@ export default function AssessmentDisplay({ assessment, websiteUrl }: Assessment
               >
                 {showAllSections ? (
                   <>
-                    Show less <ChevronUp className="w-4 h-4" />
+                    Show less <ChevronUp className="w-4 h-4" aria-hidden="true" />
                   </>
                 ) : (
                   <>
-                    Show all ({assessment.sections.length}) <ChevronDown className="w-4 h-4" />
+                    Show all ({assessment.sections.length}) <ChevronDown className="w-4 h-4" aria-hidden="true" />
                   </>
                 )}
               </button>
@@ -198,7 +198,7 @@ export default function AssessmentDisplay({ assessment, websiteUrl }: Assessment
       {assessment.website_gaps && (
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
-            <Globe className="w-5 h-5 text-purple-600" />
+            <Globe className="w-5 h-5 text-purple-600" aria-hidden="true" />
             <h3 className="text-lg font-semibold">Website Analysis</h3>
           </div>
 
@@ -306,7 +306,7 @@ function ScoreCard({
   return (
     <div className="p-4 bg-gray-50 rounded-xl">
       <div className="flex items-center gap-2 mb-2">
-        <Icon className="w-4 h-4 text-gray-500" />
+        <Icon className="w-4 h-4 text-gray-500" aria-hidden="true" />
         <span className="text-sm font-medium text-gray-700">{label}</span>
       </div>
       <div className="flex items-end gap-2 mb-2">
@@ -340,9 +340,9 @@ function SectionCard({ section }: { section: NonNullable<Assessment['sections']>
           }`}
         >
           {section.present ? (
-            <CheckCircle className="w-4 h-4 text-green-600" />
+            <CheckCircle className="w-4 h-4 text-green-600" aria-hidden="true" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-gray-500" />
+            <AlertCircle className="w-4 h-4 text-gray-500" aria-hidden="true" />
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -431,7 +431,7 @@ function FindingCard({ finding }: { finding: Assessment['findings'][0] }) {
     <div className={`p-4 rounded-lg border ${style.bg} ${style.border}`}>
       <div className="flex gap-3">
         <div className="flex-shrink-0">
-          <Icon className={`w-5 h-5 ${style.iconColor}`} />
+          <Icon className={`w-5 h-5 ${style.iconColor}`} aria-hidden="true" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1">

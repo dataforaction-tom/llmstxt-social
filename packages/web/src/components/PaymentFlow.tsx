@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
 import { useMutation } from '@tanstack/react-query';
 import { X, Loader2, AlertCircle } from 'lucide-react';
+import FocusTrap from 'focus-trap-react';
 import apiClient from '../api/client';
 import type { Template } from '../types';
 
@@ -25,6 +26,18 @@ export default function PaymentFlow({ url, template, sector, goal, userEmail, on
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState(userEmail || '');
+
+  // Handle Escape key to close modal
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onCancel();
+    }
+  }, [onCancel]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   // Create payment intent on mount
   const paymentMutation = useMutation({
@@ -51,15 +64,22 @@ export default function PaymentFlow({ url, template, sector, goal, userEmail, on
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-md w-full p-6 relative">
-        <button
-          onClick={onCancel}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+      <FocusTrap>
+        <div
+          className="bg-white rounded-xl max-w-md w-full p-6 relative"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="payment-dialog-title"
         >
-          <X className="w-6 h-6" />
-        </button>
+          <button
+            onClick={onCancel}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            aria-label="Close dialog"
+          >
+            <X className="w-6 h-6" aria-hidden="true" />
+          </button>
 
-        <h2 className="text-2xl font-bold mb-4">Payment</h2>
+          <h2 id="payment-dialog-title" className="text-2xl font-bold mb-4">Payment</h2>
         <p className="text-gray-600 mb-6">
           Complete your payment to generate llms.txt with full assessment and enrichment data.
         </p>
@@ -77,7 +97,7 @@ export default function PaymentFlow({ url, template, sector, goal, userEmail, on
         {!userEmail && (
           <div className="mb-6">
             <label htmlFor="email" className="label">
-              Email for receipt and dashboard access
+              Email for receipt and dashboard access <span aria-hidden="true" className="text-red-500">*</span>
             </label>
             <input
               type="email"
@@ -87,6 +107,7 @@ export default function PaymentFlow({ url, template, sector, goal, userEmail, on
               placeholder="you@example.com"
               className="input"
               required
+              aria-required="true"
             />
           </div>
         )}
@@ -124,7 +145,8 @@ export default function PaymentFlow({ url, template, sector, goal, userEmail, on
             <PaymentForm onSuccess={onSuccess} onCancel={onCancel} />
           </Elements>
         )}
-      </div>
+        </div>
+      </FocusTrap>
     </div>
   );
 }

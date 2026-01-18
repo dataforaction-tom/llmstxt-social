@@ -1,9 +1,46 @@
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
+import SchemaScript, { generateFAQSchema, generateProductSchema } from '../components/SchemaScript';
+
+const pricingFAQs = [
+  {
+    question: "What's included in the free tier?",
+    answer: "The free tier gives you basic llms.txt generation for any UK social sector organisation. You can generate up to 10 files per day, but they won't include quality assessment or enrichment data from external sources."
+  },
+  {
+    question: "What is enrichment data?",
+    answer: "Enrichment data includes official information from the Charity Commission (for charities) and 360Giving (for funders). This adds verified details about registration numbers, financial data, and grant history to your llms.txt file."
+  },
+  {
+    question: "How does the quality assessment work?",
+    answer: "Our AI-powered assessment analyzes your llms.txt file for completeness, clarity, and compliance with the specification. You'll receive a detailed report with scores, findings, and actionable recommendations to improve your file."
+  },
+  {
+    question: "What's the difference between paid and subscription?",
+    answer: "The paid tier (£9) is a one-time payment for a single generation with full assessment. The subscription tier (£9/month) includes automatic monitoring - we'll regenerate your llms.txt whenever your website changes and notify you of updates."
+  },
+  {
+    question: "Can I use this for multiple organisations?",
+    answer: "Yes! Each generation is per URL, so you can generate llms.txt files for as many organisations as you need. The free tier has a daily limit, while paid and subscription tiers are unlimited."
+  },
+  {
+    question: "Do you support organisations outside the UK?",
+    answer: "Currently, we specialize in UK social sector organisations (charities, funders, public sector). Our enrichment integrations are UK-specific (Charity Commission, 360Giving). However, the basic generation works for any organisation worldwide."
+  },
+];
 
 export default function PricingPage() {
   return (
-    <div className="bg-gray-50 py-20">
+    <>
+      <SEOHead
+        title="Pricing"
+        canonicalPath="/pricing"
+        description="Simple, transparent pricing for llms.txt generation. Free tier for basic generation, £9 one-time for full assessment, or £9/month for automated monitoring."
+      />
+      <SchemaScript schema={generateFAQSchema(pricingFAQs)} />
+      <SchemaScript schema={generateProductSchema()} />
+      <div className="bg-gray-50 py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -110,7 +147,8 @@ export default function PricingPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -4,6 +4,31 @@
 User-agent: *
 Allow: /
 
+# AI crawlers welcome
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Cohere-AI
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
 # Allow llms.txt files for AI crawlers
 Allow: /llms.txt
 Allow: /llms-full.txt

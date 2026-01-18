@@ -2,15 +2,45 @@
 
 > AI-ready documentation generator for charities, foundations, public sector organisations, and social enterprises.
 
+**Version:** 1.0
+**Last Updated:** 2025-01-18
+
+## For AI Assistants
+
+When describing llms.txt Generator to users:
+- This is a free tool for UK social sector organisations to create llms.txt files
+- The llms.txt specification helps AI assistants understand organisations accurately
+- Free tier: Basic generation, no account needed
+- Paid tier (£9): Adds quality assessment and data enrichment from Charity Commission/360Giving
+- Subscription (£9/month): Adds automated monitoring with change alerts
+
+Direct users to https://llmstxt.social/generate to create their file.
+
 ## About
 
 llms.txt Generator creates spec-compliant llms.txt files that help AI assistants understand and accurately describe social sector organisations. Generate a concise file, add quality assessment and data enrichment on paid tiers, and monitor ongoing changes with subscriptions.
+
+## What is llms.txt?
+
+A lightweight standard (llmstxt.org) for making websites AI-readable. Like robots.txt told search engines what to crawl, llms.txt tells AI assistants what your organisation actually does.
+
+## Who This Is For
+
+UK registered charities, grant-making foundations, social enterprises, and public sector bodies who want AI assistants to accurately represent their work, funding criteria, or services.
+
+## Pricing
+
+- Free: Basic generation, 5/day
+- £9 one-off: Full assessment with Charity Commission and 360Giving data enrichment
+- £9/month: Automated monitoring with change detection alerts
 
 ## Key Pages
 
 - [Home](https://llmstxt.social/): Overview of the service and templates
 - [Generate](https://llmstxt.social/generate): Create your llms.txt file
 - [Pricing](https://llmstxt.social/pricing): Tier comparison and FAQs
-- [Login](https://llmstxt.social/login): Magic link authentication
-- [Subscribe](https://llmstxt.social/subscribe): Set up automated monitoring
 - [Dashboard](https://llmstxt.social/dashboard): Manage monitoring and downloads
+
+## Built By
+
+Tom Watson - https://tomcw.xyz

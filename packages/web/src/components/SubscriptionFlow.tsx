@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Loader2, X, AlertCircle } from 'lucide-react';
+import FocusTrap from 'focus-trap-react';
 import apiClient from '../api/client';
 import type { Template } from '../types';
 
@@ -18,6 +19,18 @@ export default function SubscriptionFlow({
   userEmail,
 }: SubscriptionFlowProps) {
   const [email, setEmail] = useState(userEmail || '');
+
+  // Handle Escape key to close modal
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onCancel();
+    }
+  }, [onCancel]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   const createSubscriptionMutation = useMutation({
     mutationFn: () =>
@@ -41,12 +54,18 @@ export default function SubscriptionFlow({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              Subscribe to Monitoring
-            </h2>
+      <FocusTrap>
+        <div
+          className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="subscription-dialog-title"
+        >
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 id="subscription-dialog-title" className="text-xl font-bold text-gray-900">
+                Subscribe to Monitoring
+              </h2>
             <p className="text-gray-600 mt-1">
               £9/month - Cancel anytime
             </p>
@@ -54,8 +73,9 @@ export default function SubscriptionFlow({
           <button
             onClick={onCancel}
             className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Close dialog"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5 text-gray-600" aria-hidden="true" />
           </button>
         </div>
 
@@ -77,7 +97,7 @@ export default function SubscriptionFlow({
               placeholder="you@example.com"
               className="input"
             />
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-600 mt-1">
               We'll send change notifications to this email
             </p>
           </div>
@@ -126,11 +146,12 @@ export default function SubscriptionFlow({
             </button>
           </div>
 
-          <p className="text-xs text-center text-gray-500">
+          <p className="text-xs text-center text-gray-600">
             You'll be redirected to Stripe to complete payment
           </p>
         </form>
-      </div>
+        </div>
+      </FocusTrap>
     </div>
   );
 }
