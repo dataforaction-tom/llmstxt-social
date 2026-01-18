@@ -12,4 +12,5 @@ llms.txt Generator creates spec-compliant llms.txt files that help AI assistants
 - [Generate](https://llmstxt.social/generate): Create your llms.txt file
 - [Pricing](https://llmstxt.social/pricing): Tier comparison and FAQs
 - [Login](https://llmstxt.social/login): Magic link authentication
+- [Subscribe](https://llmstxt.social/subscribe): Set up automated monitoring
 - [Dashboard](https://llmstxt.social/dashboard): Manage monitoring and downloads

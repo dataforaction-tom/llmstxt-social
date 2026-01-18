@@ -5,7 +5,7 @@ import { createServer } from 'vite';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom/server.js';
 
-const routes = ['/', '/pricing', '/login'];
+const routes = ['/', '/pricing', '/login', '/generate', '/subscribe'];
 const rootDir = process.cwd();
 const distDir = path.join(rootDir, 'dist');
 const templatePath = path.join(distDir, 'index.html');

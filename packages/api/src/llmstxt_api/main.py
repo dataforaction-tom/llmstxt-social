@@ -95,6 +95,46 @@ async def health():
     )
 
 
+@app.get("/robots.txt", include_in_schema=False)
+async def robots():
+    if not web_available():
+        raise HTTPException(status_code=404)
+    robots_file = web_dist_dir / "robots.txt"
+    if robots_file.is_file():
+        return FileResponse(robots_file, media_type="text/plain; charset=utf-8")
+    raise HTTPException(status_code=404)
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap():
+    if not web_available():
+        raise HTTPException(status_code=404)
+    sitemap_file = web_dist_dir / "sitemap.xml"
+    if sitemap_file.is_file():
+        return FileResponse(sitemap_file, media_type="application/xml; charset=utf-8")
+    raise HTTPException(status_code=404)
+
+
+@app.get("/llms.txt", include_in_schema=False)
+async def llms_txt():
+    if not web_available():
+        raise HTTPException(status_code=404)
+    llms_file = web_dist_dir / "llms.txt"
+    if llms_file.is_file():
+        return FileResponse(llms_file, media_type="text/plain; charset=utf-8")
+    raise HTTPException(status_code=404)
+
+
+@app.get("/llms-full.txt", include_in_schema=False)
+async def llms_full_txt():
+    if not web_available():
+        raise HTTPException(status_code=404)
+    llms_full_file = web_dist_dir / "llms-full.txt"
+    if llms_full_file.is_file():
+        return FileResponse(llms_full_file, media_type="text/plain; charset=utf-8")
+    raise HTTPException(status_code=404)
+
+
 @app.get("/{full_path:path}", include_in_schema=False)
 async def spa_fallback(full_path: str):
     """Serve static assets and SPA routes for the web frontend."""

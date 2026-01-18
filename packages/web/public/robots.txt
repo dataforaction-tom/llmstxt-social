@@ -11,6 +11,7 @@ Allow: /llms-full.txt
 # Block sensitive paths
 Disallow: /api/
 Disallow: /auth/
+Disallow: /dashboard
 
 # Sitemap location
 Sitemap: https://llmstxt.social/sitemap.xml
