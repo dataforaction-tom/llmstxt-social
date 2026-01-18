@@ -1,0 +1,15 @@
+# llms.txt Generator
+
+> AI-ready documentation generator for charities, foundations, public sector organisations, and social enterprises.
+
+## About
+
+llms.txt Generator creates spec-compliant llms.txt files that help AI assistants understand and accurately describe social sector organisations. Generate a concise file, add quality assessment and data enrichment on paid tiers, and monitor ongoing changes with subscriptions.
+
+## Key Pages
+
+- [Home](https://llmstxt.social/): Overview of the service and templates
+- [Generate](https://llmstxt.social/generate): Create your llms.txt file
+- [Pricing](https://llmstxt.social/pricing): Tier comparison and FAQs
+- [Login](https://llmstxt.social/login): Magic link authentication
+- [Dashboard](https://llmstxt.social/dashboard): Manage monitoring and downloads
