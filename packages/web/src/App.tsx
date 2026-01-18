@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { HelmetProvider } from 'react-helmet-async';
+import helmetAsync from 'react-helmet-async';
+const { HelmetProvider } = helmetAsync;
 import HomePage from './pages/Home';
 import GeneratePage from './pages/Generate';
 import PricingPage from './pages/Pricing';
