@@ -61,6 +61,9 @@ services:
       context: .
       dockerfile: packages/api/Dockerfile
     command: celery -A llmstxt_api.tasks.celery worker -l info
+    # Disable healthcheck - worker doesn't have HTTP endpoint
+    healthcheck:
+      disable: true
     depends_on:
       - postgres
       - redis
@@ -84,7 +87,10 @@ services:
     build:
       context: .
       dockerfile: packages/api/Dockerfile
-    command: celery -A llmstxt_api.tasks.celery beat -l info
+    command: celery -A llmstxt_api.tasks.celery beat -l info --schedule=/var/run/celery/celerybeat-schedule
+    # Disable healthcheck - beat doesn't have HTTP endpoint
+    healthcheck:
+      disable: true
     depends_on:
       - postgres
       - redis
@@ -101,6 +107,7 @@ services:
     volumes:
       - ./packages/core:/app/core
       - ./packages/api:/app/api
+      - celerybeat_data:/var/run/celery
 
   # Web frontend
   web:
@@ -121,3 +128,4 @@ services:
 
 volumes:
   postgres_data:
+  celerybeat_data:

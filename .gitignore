@@ -52,3 +52,10 @@ llms.txt
 # Node
 node_modules/
 .npm
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule.*
+celerybeat.pid
+*.celerybeat
+packages/api/celerybeat-schedule

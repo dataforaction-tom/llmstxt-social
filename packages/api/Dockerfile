@@ -41,8 +41,11 @@ RUN pip install --no-cache-dir -e .
 # Copy built web assets
 COPY --from=web-build /web/dist /app/web/dist
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create non-root user and celery beat schedule directory
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app && \
+    mkdir -p /var/run/celery && \
+    chown appuser:appuser /var/run/celery
 USER appuser
 
 # Expose port

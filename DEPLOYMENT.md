@@ -89,6 +89,10 @@ docker-compose exec api alembic upgrade head
 This is the simplest reliable production setup: one VM running all services
 (API + web UI + worker + beat + Postgres + Redis) via Docker Compose.
 
+**Important:** On droplets/VPS, use `docker-compose.single.yml`. The default
+`docker-compose.yml` is for local development with bind mounts and can cause
+permission issues (e.g., `celerybeat-schedule`) and unexpected resets.
+
 ### 1. Provision a VM
 
 - **Minimum:** 2GB RAM, 1 vCPU, 25GB SSD
@@ -142,6 +146,9 @@ docker compose -f docker-compose.single.yml up -d --build
 ./deploy/scripts/check-env.sh .env
 docker compose -f docker-compose.single.yml exec api alembic upgrade head
 ```
+
+**Avoid** `docker compose down -v` in production unless you intend to wipe
+PostgreSQL data (it deletes the DB volume and re-initializes credentials).
 
 ### 5. Add a Reverse Proxy (Recommended)
 

@@ -3,6 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15
+    restart: unless-stopped
     environment:
       POSTGRES_DB: llmstxt
       POSTGRES_USER: postgres
@@ -19,6 +20,9 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
     ports:
       - "6379:6379"
     healthcheck:
@@ -34,6 +38,7 @@ services:
       args:
         VITE_API_URL: ""
         VITE_STRIPE_PUBLIC_KEY: ${VITE_STRIPE_PUBLIC_KEY}
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +68,10 @@ services:
         VITE_API_URL: ""
         VITE_STRIPE_PUBLIC_KEY: ${VITE_STRIPE_PUBLIC_KEY}
     command: celery -A llmstxt_api.tasks.celery worker -l info
+    restart: unless-stopped
+    # Disable healthcheck - worker doesn't have HTTP endpoint
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,7 +95,11 @@ services:
       args:
         VITE_API_URL: ""
         VITE_STRIPE_PUBLIC_KEY: ${VITE_STRIPE_PUBLIC_KEY}
-    command: celery -A llmstxt_api.tasks.celery beat -l info
+    command: celery -A llmstxt_api.tasks.celery beat -l info --schedule=/var/run/celery/celerybeat-schedule
+    restart: unless-stopped
+    # Disable healthcheck - beat doesn't have HTTP endpoint
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -102,6 +115,10 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY}
       SECRET_KEY: ${SECRET_KEY}
       ENVIRONMENT: production
+    volumes:
+      - celerybeat_data:/var/run/celery
 
 volumes:
   postgres_data:
+  redis_data:
+  celerybeat_data:
