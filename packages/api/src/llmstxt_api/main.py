@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 
 from llmstxt_api import __version__
 from llmstxt_api.config import settings
-from llmstxt_api.database import init_db
+# Note: Database tables are managed via Alembic migrations, not auto-created
 from llmstxt_api.middleware import RateLimitMiddleware
 from llmstxt_api.routes import auth, generate, payment, subscriptions
 from llmstxt_api.schemas import HealthResponse
@@ -19,12 +19,12 @@ from llmstxt_api.schemas import HealthResponse
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
-    print("🚀 Starting llmstxt API...")
-    await init_db()
-    print("✓ Database initialized")
+    print("Starting llmstxt API...")
+    # Database tables are managed via Alembic migrations
+    # Run: alembic upgrade head
     yield
     # Shutdown
-    print("👋 Shutting down llmstxt API...")
+    print("Shutting down llmstxt API...")
 
 
 # Create FastAPI app
