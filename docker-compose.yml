@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: llmstxt
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: dev_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -38,7 +38,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:dev_password@postgres/llmstxt
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-dev_password}@postgres/llmstxt
       REDIS_URL: redis://redis:6379
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
@@ -65,7 +65,7 @@ services:
       - postgres
       - redis
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:dev_password@postgres/llmstxt
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-dev_password}@postgres/llmstxt
       REDIS_URL: redis://redis:6379
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       CHARITY_COMMISSION_API_KEY: ${CHARITY_COMMISSION_API_KEY}
@@ -89,7 +89,7 @@ services:
       - postgres
       - redis
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:dev_password@postgres/llmstxt
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-dev_password}@postgres/llmstxt
       REDIS_URL: redis://redis:6379
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}

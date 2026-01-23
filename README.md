@@ -102,6 +102,7 @@ docker-compose exec api alembic upgrade head
 - **"npm ci" fails during Docker build**: Run `cd packages/web && npm install` to generate `package-lock.json`
 - **"relation already exists" during migrations**: Run `docker-compose exec api alembic stamp head` to mark migrations as applied
 - **Rate limit errors (429)**: Clear rate limits with `docker-compose exec redis redis-cli FLUSHALL`
+- **Postgres password errors**: The database password is set on first container init and persists in the `postgres_data` volume. If you change `POSTGRES_PASSWORD`, either reset it in Postgres (`docker-compose exec postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD '<new-password>';"`) or recreate the volume (`docker-compose down -v`). Also ensure your `DATABASE_URL` values use the same password (defaults to `dev_password`), and use `postgres` as the host inside Docker vs. `localhost:5432` from the host.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
