@@ -11,15 +11,48 @@
 #       name: '<your reference name>'          # optional, free text
 #       notes: '<context for reviewers>'       # optional
 #
-# Example (uncomment to use):
-#
-#   charities:
-#     - charity_number: '1234567'
-#       name: Riverside Community Trust
-#       notes: phase 1 reference profile
-#     - charity_number: '7654321'
-#       name: Another Trust
-#
-# Start empty — fill in 5-10 charities you trust before the first run.
+# Phase 1 seed corpus: 10 well-known UK charities chosen for breadth across
+# themes (health, social care, education, environment, international aid) and
+# scale (small national → very large household-name). Edit before re-running
+# to add orgs you know well or remove ones outside your review interest.
 
-charities: []
+charities:
+  - charity_number: '202918'
+    name: Oxfam GB
+    notes: Large international aid; theme coverage should include poverty + refugees
+
+  - charity_number: '220949'
+    name: British Red Cross
+    notes: Multi-theme (health, refugees_and_migration, food_access); huge org
+
+  - charity_number: '1089464'
+    name: Cancer Research UK
+    notes: Research-led; expect health theme + employment_and_skills
+
+  - charity_number: '219099'
+    name: RSPCA
+    notes: Animal welfare; single-theme expectation makes it a useful edge case
+
+  - charity_number: '216401'
+    name: NSPCC
+    notes: children_and_young_people + domestic_abuse; mature web presence
+
+  - charity_number: '1110522'
+    name: The Trussell Trust
+    notes: food_access + poverty_and_financial_inclusion; relatively newer
+
+  - charity_number: '263710'
+    name: Shelter
+    notes: housing_and_homelessness; campaigning org so plenty of activities text
+
+  - charity_number: '261017'
+    name: Macmillan Cancer Support
+    notes: health + loneliness + families_and_carers expected
+
+  - charity_number: '219830'
+    name: Mind
+    notes: mental_health; clear single primary theme, good control test
+
+  - charity_number: '214779'
+    name: The Salvation Army
+    notes: Multi-theme (homelessness, food, community, faith-based); large
