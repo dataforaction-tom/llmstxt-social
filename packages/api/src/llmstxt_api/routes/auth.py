@@ -123,6 +123,24 @@ async def send_magic_link(
     # Build magic link URL
     magic_link = f"{settings.frontend_url}/auth/verify?token={token}"
 
+    # Dev mode: skip Resend so the developer doesn't need verified-domain
+    # deliverability to click through locally. The link is logged so it can
+    # be copy-pasted from ``docker compose`` output.
+    if settings.environment == "development":
+        print(
+            "\n"
+            "==================================================\n"
+            f"MAGIC LINK for {email}:\n"
+            f"{magic_link}\n"
+            f"(expires in {MAGIC_LINK_EXPIRY_MINUTES} minutes)\n"
+            "==================================================\n",
+            flush=True,
+        )
+        return MagicLinkResponse(
+            message="Magic link logged to API stdout (development mode).",
+            email=email,
+        )
+
     # Send email
     try:
         resend.Emails.send({
