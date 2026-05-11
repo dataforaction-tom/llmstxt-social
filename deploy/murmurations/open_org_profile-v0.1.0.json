@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://library.murmurations.network/v2/schemas/open_org_profile-v0.1.0",
+  "title": "Open Org profile",
+  "description": "An organisation's profile in the Open Org schema — identity, mission, governance, themes, strategy summary, and idea count. See https://openorg.good-ship.co.uk for context.",
+  "type": "object",
+  "properties": {
+    "linked_schemas": {
+      "title": "Linked Schemas",
+      "description": "Identifies the schemas the profile is published against.",
+      "type": "array",
+      "items": {"type": "string"},
+      "contains": {"const": "open_org_profile-v0.1.0"}
+    },
+    "name": {
+      "title": "Name",
+      "description": "The organisation's primary name.",
+      "type": "string",
+      "minLength": 1
+    },
+    "primary_url": {
+      "title": "Primary URL",
+      "description": "The organisation's main website.",
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2000
+    },
+    "geolocation": {
+      "title": "Geolocation",
+      "description": "Latitude/longitude of the organisation's primary operating area.",
+      "type": "object",
+      "properties": {
+        "lat": {"type": "number", "minimum": -90, "maximum": 90},
+        "lon": {"type": "number", "minimum": -180, "maximum": 180}
+      },
+      "required": ["lat", "lon"]
+    },
+    "tags": {
+      "title": "Tags",
+      "description": "Open Org theme keys describing what the organisation does. Drawn from the Open Org controlled vocabulary of 30 themes.",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "org_id_guide": {
+      "title": "org-id.guide identifier",
+      "description": "Identifier in org-id.guide format (e.g. GB-CHC-1234567).",
+      "type": "string",
+      "pattern": "^[A-Z]{2}-[A-Z]{3}-.+$"
+    },
+    "registration": {
+      "title": "Registration identifiers",
+      "description": "UK statutory registrations.",
+      "type": "object",
+      "properties": {
+        "charity_commission_ew": {"type": "string"},
+        "companies_house": {"type": "string"},
+        "oscr": {"type": "string"},
+        "ccni": {"type": "string"}
+      }
+    },
+    "primary_area": {
+      "title": "Primary area",
+      "description": "Human-readable name of the organisation's primary operating area.",
+      "type": "string"
+    },
+    "primary_area_code": {
+      "title": "Primary area code",
+      "description": "ONS LAD/ITL code of the primary operating area.",
+      "type": "string",
+      "pattern": "^[A-Z][0-9]{8}$"
+    },
+    "annual_income_band": {
+      "title": "Annual income band",
+      "description": "Open Org income band enum.",
+      "type": "string",
+      "enum": [
+        "under_10k", "10k-100k", "100k-250k", "250k-500k",
+        "500k-1m", "1m-5m", "5m-10m", "10m-100m", "over_100m"
+      ]
+    },
+    "strategy_themes": {
+      "title": "Strategy themes",
+      "description": "Themes from the organisation's published active strategies, if any.",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "ideas_count": {
+      "title": "Published ideas count",
+      "description": "Number of published ideas associated with this organisation.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "open_org_profile_url": {
+      "title": "Open Org profile URL",
+      "description": "URL of the full Open Org profile JSON, served by the organisation's host (e.g. llmstxt.social or openorg.good-ship.co.uk).",
+      "type": "string",
+      "format": "uri"
+    },
+    "schema_version": {
+      "title": "Open Org schema version",
+      "description": "Version of the Open Org schema this profile complies with.",
+      "type": "string",
+      "const": "open-org/v0.1"
+    }
+  },
+  "required": [
+    "linked_schemas",
+    "name",
+    "primary_url",
+    "tags",
+    "org_id_guide"
+  ],
+  "metadata": {
+    "schema": {
+      "name": "open_org_profile-v0.1.0",
+      "purpose": "Federated discovery of UK social-sector organisations publishing Open Org profiles. Funders, researchers, and peer organisations can find each other by theme and place.",
+      "url": "https://openorg.good-ship.co.uk/about"
+    },
+    "creator": {
+      "name": "Good Ship",
+      "url": "https://good-ship.co.uk"
+    }
+  }
+}

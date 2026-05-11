@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Response, Cookie
 from sqlalchemy import select, delete
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import jwt, JWTError
 import resend
@@ -200,10 +201,29 @@ async def verify_magic_link(
     await db.commit()
     await db.refresh(user)
 
+    # Open Org claim flow: tokens minted for a specific org carry ``org_id``.
+    # Granting admin must not break sign-in if the grant already exists
+    # (idempotent claim links) — we catch the unique-violation and continue.
+    # Late import avoids a routes/auth.py ↔ routes/open_org_auth.py cycle.
+    if magic_token.org_id:
+        from llmstxt_api.routes.open_org_auth import grant_org_admin
+
+        try:
+            await grant_org_admin(
+                db,
+                user_id=user.id,
+                org_id=magic_token.org_id,
+                role="owner",
+            )
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+
     # Create JWT token
     jwt_token = create_jwt_token(str(user.id), user.email)
 
-    # Set cookie
+    # Set cookie. ``domain`` is unset in dev (host-only on localhost) and set
+    # to ``.good-ship.co.uk`` in prod so the cookie spans both subdomains.
     response.set_cookie(
         key="auth_token",
         value=jwt_token,
@@ -211,6 +231,7 @@ async def verify_magic_link(
         secure=settings.environment == "production",
         samesite="lax",
         max_age=60 * 60 * 24 * JWT_EXPIRY_DAYS,  # 7 days
+        domain=settings.auth_cookie_domain,
     )
 
     return AuthResponse(
@@ -235,8 +256,12 @@ async def get_me(user: User = Depends(require_auth)):
 
 @router.post("/auth/logout")
 async def logout(response: Response):
-    """Log out by clearing auth cookie."""
-    response.delete_cookie("auth_token")
+    """Log out by clearing auth cookie.
+
+    ``domain`` must match the one used at set time or the browser keeps the
+    cookie around — we read the same setting both ends.
+    """
+    response.delete_cookie("auth_token", domain=settings.auth_cookie_domain)
     return {"message": "Logged out successfully"}
 
 

@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openorg.good-ship.co.uk/schemas/org_idea/v0.1.json",
+  "title": "Open Org idea",
+  "description": "An idea an organisation is developing or seeking to deliver. Phase 1 schema v0.1.",
+  "type": "object",
+  "required": ["schema_version", "id", "status", "themes"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "open-org-idea/v0.1"
+    },
+    "id": {"type": "string", "minLength": 1},
+    "status": {
+      "type": "string",
+      "enum": ["seed", "developing", "shaped", "delivered", "archived"]
+    },
+    "summary": {"type": "string"},
+    "detail": {"type": "string"},
+    "place": {
+      "type": "object",
+      "properties": {
+        "description": {"type": "string"},
+        "area_codes": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^[A-Z][0-9]{8}$"}
+        },
+        "geolocation": {
+          "type": "object",
+          "required": ["lat", "lon"],
+          "properties": {
+            "lat": {"type": "number", "minimum": -90, "maximum": 90},
+            "lon": {"type": "number", "minimum": -180, "maximum": 180}
+          }
+        }
+      }
+    },
+    "themes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "older_people", "children_and_young_people", "families_and_carers",
+          "health", "mental_health", "disability", "social_prescribing",
+          "loneliness", "food_access", "housing_and_homelessness",
+          "poverty_and_financial_inclusion", "community_development",
+          "volunteering", "lived_experience", "education",
+          "employment_and_skills", "arts_and_culture", "heritage",
+          "environment_and_climate", "nature_and_biodiversity",
+          "transport_and_mobility", "digital_inclusion", "civic_participation",
+          "women_and_girls", "lgbtq_plus", "race_equity",
+          "refugees_and_migration", "crime_and_justice", "domestic_abuse",
+          "animal_welfare"
+        ]
+      }
+    },
+    "beneficiaries": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "indicative_cost": {
+      "type": "object",
+      "properties": {
+        "lower": {"type": "integer", "minimum": 0},
+        "upper": {"type": "integer", "minimum": 0},
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "period": {"type": "string"}
+      }
+    },
+    "evidence_base": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["evidence_id"],
+        "properties": {
+          "evidence_id": {"type": "string"},
+          "relevance": {"type": "string"}
+        }
+      }
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["org_name"],
+        "properties": {
+          "org_name": {"type": "string"},
+          "org_id": {"type": "string"},
+          "relationship": {
+            "type": "string",
+            "enum": ["complementary", "competing", "collaborating", "referring"]
+          },
+          "mutual": {"type": "boolean"}
+        }
+      }
+    },
+    "collaborators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["org_name"],
+        "properties": {
+          "org_name": {"type": "string"},
+          "org_id": {"type": "string"},
+          "role": {"type": "string"},
+          "confirmed": {"type": "boolean"}
+        }
+      }
+    },
+    "linked_strategy_id": {"type": "string"}
+  }
+}

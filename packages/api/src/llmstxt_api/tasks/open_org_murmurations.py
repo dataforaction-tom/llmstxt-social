@@ -1,0 +1,246 @@
+"""Celery tasks for Murmurations index integration.
+
+Two tasks live here:
+
+* :func:`submit_to_murmurations_task` — validate + submit a single profile to
+  the Murmurations index. Dispatched from the publish route and from the PUT
+  admin route when an already-published profile is saved.
+* :func:`sync_external_org_cache_task` — daily beat job that pulls all nodes
+  for our schema, upserts them into ``external_org_cache``, and deletes rows
+  no longer in the index.
+
+Both tasks split into an async ``_run_*`` core that takes injected
+collaborators (so tests can run offline) and a thin Celery wrapper that wires
+the production implementations.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import uuid
+from typing import Any, Awaitable, Callable
+
+from sqlalchemy import select, delete
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
+from llmstxt_api.config import settings
+from llmstxt_api.open_org_models import ExternalOrgCache, OrgProfile
+from llmstxt_api.tasks.celery import celery_app
+from llmstxt_core.open_org.murmurations import (
+    MURMURATIONS_SCHEMA_NAME,
+    MurmurationsClient,
+    MurmurationsError,
+)
+
+
+log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Production collaborators
+# ---------------------------------------------------------------------------
+
+
+def _build_session_maker():
+    engine = create_async_engine(settings.database_url, echo=False)
+    return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+
+def _build_client() -> MurmurationsClient:
+    return MurmurationsClient(
+        index_url=settings.murmurations_index_url,
+        library_url=settings.murmurations_library_url,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Submit task
+# ---------------------------------------------------------------------------
+
+
+async def _run_submission(
+    *,
+    profile_id: uuid.UUID,
+    session_maker: Any,
+    client: MurmurationsClient,
+    frontend_base_url: str,
+) -> None:
+    """Validate + submit a profile to the Murmurations index.
+
+    Status transitions: pending → validated → posted (happy path).
+    Validation failure: → failed (and we don't submit).
+    Transient (5xx) errors raise so Celery's retry logic owns them — the row
+    stays at the previous status until a retry succeeds or finally fails.
+    """
+    async with session_maker() as session:
+        profile = await _fetch_profile(session, profile_id)
+        if profile is None:
+            log.warning("submit task: profile %s not found", profile_id)
+            return
+        if not profile.published:
+            log.info("submit task: profile %s unpublished, skipping", profile.org_id)
+            return
+
+        url = f"{frontend_base_url.rstrip('/')}/open-org/{profile.org_id}/murmurations.json"
+
+        validation = await client.validate_profile(url)
+        if not validation.valid:
+            profile.murmurations_status = "failed"
+            await session.commit()
+            log.warning(
+                "submit task: validation failed for %s — %s",
+                profile.org_id,
+                "; ".join(validation.errors),
+            )
+            return
+        profile.murmurations_status = "validated"
+        await session.commit()
+
+        result = await client.submit_node(url)
+        profile.murmurations_node_id = result.node_id
+        # Index may return ``posted``, ``received``, or an error status; we
+        # store whatever it says so the operator can see edge cases.
+        profile.murmurations_status = (
+            "posted" if result.status == "posted" else result.status
+        )
+        await session.commit()
+
+
+async def _fetch_profile(session: AsyncSession, profile_id: uuid.UUID) -> OrgProfile | None:
+    result = await session.execute(
+        select(OrgProfile).where(OrgProfile.id == profile_id)
+    )
+    return result.scalar_one_or_none()
+
+
+@celery_app.task(
+    name="open_org_submit_to_murmurations",
+    bind=True,
+    autoretry_for=(MurmurationsError,),
+    retry_backoff=True,
+    retry_backoff_max=600,
+    max_retries=5,
+)
+def submit_to_murmurations_task(self, *, profile_id: str):
+    """Celery wrapper. Retries on transient :class:`MurmurationsError`."""
+    asyncio.run(
+        _run_submission(
+            profile_id=uuid.UUID(profile_id),
+            session_maker=_build_session_maker(),
+            client=_build_client(),
+            frontend_base_url=settings.frontend_url,
+        )
+    )
+
+
+# ---------------------------------------------------------------------------
+# Daily cache sync task
+# ---------------------------------------------------------------------------
+
+
+async def _run_cache_sync(
+    *,
+    session_maker: Any,
+    client: MurmurationsClient,
+    fetch_profile_body: Callable[[str], Awaitable[dict | None]],
+) -> dict[str, int]:
+    """Pull all nodes for our schema; upsert + delete missing rows.
+
+    Returns counts ``{upserted, deleted}`` for observability.
+    """
+    nodes = await client.fetch_nodes_by_schema(MURMURATIONS_SCHEMA_NAME)
+
+    seen_org_ids: set[str] = set()
+    upserted = 0
+
+    async with session_maker() as session:
+        for node in nodes:
+            profile_url = node.get("profile_url")
+            if not profile_url:
+                continue
+            payload = await fetch_profile_body(profile_url)
+            if not isinstance(payload, dict):
+                continue
+            org_id = payload.get("org_id_guide") or payload.get("org_id")
+            if not isinstance(org_id, str) or not org_id:
+                continue
+            seen_org_ids.add(org_id)
+
+            existing_result = await session.execute(
+                select(ExternalOrgCache).where(ExternalOrgCache.org_id == org_id)
+            )
+            existing = existing_result.scalar_one_or_none()
+            if existing is None:
+                session.add(
+                    ExternalOrgCache(
+                        org_id=org_id,
+                        source_url=profile_url,
+                        profile_json=payload,
+                    )
+                )
+            else:
+                existing.source_url = profile_url
+                existing.profile_json = payload
+            upserted += 1
+
+        await session.commit()
+
+        # Delete rows that have left the index. Restrict to rows we know came
+        # from Murmurations — for Phase 1 the only producer is this task, so
+        # any row missing from ``seen_org_ids`` is stale.
+        delete_result = await session.execute(
+            select(ExternalOrgCache).where(
+                ExternalOrgCache.org_id.notin_(seen_org_ids or ["__never__"])
+            )
+        )
+        stale = delete_result.scalars().all()
+        deleted = 0
+        for row in stale:
+            await session.delete(row)
+            deleted += 1
+        await session.commit()
+
+    return {"upserted": upserted, "deleted": deleted}
+
+
+async def _default_fetch_profile_body(url: str) -> dict | None:
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as http:
+            response = await http.get(url)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("cache sync: fetch failed for %s: %s", url, exc)
+        return None
+    if response.status_code != 200:
+        return None
+    try:
+        body = response.json()
+    except Exception:  # noqa: BLE001
+        return None
+    return body if isinstance(body, dict) else None
+
+
+@celery_app.task(name="open_org_sync_external_cache", bind=True)
+def sync_external_org_cache_task(self):
+    """Daily beat job. Idempotent: upserts + deletes-missing in one pass."""
+    asyncio.run(
+        _run_cache_sync(
+            session_maker=_build_session_maker(),
+            client=_build_client(),
+            fetch_profile_body=_default_fetch_profile_body,
+        )
+    )
+
+
+__all__ = [
+    "_run_submission",
+    "_run_cache_sync",
+    "submit_to_murmurations_task",
+    "sync_external_org_cache_task",
+]

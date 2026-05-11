@@ -25,6 +25,11 @@ app = typer.Typer(
 )
 console = Console()
 
+# Open Org subcommands (Phase 1).
+from .openorg import openorg_app  # noqa: E402
+
+app.add_typer(openorg_app)
+
 
 def version_callback(value: bool):
     """Print version and exit."""

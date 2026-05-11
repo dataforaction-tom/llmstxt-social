@@ -1,0 +1,152 @@
+[
+  {
+    "key": "older_people",
+    "label": "Older people",
+    "description": "Work focused on people in later life: independence, social connection, end-of-life, intergenerational programmes."
+  },
+  {
+    "key": "children_and_young_people",
+    "label": "Children and young people",
+    "description": "Services, advocacy, and development work with under-25s, including youth work, early years, play, and out-of-school provision."
+  },
+  {
+    "key": "families_and_carers",
+    "label": "Families and carers",
+    "description": "Support for parents, kinship carers, and unpaid carers — practical, emotional, and rights-based."
+  },
+  {
+    "key": "health",
+    "label": "Physical health",
+    "description": "Physical health promotion, prevention, long-term physical condition support (cancer, cardiovascular, respiratory, diabetes, etc.), and patient advocacy on physical illness. Excludes mental health — use mental_health for anything about psychological wellbeing, anxiety, depression, psychosis, eating disorders, or mental illness."
+  },
+  {
+    "key": "mental_health",
+    "label": "Mental health",
+    "description": "Anything about psychological wellbeing or mental ill-health: anxiety, depression, psychosis, eating disorders, suicide prevention, crisis intervention, talking therapies, counselling, peer support, mental health helplines. Use this key — NOT health — whenever the activity is explicitly about the mind. A charity supporting people with mental illness belongs here even when it also touches physical health."
+  },
+  {
+    "key": "disability",
+    "label": "Disability",
+    "description": "Work led by or for disabled people: independent living, accessibility, rights, and inclusion."
+  },
+  {
+    "key": "social_prescribing",
+    "label": "Social prescribing",
+    "description": "Non-clinical referral pathways from primary care into community-based support."
+  },
+  {
+    "key": "loneliness",
+    "label": "Loneliness and social isolation",
+    "description": "Building social connection and reducing isolation across age groups and contexts."
+  },
+  {
+    "key": "food_access",
+    "label": "Food access",
+    "description": "Community food, food justice, food banks, kitchens, and supply chain work — distinct from food banking alone."
+  },
+  {
+    "key": "housing_and_homelessness",
+    "label": "Housing and homelessness",
+    "description": "Housing rights, homelessness prevention, supported accommodation, and tenant support."
+  },
+  {
+    "key": "poverty_and_financial_inclusion",
+    "label": "Poverty and financial inclusion",
+    "description": "Income maximisation, debt advice, financial capability, fuel poverty, and anti-poverty strategy."
+  },
+  {
+    "key": "community_development",
+    "label": "Community development",
+    "description": "Place-based work building community capacity, infrastructure, and asset-based development."
+  },
+  {
+    "key": "volunteering",
+    "label": "Volunteering",
+    "description": "Volunteer mobilisation, infrastructure, and the development of volunteer-led services."
+  },
+  {
+    "key": "lived_experience",
+    "label": "Lived experience leadership",
+    "description": "Work led by people with direct experience of the issues addressed; user-led organising."
+  },
+  {
+    "key": "education",
+    "label": "Education",
+    "description": "Formal and informal learning, schools work, adult education, and educational equity."
+  },
+  {
+    "key": "employment_and_skills",
+    "label": "Employment and skills",
+    "description": "Routes into work, skills development, and supporting people facing labour market disadvantage."
+  },
+  {
+    "key": "arts_and_culture",
+    "label": "Arts and culture",
+    "description": "Participatory arts, cultural production, and arts-led community work."
+  },
+  {
+    "key": "heritage",
+    "label": "Heritage",
+    "description": "Built heritage, cultural heritage, archives, and community-led conservation."
+  },
+  {
+    "key": "environment_and_climate",
+    "label": "Environment and climate",
+    "description": "Climate action, environmental justice, low-carbon transition, and adaptation."
+  },
+  {
+    "key": "nature_and_biodiversity",
+    "label": "Nature and biodiversity",
+    "description": "Habitat restoration, conservation, and nature-based community work."
+  },
+  {
+    "key": "transport_and_mobility",
+    "label": "Transport and mobility",
+    "description": "Community transport, active travel, and transport-related social inclusion."
+  },
+  {
+    "key": "digital_inclusion",
+    "label": "Digital inclusion",
+    "description": "Closing digital divides — access, skills, devices, and meaningful use."
+  },
+  {
+    "key": "civic_participation",
+    "label": "Civic participation",
+    "description": "Democratic engagement, deliberation, community organising, and rights-based advocacy."
+  },
+  {
+    "key": "women_and_girls",
+    "label": "Women and girls",
+    "description": "Services, advocacy, and movements led by or for women and girls."
+  },
+  {
+    "key": "lgbtq_plus",
+    "label": "LGBTQ+",
+    "description": "Services, advocacy, and movements led by or for LGBTQ+ people."
+  },
+  {
+    "key": "race_equity",
+    "label": "Race equity",
+    "description": "Anti-racism, racial justice, and work led by Black and minoritised communities."
+  },
+  {
+    "key": "refugees_and_migration",
+    "label": "Refugees and migration",
+    "description": "Support and advocacy for refugees, asylum seekers, and migrants."
+  },
+  {
+    "key": "crime_and_justice",
+    "label": "Crime and justice",
+    "description": "Restorative justice, prison and probation work, victim support, and youth justice."
+  },
+  {
+    "key": "domestic_abuse",
+    "label": "Domestic abuse",
+    "description": "Refuge, advocacy, perpetrator programmes, and prevention of domestic and sexual abuse."
+  },
+  {
+    "key": "animal_welfare",
+    "label": "Animal welfare",
+    "description": "Animal protection, rehoming, wildlife rescue, and human-animal welfare interfaces."
+  }
+]

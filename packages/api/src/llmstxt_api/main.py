@@ -12,6 +12,14 @@ from llmstxt_api.config import settings
 # Note: Database tables are managed via Alembic migrations, not auto-created
 from llmstxt_api.middleware import RateLimitMiddleware
 from llmstxt_api.routes import auth, generate, payment, subscriptions
+from llmstxt_api.routes import (
+    open_org_admin,
+    open_org_creator,
+    open_org_discovery,
+    open_org_generate,
+    open_org_public,
+    open_org_public_murmurations,
+)
 from llmstxt_api.schemas import HealthResponse
 
 
@@ -54,6 +62,15 @@ app.include_router(auth.router, prefix="/api", tags=["Authentication"])
 app.include_router(generate.router, prefix="/api", tags=["Generation"])
 app.include_router(payment.router, prefix="/api/payment", tags=["Payment"])
 app.include_router(subscriptions.router, prefix="/api", tags=["Subscriptions"])
+
+# Open Org Phase 1. Public routes mount at root (Murmurations-facing URLs);
+# admin edit and generate routes carry their own /api/open-org prefix.
+app.include_router(open_org_public.router)
+app.include_router(open_org_public_murmurations.router)
+app.include_router(open_org_admin.router)
+app.include_router(open_org_generate.router)
+app.include_router(open_org_creator.router)
+app.include_router(open_org_discovery.router)
 
 web_dist_dir = Path(settings.web_dist_dir)
 web_index_file = web_dist_dir / "index.html"
