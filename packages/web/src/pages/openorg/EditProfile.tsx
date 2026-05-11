@@ -51,21 +51,26 @@ export default function EditProfilePage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold text-gray-900">Edit profile</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Organisation: <code className="font-mono">{orgId}</code>
-        </p>
-      </header>
+    <div className="surface-paper min-h-screen">
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        <header className="mb-8">
+          <div className="kicker num">Editing · Profile</div>
+          <h1 className="display-head mt-2 text-3xl font-medium leading-tight sm:text-4xl">
+            Edit organisation profile
+          </h1>
+          <p className="mt-2 text-sm text-muted">
+            <code className="font-mono text-ink">{orgId}</code>
+          </p>
+        </header>
 
-      <MarkdownEditor
-        initialMarkdown={profile.data?.markdown ?? ''}
-        onSave={handleSave}
-        saving={save.isPending}
-        validationErrors={validationErrors}
-        saveLabel="Save profile"
-      />
+        <MarkdownEditor
+          initialMarkdown={profile.data?.markdown ?? ''}
+          onSave={handleSave}
+          saving={save.isPending}
+          validationErrors={validationErrors}
+          saveLabel="Save profile"
+        />
+      </div>
     </div>
   );
 }
