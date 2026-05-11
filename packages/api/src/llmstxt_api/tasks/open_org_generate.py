@@ -76,6 +76,21 @@ async def _default_send_claim_email(
     await db.commit()
 
     claim_url = f"{settings.frontend_url}/auth/verify?token={raw_token}"
+
+    # Dev mode: skip Resend and log the claim URL so the developer can
+    # copy-paste from ``docker compose`` output without Resend deliverability
+    # configured.
+    if settings.environment == "development":
+        print(
+            "\n"
+            "==================================================\n"
+            f"CLAIM LINK for {email} ({org_id}):\n"
+            f"{claim_url}\n"
+            "==================================================\n",
+            flush=True,
+        )
+        return
+
     try:
         resend.Emails.send(
             {
