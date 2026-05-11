@@ -94,6 +94,7 @@ def extract_themes(
     client: CachedAnthropic,
     objects_text: str,
     activities_text: str,
+    website_text: str = "",
     confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
     model: str | None = None,
 ) -> ThemeExtractionResult:
@@ -102,10 +103,16 @@ def extract_themes(
     Returns themes accepted at or above ``confidence_threshold`` plus a
     ``flagged`` list (matches the model is less sure about). The caller can
     surface flagged items for human review.
+
+    ``website_text`` is optional content from the charity's own site. The v0.1
+    baseline run showed CC ``who_what_where`` classifications are too sparse
+    for orgs like Trussell Trust and Shelter; passing the homepage + about
+    page text alongside CC fields closes the gap.
     """
     objects_text = (objects_text or "").strip()
     activities_text = (activities_text or "").strip()
-    if not objects_text and not activities_text:
+    website_text = (website_text or "").strip()
+    if not objects_text and not activities_text and not website_text:
         return ThemeExtractionResult()
 
     system = [
@@ -119,11 +126,23 @@ def extract_themes(
         system_block(_vocabulary_block_text(), cache=True),
     ]
 
-    user_message = (
-        "Charity-supplied text follows. Identify which Open Org themes apply.\n\n"
-        f"Charitable objects:\n{objects_text or '(not supplied)'}\n\n"
-        f"Activities:\n{activities_text or '(not supplied)'}"
-    )
+    user_message_parts = [
+        "Charity-supplied text follows. Identify which Open Org themes apply.",
+        "",
+        f"Charitable objects:\n{objects_text or '(not supplied)'}",
+        "",
+        f"Activities:\n{activities_text or '(not supplied)'}",
+    ]
+    if website_text:
+        # The website is the charity's voice; weight it equally with CC text.
+        # Truncate to keep the prompt within a sensible cost envelope.
+        user_message_parts.extend(
+            [
+                "",
+                f"Website content (homepage / about pages):\n{website_text[:8000]}",
+            ]
+        )
+    user_message = "\n".join(user_message_parts)
 
     result = client.complete(
         messages=[{"role": "user", "content": user_message}],

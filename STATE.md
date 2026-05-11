@@ -15,7 +15,7 @@ stateDiagram-v2
     Deploying --> Live: Caddy + Tunnel routes openorg.good-ship.co.uk
     Live --> [*]
 
-    note right of Testing: ← WE ARE HERE (Phase 1 baselined; Phase 1.5 / v0.2 planned)
+    note right of Testing: ← WE ARE HERE (Phase 1.5 / v0.2.1 done; v0.2.2-v0.2.5 next)
 ```
 
 ## Component status

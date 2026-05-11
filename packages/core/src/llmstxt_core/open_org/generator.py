@@ -38,6 +38,7 @@ from llmstxt_core.open_org.theme_extractor import (
     extract_themes,
 )
 from llmstxt_core.open_org.validator import ValidationError, validate_for_kind
+from llmstxt_core.open_org.website_text import collect_website_text
 
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -46,6 +47,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 FetchCharity = Callable[..., Awaitable[CharityData | None]]
 RewriteMission = Callable[..., MissionRewriteResult]
 ExtractThemes = Callable[..., ThemeExtractionResult]
+CollectWebsite = Callable[..., Awaitable[str]]
 
 
 class ProfileGenerationError(RuntimeError):
@@ -196,6 +198,7 @@ async def generate_profile_from_charity_number(
     fetch_charity: FetchCharity | None = None,
     rewrite_mission: RewriteMission | None = None,
     extract_themes: ExtractThemes | None = None,
+    collect_website: CollectWebsite | None = None,
 ) -> GenerationResult:
     """Generate an Open Org profile from a UK Charity Commission number.
 
@@ -206,12 +209,21 @@ async def generate_profile_from_charity_number(
     fetch = fetch_charity or fetch_charity_data
     rewrite = rewrite_mission or rewrite_mission_summary
     themer = extract_themes or _default_extract_themes
+    collect = collect_website or collect_website_text
 
     cc = await fetch(charity_number, api_key=cc_api_key)
     if cc is None:
         raise ProfileGenerationError(
             f"Charity {charity_number!r} not found via Charity Commission"
         )
+
+    # v0.2.1: augment theme extraction with the charity's own website content.
+    # CC ``who_what_where`` classifications are too sparse for orgs like
+    # Trussell Trust and Shelter (per baseline_v0.1.md). When no website is
+    # on file or the crawl fails, ``collect`` returns "" and we silently
+    # fall back to CC-only theme extraction.
+    website_url = (cc.contact or {}).get("web")
+    website_text = await collect(website_url) if website_url else ""
 
     rewrite_result = rewrite(
         client=anthropic_client,
@@ -221,6 +233,7 @@ async def generate_profile_from_charity_number(
         client=anthropic_client,
         objects_text=cc.charitable_objects or "",
         activities_text=cc.activities or "",
+        website_text=website_text,
     )
 
     payload = _build_payload(

@@ -168,3 +168,62 @@ def test_extract_themes_caches_vocabulary_in_system_prompt():
     assert isinstance(system, list)
     cached_blocks = [b for b in system if b.get("cache_control")]
     assert cached_blocks, "vocabulary block must be cached"
+
+
+# --- website_text augmentation (v0.2.1) ------------------------------------
+
+
+def test_website_text_is_included_in_user_message_when_provided():
+    """The baseline v0.1 run showed CC text alone is too sparse for orgs
+    like Trussell Trust and Shelter. Website content closes the gap."""
+    client = _client_returning([])
+    extract_themes(
+        client=client,
+        objects_text="x",
+        activities_text="y",
+        website_text="We run food banks across the UK.",
+    )
+    kwargs = client._client.messages.create.call_args.kwargs
+    user_content = kwargs["messages"][-1]["content"]
+    assert "food banks" in user_content
+
+
+def test_website_text_omitted_when_empty():
+    """An empty website_text must not pollute the prompt with empty sections."""
+    client = _client_returning([])
+    extract_themes(
+        client=client,
+        objects_text="x",
+        activities_text="y",
+        website_text="",
+    )
+    kwargs = client._client.messages.create.call_args.kwargs
+    user_content = kwargs["messages"][-1]["content"]
+    # No empty website-text marker.
+    assert "Website content" not in user_content or "(not supplied)" in user_content
+
+
+def test_website_text_triggers_model_call_even_when_cc_fields_empty():
+    """Sparse CC data alone wouldn't fire the call (early-return), but a
+    populated website is enough signal to attempt extraction."""
+    client = _client_returning(
+        [{"theme": "food_access", "confidence": 0.95, "reason": "food bank work"}]
+    )
+    result = extract_themes(
+        client=client,
+        objects_text="",
+        activities_text="",
+        website_text="We operate a network of food banks.",
+    )
+    assert "food_access" in result.themes
+    client._client.messages.create.assert_called_once()
+
+
+def test_no_call_when_all_three_inputs_are_empty():
+    client = CachedAnthropic(api_key="test")
+    client._client = MagicMock()
+    result = extract_themes(
+        client=client, objects_text="", activities_text="", website_text=""
+    )
+    assert result.themes == []
+    client._client.messages.create.assert_not_called()

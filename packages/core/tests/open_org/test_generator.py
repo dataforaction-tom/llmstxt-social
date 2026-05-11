@@ -82,6 +82,21 @@ def fake_extract_themes():
     return _stub
 
 
+@pytest.fixture(autouse=True)
+def _no_real_crawls(monkeypatch):
+    """Stop the generator's default ``collect_website_text`` from hitting the
+    network. Tests that exercise the crawl integration inject their own stub
+    via the ``collect_website`` parameter; this autouse fixture protects every
+    other test."""
+
+    async def _empty(url, **kwargs):
+        return ""
+
+    import llmstxt_core.open_org.generator as gen_mod
+
+    monkeypatch.setattr(gen_mod, "collect_website_text", _empty)
+
+
 # ---------------------------------------------------------------------------
 # Happy path
 # ---------------------------------------------------------------------------
@@ -358,3 +373,92 @@ async def test_markdown_round_trips_back_to_json(
 
     re_parsed = markdown_to_json(result.markdown, kind="profile")
     assert re_parsed == result.json_payload
+
+
+# ---------------------------------------------------------------------------
+# v0.2.1 — website-content augmentation
+# ---------------------------------------------------------------------------
+
+
+async def test_generator_passes_website_text_to_theme_extractor(
+    fake_fetch_charity, fake_rewrite_mission
+):
+    """When a website URL is on file, the crawl helper is called and its
+    output flows to the theme extractor."""
+    fake_fetch_charity.return_value = _full_charity_data()
+
+    received: dict = {}
+
+    def stub_themes(*, client, objects_text, activities_text, website_text="", **kw):
+        received["website_text"] = website_text
+        return ThemeExtractionResult(
+            themes=["education", "food_access"], flagged=[]
+        )
+
+    async def stub_collect(url, **kwargs):
+        received["crawled_url"] = url
+        return "Acme runs food banks."
+
+    await generate_profile_from_charity_number(
+        "1234567",
+        anthropic_client=_stub_anthropic(),
+        fetch_charity=fake_fetch_charity,
+        rewrite_mission=fake_rewrite_mission,
+        extract_themes=stub_themes,
+        collect_website=stub_collect,
+    )
+
+    assert received["crawled_url"] == "https://acme.example"
+    assert received["website_text"] == "Acme runs food banks."
+
+
+async def test_generator_skips_crawl_when_no_website_on_file(
+    fake_fetch_charity, fake_rewrite_mission, fake_extract_themes
+):
+    """No website URL → don't call the crawl helper at all."""
+    cc = _full_charity_data()
+    cc.contact = {"email": "x@y.example"}  # no 'web' key
+    fake_fetch_charity.return_value = cc
+
+    collect_called = False
+
+    async def stub_collect(url, **kwargs):
+        nonlocal collect_called
+        collect_called = True
+        return ""
+
+    await generate_profile_from_charity_number(
+        "1234567",
+        anthropic_client=_stub_anthropic(),
+        fetch_charity=fake_fetch_charity,
+        rewrite_mission=fake_rewrite_mission,
+        extract_themes=fake_extract_themes,
+        collect_website=stub_collect,
+    )
+    assert collect_called is False
+
+
+async def test_generator_falls_back_when_crawl_returns_empty(
+    fake_fetch_charity, fake_rewrite_mission
+):
+    """An empty crawl result still flows; theme extractor gets website_text=''."""
+    fake_fetch_charity.return_value = _full_charity_data()
+
+    received: dict = {}
+
+    def stub_themes(*, client, objects_text, activities_text, website_text="", **kw):
+        received["website_text"] = website_text
+        return ThemeExtractionResult(themes=["education"], flagged=[])
+
+    async def empty_collect(url, **kwargs):
+        return ""
+
+    await generate_profile_from_charity_number(
+        "1234567",
+        anthropic_client=_stub_anthropic(),
+        fetch_charity=fake_fetch_charity,
+        rewrite_mission=fake_rewrite_mission,
+        extract_themes=stub_themes,
+        collect_website=empty_collect,
+    )
+    assert received["website_text"] == ""

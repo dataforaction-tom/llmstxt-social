@@ -444,7 +444,7 @@ If any must-pass case still fails, v0.2.6 explores deeper prompting / a per-them
 ## v0.2 build order
 
 ```
-v0.2.1  Wire website crawl into the generator                 (biggest lever)
+v0.2.1  Wire website crawl into the generator                 (biggest lever)  ✅
 v0.2.2  Prompt: positive examples per theme                   (cheap, sharpens recall)
 v0.2.3  Prompt: 'education' negative-match rule               (cheap, reduces over-fitting)
 v0.2.4  Vocab: tighten health vs mental_health boundary       (low risk, high signal)
@@ -452,6 +452,17 @@ v0.2.5  Re-baseline run + diff vs v0.1                        (operator action)
 ```
 
 Each step is its own commit; the re-baseline closes the loop.
+
+### v0.2.1 — wire crawl into the profile generator (done 2026-05-11)
+
+**Core (`packages/core/`)**:
+- `open_org/website_text.py` — new `collect_website_text(url, *, crawler, extractor, max_pages=5, max_chars=20_000)`. Crawls the charity's site (≤5 pages by default), filters to relevant page types (`HOME`, `ABOUT`, `SERVICES`, `GET_HELP`, `VOLUNTEER`), concatenates body text, truncates to keep prompt costs predictable. Failures (DNS, timeout, malformed HTML) collapse to `""` so generation never breaks on a flaky website.
+- `open_org/theme_extractor.py` — `extract_themes` gained an optional `website_text` kwarg. When supplied, it's appended to the user message as a "Website content" section. Truncation at 8000 chars at the extractor boundary too (defence in depth).
+- `open_org/generator.py` — `generate_profile_from_charity_number` now takes an optional injectable `collect_website` collaborator and calls it when `cc.contact["web"]` is on file. Result flows to `extract_themes` as `website_text`. Empty contact, missing web key, or empty crawl result all silently degrade to CC-only theme extraction.
+
+**Tests**: 251 core (was 234, +17 across `test_website_text.py` (10), `test_theme_extractor.py` (4 new), `test_generator.py` (3 new)). Autouse fixture in `test_generator.py` stops the existing happy-path tests hitting the real network via the default `collect_website_text`.
+
+**Expected impact on the baseline**: Trussell Trust + Shelter + Mind should hit their must-pass themes after the re-baseline. Will only know for sure after v0.2.5 is run.
 
 ## Other follow-ups still on the list (unchanged from Phase 1)
 
