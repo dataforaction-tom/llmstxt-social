@@ -1,6 +1,6 @@
 """Rate limiting middleware using Redis."""
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Callable
 
 from fastapi import HTTPException, Request, Response
@@ -13,59 +13,72 @@ from llmstxt_api.config import settings
 redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """
-    Rate limiting middleware for free tier endpoints.
+# Path → (key prefix, limit, window seconds, bucket-format) so multiple
+# endpoints can share the middleware without bloating the dispatch logic.
+def _rule_for(path: str):
+    if path.startswith("/api/generate/free"):
+        return (
+            "rate_limit:free",
+            settings.free_tier_daily_limit,
+            86400,
+            date.today().isoformat(),
+        )
+    if path.startswith("/api/open-org/generate"):
+        # Hourly bucket — each generation costs real Anthropic spend; per-day
+        # is too coarse to deter abuse on an unauthenticated endpoint.
+        return (
+            "rate_limit:open_org_generate",
+            settings.open_org_generate_hourly_limit,
+            3600,
+            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H"),
+        )
+    return None
 
-    Limits requests based on IP address.
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Per-IP rate limiting backed by Redis.
+
+    Currently scopes ``/api/generate/free`` (daily) and
+    ``/api/open-org/generate`` (hourly). New endpoints register by adding
+    a branch to :func:`_rule_for`.
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Check rate limit before processing request."""
-
-        # Only apply to /api/generate/free endpoint
-        if not request.url.path.startswith("/api/generate/free"):
+        rule = _rule_for(request.url.path)
+        if rule is None:
             return await call_next(request)
+        prefix, limit, window_seconds, bucket = rule
 
-        # Get client IP
         client_ip = request.client.host if request.client else "unknown"
-
-        # Create rate limit key (per day)
-        today = date.today().isoformat()
-        rate_limit_key = f"rate_limit:free:{client_ip}:{today}"
+        rate_limit_key = f"{prefix}:{client_ip}:{bucket}"
 
         try:
-            # Increment counter
             count = redis_client.incr(rate_limit_key)
-
-            # Set expiry on first request (24 hours)
             if count == 1:
-                redis_client.expire(rate_limit_key, 86400)
+                redis_client.expire(rate_limit_key, window_seconds)
 
-            # Check limit
-            if count > settings.free_tier_daily_limit:
+            if count > limit:
                 raise HTTPException(
                     status_code=429,
                     detail={
                         "error": "Rate limit exceeded",
-                        "message": f"Free tier allows {settings.free_tier_daily_limit} requests per day. Please upgrade to paid tier for unlimited access.",
-                        "retry_after": "24 hours",
+                        "message": (
+                            f"This endpoint allows {limit} requests per "
+                            f"{'hour' if window_seconds == 3600 else 'day'} per IP."
+                        ),
+                        "retry_after_seconds": window_seconds,
                     },
                 )
 
-            # Add rate limit headers to response
             response = await call_next(request)
-            response.headers["X-RateLimit-Limit"] = str(settings.free_tier_daily_limit)
-            response.headers["X-RateLimit-Remaining"] = str(
-                max(0, settings.free_tier_daily_limit - count)
-            )
-            response.headers["X-RateLimit-Reset"] = today
-
+            response.headers["X-RateLimit-Limit"] = str(limit)
+            response.headers["X-RateLimit-Remaining"] = str(max(0, limit - count))
+            response.headers["X-RateLimit-Reset"] = bucket
             return response
 
         except HTTPException:
             raise
         except Exception as e:
-            # If Redis is down, allow request but log error
+            # If Redis is down, allow request but log error.
             print(f"Rate limit error: {e}")
             return await call_next(request)

@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     # Rate Limiting (free tier)
     free_tier_daily_limit: int = 10
 
+    # Open Org generate endpoint — per-IP hourly cap. The endpoint is
+    # unauthenticated by design (anyone can ask us to generate a profile
+    # for a charity number) so this is the only deterrent against abuse.
+    # Each generation costs real Anthropic spend.
+    open_org_generate_hourly_limit: int = 5
+
     # Job Settings
     job_expiry_days: int = 30
     max_crawl_pages: int = 30

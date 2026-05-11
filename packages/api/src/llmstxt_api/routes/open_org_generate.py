@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from llmstxt_api.database import get_db
 from llmstxt_api.open_org_models import OrgProfile
+from llmstxt_api.services.llm_usage import is_within_daily_budget
 from llmstxt_api.tasks.open_org_generate import generate_open_org_profile_task
 
 
@@ -61,6 +62,21 @@ async def generate_profile(
     db: AsyncSession = Depends(get_db),
 ) -> GenerateResponse:
     org_id = f"GB-CHC-{request.charity_number}"
+
+    # Locked decision #10: £0.50/org/day soft cap. Each generation runs two
+    # LLM calls (mission rewrite + theme extract) — cheap, but the per-IP
+    # rate limit alone isn't enough to deter someone re-running the same
+    # charity in a tight loop. Note this is keyed on org_id, not IP, so
+    # rotating IPs doesn't bypass it.
+    if not await is_within_daily_budget(db, org_id=org_id):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "error": "daily_budget_exceeded",
+                "org_id": org_id,
+                "message": "This organisation has reached today's £0.50 spend cap.",
+            },
+        )
 
     result = await db.execute(select(OrgProfile).where(OrgProfile.org_id == org_id))
     existing = result.scalar_one_or_none()

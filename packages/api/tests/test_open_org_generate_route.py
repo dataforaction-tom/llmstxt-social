@@ -63,6 +63,9 @@ async def test_generate_creates_profile_row_and_dispatches_task():
     task_mock.delay.return_value = mock.MagicMock(id="celery-task-id-abc")
 
     with mock.patch(
+        "llmstxt_api.routes.open_org_generate.is_within_daily_budget",
+        new=mock.AsyncMock(return_value=True),
+    ), mock.patch(
         "llmstxt_api.routes.open_org_generate.generate_open_org_profile_task",
         task_mock,
     ):
@@ -114,6 +117,38 @@ async def test_returns_409_when_org_already_exists():
     assert exc.value.status_code == 409
 
 
+# --- Daily budget cap (locked decision #10: £0.50/org/day) ----------------
+
+
+@pytest.mark.asyncio
+async def test_generate_returns_429_when_org_over_daily_budget():
+    """Retrying generation for an org that's already spent £0.50 today must
+    be refused. The cap deters runaway loops on failed generations."""
+    from fastapi import HTTPException
+
+    from llmstxt_api.routes.open_org_generate import (
+        GenerateRequest,
+        generate_profile,
+    )
+
+    db = mock.AsyncMock()
+    no_existing = mock.MagicMock()
+    no_existing.scalar_one_or_none.return_value = None
+    db.execute.return_value = no_existing
+
+    request = GenerateRequest(
+        charity_number="1234567", owner_email="owner@example.com"
+    )
+
+    with mock.patch(
+        "llmstxt_api.routes.open_org_generate.is_within_daily_budget",
+        new=mock.AsyncMock(return_value=False),
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await generate_profile(request, db)
+    assert exc.value.status_code == 429
+
+
 @pytest.mark.asyncio
 async def test_allows_retry_when_previous_generation_failed():
     """A previous run that hit a transient failure (status=failed) should be
@@ -143,6 +178,9 @@ async def test_allows_retry_when_previous_generation_failed():
     task_mock.delay.return_value = mock.MagicMock(id="celery-id")
 
     with mock.patch(
+        "llmstxt_api.routes.open_org_generate.is_within_daily_budget",
+        new=mock.AsyncMock(return_value=True),
+    ), mock.patch(
         "llmstxt_api.routes.open_org_generate.generate_open_org_profile_task",
         task_mock,
     ):
