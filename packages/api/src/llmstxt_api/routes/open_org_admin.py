@@ -29,7 +29,10 @@ from llmstxt_api.open_org_models import (
     OrgVersion,
 )
 from llmstxt_api.routes.open_org_auth import require_org_admin
-from llmstxt_api.tasks.open_org_murmurations import submit_to_murmurations_task
+from llmstxt_api.tasks.open_org_murmurations import (
+    delete_from_murmurations_task,
+    submit_to_murmurations_task,
+)
 from llmstxt_core.open_org.converter import ConverterError, markdown_to_json
 
 
@@ -56,6 +59,12 @@ class PublishResponse(BaseModel):
     org_id: str
     published: bool
     submission_task_id: str | None = None
+
+
+class UnpublishResponse(BaseModel):
+    org_id: str
+    published: bool
+    delete_task_id: str | None = None
 
 
 class VersionListEntry(BaseModel):
@@ -352,4 +361,38 @@ async def publish_profile(
         org_id=org_id,
         published=True,
         submission_task_id=getattr(handle, "id", None),
+    )
+
+
+# --- unpublish -------------------------------------------------------------
+
+@router.post("/{org_id}/unpublish", response_model=UnpublishResponse)
+async def unpublish_profile(
+    org_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: OrgAdmin = Depends(require_org_admin),
+):
+    """Flip ``published=False`` and remove the Murmurations index node.
+
+    Hides the public profile JSON immediately; the federated cache catches
+    up via the daily sync, but the index node is deleted right away so
+    discovery clients don't keep linking to a profile we no longer serve.
+    """
+    result = await db.execute(select(OrgProfile).where(OrgProfile.org_id == org_id))
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="profile not found")
+
+    profile.published = False
+    await db.commit()
+
+    delete_task_id: str | None = None
+    if profile.murmurations_node_id:
+        handle = delete_from_murmurations_task.delay(profile_id=str(profile.id))
+        delete_task_id = getattr(handle, "id", None)
+
+    return UnpublishResponse(
+        org_id=org_id,
+        published=False,
+        delete_task_id=delete_task_id,
     )
