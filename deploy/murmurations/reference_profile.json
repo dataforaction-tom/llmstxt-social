@@ -1,0 +1,32 @@
+{
+  "linked_schemas": ["open_org_profile-v0.1.0"],
+  "name": "Riverside Community Trust",
+  "primary_url": "https://riverside-trust.org.uk",
+  "geolocation": {
+    "lat": 52.6074,
+    "lon": 1.7295
+  },
+  "tags": [
+    "older_people",
+    "loneliness",
+    "community_development",
+    "food_access"
+  ],
+  "org_id_guide": "GB-CHC-1234567",
+  "registration": {
+    "charity_commission_ew": "1234567",
+    "companies_house": "CE012345"
+  },
+  "primary_area": "Great Yarmouth",
+  "primary_area_code": "E07000145",
+  "annual_income_band": "250k-500k",
+  "strategy_themes": [
+    "food_access",
+    "social_prescribing",
+    "community_development",
+    "volunteering"
+  ],
+  "ideas_count": 2,
+  "open_org_profile_url": "https://openorg.good-ship.co.uk/open-org/GB-CHC-1234567/profile.json",
+  "schema_version": "open-org/v0.1"
+}

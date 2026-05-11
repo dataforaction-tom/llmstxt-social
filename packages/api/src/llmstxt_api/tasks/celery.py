@@ -13,6 +13,8 @@ celery_app = Celery(
     include=[
         "llmstxt_api.tasks.generate",
         "llmstxt_api.tasks.monitor",
+        "llmstxt_api.tasks.open_org_generate",
+        "llmstxt_api.tasks.open_org_murmurations",
     ],
 )
 
@@ -35,5 +37,10 @@ celery_app.conf.beat_schedule = {
     "check-due-subscriptions": {
         "task": "monitor.check_due_subscriptions",
         "schedule": crontab(hour=6, minute=0),  # Run daily at 6 AM UTC
+    },
+    # Daily Murmurations cache refresh — upsert new/changed orgs, evict missing.
+    "open-org-sync-external-cache": {
+        "task": "open_org_sync_external_cache",
+        "schedule": crontab(hour=5, minute=30),  # Daily at 5:30 AM UTC
     },
 }

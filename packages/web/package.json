@@ -17,14 +17,17 @@
     "axios": "^1.6.0",
     "clsx": "^2.1.0",
     "focus-trap-react": "^11.0.6",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.303.0",
     "react": "^18.2.0",
+    "react-leaflet": "^4.2.1",
     "react-dom": "^18.2.0",
     "react-helmet-async": "^2.0.5",
     "react-router-dom": "^6.21.0"
   },
   "devDependencies": {
     "@axe-core/react": "^4.11.0",
+    "@types/leaflet": "^1.9.8",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@typescript-eslint/eslint-plugin": "^6.14.0",

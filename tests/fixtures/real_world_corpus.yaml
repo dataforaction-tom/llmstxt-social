@@ -1,0 +1,25 @@
+# Real-world testing corpus for Open Org Phase 1
+#
+# Used by `llmstxt openorg test-corpus`. Each entry is one UK charity that the
+# profile generator should be exercised against. Pick orgs you know well
+# enough to read the generated profile and judge whether it represents them
+# fairly — findings here feed schema v0.2.
+#
+# Schema:
+#   charities:
+#     - charity_number: '<6-8 digit number>'   # required, string-quoted
+#       name: '<your reference name>'          # optional, free text
+#       notes: '<context for reviewers>'       # optional
+#
+# Example (uncomment to use):
+#
+#   charities:
+#     - charity_number: '1234567'
+#       name: Riverside Community Trust
+#       notes: phase 1 reference profile
+#     - charity_number: '7654321'
+#       name: Another Trust
+#
+# Start empty — fill in 5-10 charities you trust before the first run.
+
+charities: []

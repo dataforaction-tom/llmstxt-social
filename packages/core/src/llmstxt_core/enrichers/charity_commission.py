@@ -11,7 +11,12 @@ from ..extractor import ExtractedPage
 
 @dataclass
 class CharityData:
-    """Charity data from the Charity Commission."""
+    """Charity data from the Charity Commission.
+
+    The trailing fields (``area_of_operation`` onwards) are additive extensions
+    used by the Open Org profile generator. Existing call sites that don't pass
+    them keep the previous behaviour because they default to ``None``.
+    """
     name: str
     number: str
     status: str
@@ -23,6 +28,10 @@ class CharityData:
     activities: str | None
     trustees: list[str]
     contact: dict
+    area_of_operation: list[str] | None = None
+    company_number: str | None = None
+    latest_acc_fin_period_end_date: str | None = None
+    trustee_count: int | None = None
 
 
 async def fetch_charity_data(charity_number: str, api_key: str | None = None) -> CharityData | None:
@@ -134,6 +143,7 @@ def _parse_api_response(data: dict, charity_number: str) -> CharityData | None:
         # Extract charitable objects and activities from classification array
         charitable_objects = []
         activities = []
+        operating_areas: list[str] = []
         who_what_where = data.get("who_what_where", [])
         if isinstance(who_what_where, list):
             for classification in who_what_where:
@@ -145,10 +155,13 @@ def _parse_api_response(data: dict, charity_number: str) -> CharityData | None:
                         charitable_objects.append(class_desc)
                     elif class_type == "How":
                         activities.append(class_desc)
+                    elif class_type == "Where" and class_desc:
+                        operating_areas.append(class_desc)
 
         # Join into strings
         charitable_objects = ", ".join(charitable_objects) if charitable_objects else None
         activities = ", ".join(activities) if activities else None
+        area_of_operation = operating_areas or None
 
         # Build address from components
         address_parts = [
@@ -169,6 +182,22 @@ def _parse_api_response(data: dict, charity_number: str) -> CharityData | None:
             "web": data.get("web")
         }
 
+        # Open Org extension fields. The API returns these as top-level keys;
+        # absence is normal for older or partial records and must not raise.
+        company_number = data.get("company_registration_number") or data.get(
+            "company_number"
+        ) or None
+        latest_acc_fin_period_end_date = data.get(
+            "latest_acc_fin_period_end_date"
+        ) or None
+        trustee_count_raw = data.get("trustee_count")
+        try:
+            trustee_count = (
+                int(trustee_count_raw) if trustee_count_raw is not None else None
+            )
+        except (TypeError, ValueError):
+            trustee_count = None
+
         return CharityData(
             name=name,
             number=charity_number,
@@ -180,7 +209,11 @@ def _parse_api_response(data: dict, charity_number: str) -> CharityData | None:
             charitable_objects=charitable_objects,
             activities=activities,
             trustees=trustees,
-            contact=contact
+            contact=contact,
+            area_of_operation=area_of_operation,
+            company_number=company_number,
+            latest_acc_fin_period_end_date=latest_acc_fin_period_end_date,
+            trustee_count=trustee_count,
         )
 
     except Exception:

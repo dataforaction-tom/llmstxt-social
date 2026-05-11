@@ -59,3 +59,9 @@ celerybeat-schedule.*
 celerybeat.pid
 *.celerybeat
 packages/api/celerybeat-schedule
+
+# Open Org real-world testing harness outputs (Step 11). The directory is
+# kept (via .gitkeep) so the CLI's default output path works without a
+# preflight mkdir. Run-specific reports stay local; copy a vetted run to
+# `tests/reports/baseline_v0.1.md` to commit a reference.
+tests/reports/real_world_run_*.md

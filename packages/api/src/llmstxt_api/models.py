@@ -9,6 +9,20 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from llmstxt_api.database import Base
 
+# Re-export Open Org tables so Alembic's `from llmstxt_api.models import *`
+# picks them up alongside the existing tables. Keep this import after the
+# `Base` import so the open_org_models module sees the same Base instance.
+from llmstxt_api.open_org_models import (  # noqa: E402, F401
+    CreatorSession,
+    ExternalOrgCache,
+    LlmUsage,
+    OrgAdmin,
+    OrgIdea,
+    OrgProfile,
+    OrgStrategy,
+    OrgVersion,
+)
+
 
 class User(Base):
     """User model (optional for MVP)."""
@@ -112,13 +126,19 @@ class MonitoringHistory(Base):
 
 
 class MagicLinkToken(Base):
-    """Magic link token for passwordless authentication."""
+    """Magic link token for passwordless authentication.
+
+    ``org_id`` is set only for Open Org claim links — when present, the
+    /auth/verify route grants the verified user ``owner`` admin on that org
+    in addition to signing them in. Login-only tokens leave it ``None``.
+    """
 
     __tablename__ = "magic_link_tokens"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    org_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     used: Mapped[bool] = mapped_column(Boolean, default=False)

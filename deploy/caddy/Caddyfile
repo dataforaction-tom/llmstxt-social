@@ -1,4 +1,11 @@
-yourdomain.com {
+{
+    # Email used by Caddy's ACME client for Let's Encrypt notifications.
+    # Override via the CADDY_ADMIN_EMAIL environment variable in production.
+    email {$CADDY_ADMIN_EMAIL:admin@good-ship.co.uk}
+}
+
+# llmstxt.social — original surface (charity llms.txt generator).
+llmstxt.social {
     encode gzip
 
     reverse_proxy localhost:8000
@@ -7,5 +14,32 @@ yourdomain.com {
         X-Frame-Options "SAMEORIGIN"
         X-Content-Type-Options "nosniff"
         X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Cookie scope is governed by the AUTH_COOKIE_DOMAIN env var on the
+        # FastAPI process (see packages/api/src/llmstxt_api/config.py).
+    }
+}
+
+# openorg.good-ship.co.uk — Open Org sub-application. Same FastAPI process;
+# the SPA selects its route tree from ``window.location.hostname`` and
+# auto-redirects ``/`` to ``/openorg/discover`` (see packages/web/src/App.tsx).
+#
+# Routing path (each arrow is configured elsewhere):
+#   Cloudflare DNS  ->  Cloudflare Tunnel  ->  Caddy (this block)
+#                                              ->  localhost:8000 (FastAPI)
+#
+# The Cloudflare Tunnel route to this Caddy is managed outside this repo --
+# add it via `cloudflared tunnel route dns <tunnel-id> openorg.good-ship.co.uk`
+# or via the Zero Trust UI.
+openorg.good-ship.co.uk {
+    encode gzip
+
+    reverse_proxy localhost:8000
+
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
     }
 }

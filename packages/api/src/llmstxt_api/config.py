@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
+    # Auth cookie domain — set to ``.good-ship.co.uk`` in production so a
+    # single login spans ``llmstxt.social`` and ``openorg.good-ship.co.uk``
+    # (locked decision #9). Leave unset locally so dev on ``localhost``
+    # keeps working without browser shenanigans around Domain= cookies.
+    auth_cookie_domain: str | None = None
+
     # App Settings
     base_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:3000"
@@ -49,6 +55,12 @@ class Settings(BaseSettings):
 
     # Web build directory (served by FastAPI in single-VM deploys)
     web_dist_dir: str = "/app/web/dist"
+
+    # Murmurations index — default to the test environment until the
+    # ``open_org_profile-v0.1.0`` schema PR is merged upstream. Flip to the
+    # production index by overriding these env vars in production.
+    murmurations_index_url: str = "https://test-index.murmurations.network/v2"
+    murmurations_library_url: str = "https://test-library.murmurations.network/v2"
 
     model_config = SettingsConfigDict(
         env_file=".env",
