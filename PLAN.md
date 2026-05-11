@@ -1,9 +1,10 @@
-# Plan — Open Org Phase 1
+# Plan — Open Org Phase 1 + 1.5
 
 > Last updated: 2026-05-11
-> Status: **Phase 1 complete** — 11/11 steps done (Step 4 partial: backend complete, frontend has the textarea editor only). Work uncommitted; ready for review.
+> Status: **Phase 1 complete + baselined**. Phase 1.5 (schema v0.2 iteration) in planning — driven by the v0.1 baseline run on 10 UK charities.
 > Spec: `open-org/open-org-phase1-spec.md`
 > Resume guide: `HANDOFF.md`
+> Baseline: `tests/reports/baseline_v0.1.md`
 
 ## Objective
 
@@ -366,3 +367,103 @@ Markers: `[ ]` not started · `[~]` in progress (CURRENT) · `[x]` complete · `
 ## Open questions (none currently blocking)
 
 All 10 cross-cutting questions resolved 2026-05-10. Re-open if implementation surfaces new ones.
+
+---
+
+# Phase 1.5 — schema v0.2 iteration
+
+> Driven by the v0.1 baseline run: `tests/reports/baseline_v0.1.md` (2026-05-11, 10 UK charities, all succeeded technically, but several missed obvious themes).
+
+## Headline findings from the v0.1 baseline
+
+Pipeline runs end-to-end; theme extraction has specific gaps on well-known charities:
+
+| Charity | Expected themes | Themes returned | Gap |
+|---|---|---|---|
+| Trussell Trust (1110522) | food_access | education, poverty, community_dev, employment | **no `food_access`** on the UK's flagship food-bank charity |
+| Shelter (263710) | housing_and_homelessness | education, poverty, community_dev, employment | **no `housing_and_homelessness`** on THE UK homelessness charity |
+| Mind (219830) | mental_health | health, disability | **`mental_health` is a separate vocab key** — got generic `health` |
+| Oxfam (202918) | refugees, food | poverty, civic_participation, race_equity | missing refugees + food |
+| British Red Cross (220949) | refugees, food | education, health, disability, poverty | missing refugees + food |
+| Macmillan (261017) | loneliness, families_and_carers | education, health, poverty | both missed |
+| NSPCC (216401) | children_and_young_people, domestic_abuse | education | both core themes missed |
+| RSPCA (219099) | animal_welfare | animal_welfare ✅ | correct (single-theme org) |
+
+Patterns:
+- **`education` over-applied** (Oxfam, Trussell, Shelter, NSPCC, Salvation Army, Macmillan, BRC). Likely because CC "How" classifications often mention training / awareness language.
+- **`civic_participation` consistently flagged at 0.60** for BRC / NSPCC / Shelter — confidence threshold doing its job; the extractor can't push the signal over the line on CC text alone.
+- **CC data is sparse for several orgs** (RSPCA gets one theme because that's all the CC arrays say). The extractor can't invent signal that isn't in its input.
+- Cost was negligible: 4003 input + 2499 output tokens (~$0.05 for 10 charities).
+
+## v0.2 deliverables (prioritised by impact × effort)
+
+### v0.2.1 — Augment theme extraction with website content (highest impact)
+
+The CC `who_what_where` classifications are too sparse on orgs whose mission is unambiguous from their own site (Trussell, Shelter). Wire the existing `llmstxt_core.crawler.crawl_site` + `extractor.extract_content` into the generator so the extractor gets real activities text alongside the CC fields.
+
+- *Where*: `packages/core/src/llmstxt_core/open_org/generator.py` — between the CC enricher call and the `extract_themes` call.
+- *Approach*: take the website URL from `cc.contact.web` (when present); crawl ≤5 pages biased towards the home + about + activities pages; concatenate body text; pass to `extract_themes` as a third argument alongside `objects_text` + `activities_text`.
+- *Guard*: skip when no website URL is on file; cap crawl pages strictly to avoid open-ended Anthropic spend per profile.
+- *Test*: corpus regression — Trussell must get `food_access`; Shelter must get `housing_and_homelessness`. These are the must-pass cases for v0.2.
+
+### v0.2.2 — Theme-extractor prompt: positive examples for under-detected themes
+
+Edit the system prompt in `theme_extractor.py` to include 3-5 concrete examples per under-detected theme (food_access, housing_and_homelessness, mental_health, domestic_abuse, children_and_young_people, refugees_and_migration). Real-charity activity snippets are best ("A network of food banks delivering emergency food parcels → food_access").
+
+- *Where*: `_vocabulary_block_text()` in `theme_extractor.py`.
+- *No code structure change*; one prompt edit + a corpus regression check.
+
+### v0.2.3 — Explicit "education" negative-match rule
+
+Add to the system prompt: "Only apply `education` when education is the charity's primary activity, not when it's incidental (e.g. training delivery as part of another mission)."
+
+- *Where*: same `theme_extractor.py` system prompt.
+- *Test*: corpus regression — Oxfam, Trussell, Shelter, NSPCC, Salvation Army, BRC, Macmillan should NOT get `education` after this change (RSPCA already doesn't).
+
+### v0.2.4 — Vocabulary review: `mental_health` boundary
+
+Mind got `health, disability` instead of `mental_health`. Both keys exist; the model isn't distinguishing.
+
+- *Where*: `data/themes.json`.
+- *Edit*: rewrite the `health` description to explicitly exclude mental health ("...excluding mental health, which is covered by `mental_health`"); rewrite the `mental_health` description to cover anxiety, depression, psychosis, eating disorders, mental wellbeing.
+- *Test*: corpus regression — Mind must get `mental_health` and the `health` tag for Mind should drop.
+
+### v0.2.5 — Re-baseline against the same corpus
+
+After v0.2.1–v0.2.4 ship, re-run `llmstxt openorg test-corpus`, diff against `baseline_v0.1.md`, and copy the new run to `tests/reports/baseline_v0.2.md`. Must-pass cases:
+
+- ✅ Trussell Trust includes `food_access`
+- ✅ Shelter includes `housing_and_homelessness`
+- ✅ Mind includes `mental_health` (and doesn't include `health`)
+- ✅ NSPCC includes `children_and_young_people`
+- ✅ Macmillan includes `loneliness` or `families_and_carers`
+- ✅ At least 3 of {Oxfam, Trussell, Shelter, NSPCC, Salvation Army, BRC, Macmillan} no longer get `education`
+
+If any must-pass case still fails, v0.2.6 explores deeper prompting / a per-theme retrieval pass.
+
+## v0.2 build order
+
+```
+v0.2.1  Wire website crawl into the generator                 (biggest lever)
+v0.2.2  Prompt: positive examples per theme                   (cheap, sharpens recall)
+v0.2.3  Prompt: 'education' negative-match rule               (cheap, reduces over-fitting)
+v0.2.4  Vocab: tighten health vs mental_health boundary       (low risk, high signal)
+v0.2.5  Re-baseline run + diff vs v0.1                        (operator action)
+```
+
+Each step is its own commit; the re-baseline closes the loop.
+
+## Other follow-ups still on the list (unchanged from Phase 1)
+
+Captured under "Open follow-ups (post-Phase-1)" in `HANDOFF.md`. Not on the v0.2 critical path:
+
+- Step 4 frontend polish (CodeMirror, Vitest+RTL, live preview, strategy/idea editor pages, history restore).
+- Rate limiting + route-layer cost cap on `/api/open-org/generate`.
+- Live ONS centroid coverage + `refresh_from_ons` CLI.
+- Murmurations node deletion on unpublish.
+- Daily Celery beat to evict expired `CreatorSession` rows.
+- Frontend chat UI consuming the SSE stream.
+- `GET /api/open-org/areas` typeahead.
+- Postgres integration tests for JSONB filter paths.
+- API tenant gating per host.
+- Diff-vs-baseline mode for the harness.

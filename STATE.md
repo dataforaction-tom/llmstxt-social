@@ -15,7 +15,7 @@ stateDiagram-v2
     Deploying --> Live: Caddy + Tunnel routes openorg.good-ship.co.uk
     Live --> [*]
 
-    note right of Testing: ← WE ARE HERE (Phase 1 complete; ready for commit + review)
+    note right of Testing: ← WE ARE HERE (Phase 1 baselined; Phase 1.5 / v0.2 planned)
 ```
 
 ## Component status
@@ -33,7 +33,7 @@ stateDiagram-v2
 | 8 | Strategy/idea chat creator | ✅ Done | Prompts + PDF/DOCX/TXT extractors + conversation orchestrator + SSE routes (create / message / finalize / get) + £0.50/org/day cap. Auto-extends frontend prompt via `update_current_markdown` tool. |
 | 9 | Discovery page | ✅ Done | `GET /api/open-org/themes` + `GET /api/open-org/discover` (cursor pagination, union of `OrgProfile` + `ExternalOrgCache`). React page at `/openorg/discover` with Leaflet map, filter form, "Load more". |
 | 10 | Subdomain routing + Caddy | ✅ Done | Caddyfile with two site blocks (llmstxt.social + openorg.good-ship.co.uk); env-driven `AUTH_COOKIE_DOMAIN` for cross-subdomain cookies; host-aware `HostRoot` redirects openorg.* root to `/openorg/discover`. Cloudflare Tunnel route is a user action. |
-| 11 | Real-world testing harness | ✅ Done | `core/open_org/harness.py` (load_corpus + run_corpus + render_report) + `llmstxt openorg test-corpus` CLI. Empty corpus committed at `tests/fixtures/real_world_corpus.yaml`. Reports written to `tests/reports/` (git-ignored except baseline). First real run is an operator action. |
+| 11 | Real-world testing harness | ✅ Done + baselined | `core/open_org/harness.py` + `llmstxt openorg test-corpus` CLI. v0.1 baseline run on 2026-05-11 against 10 UK charities; report committed at `tests/reports/baseline_v0.1.md`. Findings drive Phase 1.5 (see PLAN.md). |
 
 Status markers: ⏳ not started · 🔧 in progress · ✅ done · 🚫 blocked · ⚠️ needs attention
 
