@@ -41,6 +41,14 @@ RUN pip install --no-cache-dir -e .
 # Copy built web assets
 COPY --from=web-build /web/dist /app/web/dist
 
+# Install Playwright Chromium for the Celery worker's website-crawl
+# fallback (v0.2.6). The api process doesn't use it but shares the image.
+# Installing to a world-readable path so the non-root appuser can launch it.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN playwright install-deps chromium && \
+    playwright install chromium && \
+    chmod -R a+rX /ms-playwright
+
 # Create non-root user and celery beat schedule directory
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app && \
