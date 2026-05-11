@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
@@ -12,7 +13,12 @@ import EditProfilePage from './pages/openorg/EditProfile';
 import EditStrategyPage from './pages/openorg/EditStrategy';
 import EditIdeaPage from './pages/openorg/EditIdea';
 import CreatePage from './pages/openorg/Create';
-import DiscoverPage from './pages/openorg/Discover';
+// Lazy-load Discover because it pulls in Leaflet, which evaluates
+// ``window`` at module-load time. Eager import broke the prerender script
+// (which does ``vite.ssrLoadModule('/src/App.tsx')`` under Node). Splitting
+// it out also keeps Leaflet (~150KB) out of the initial bundle for users
+// who never visit the discovery page.
+const DiscoverPage = lazy(() => import('./pages/openorg/Discover'));
 
 /**
  * Host-aware root: openorg.* hosts land on Discovery; everything else gets
@@ -111,7 +117,22 @@ export function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="/openorg/discover" element={<DiscoverPage />} />
+      <Route
+        path="/openorg/discover"
+        element={
+          <Suspense
+            fallback={
+              <div className="surface-paper min-h-screen">
+                <div className="mx-auto max-w-6xl px-6 py-12 text-sm text-muted">
+                  Loading…
+                </div>
+              </div>
+            }
+          >
+            <DiscoverPage />
+          </Suspense>
+        }
+      />
     </Routes>
   );
 }
