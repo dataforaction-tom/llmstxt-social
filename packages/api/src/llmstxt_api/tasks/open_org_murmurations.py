@@ -238,9 +238,68 @@ def sync_external_org_cache_task(self):
     )
 
 
+# ---------------------------------------------------------------------------
+# Node-delete task (dispatched from the unpublish admin route)
+# ---------------------------------------------------------------------------
+
+
+async def _run_node_delete(
+    *,
+    profile_id: uuid.UUID,
+    session_maker: Any,
+    client: MurmurationsClient,
+) -> None:
+    """Remove the Murmurations index node for ``profile_id``.
+
+    No-op when the profile has no node_id on file (never submitted).
+    5xx propagates so Celery's retry handles transient failures cleanly —
+    the row's ``murmurations_node_id`` is left in place until success so
+    the retry knows what to delete.
+    """
+    async with session_maker() as session:
+        result = await session.execute(
+            select(OrgProfile).where(OrgProfile.id == profile_id)
+        )
+        profile = result.scalar_one_or_none()
+        if profile is None:
+            log.warning("node-delete: profile %s not found", profile_id)
+            return
+        node_id = profile.murmurations_node_id
+        if not node_id:
+            log.info("node-delete: profile %s has no node_id, skipping", profile_id)
+            return
+
+        await client.delete_node(node_id)
+
+        profile.murmurations_node_id = None
+        profile.murmurations_status = "deleted"
+        await session.commit()
+
+
+@celery_app.task(
+    name="open_org_delete_from_murmurations",
+    bind=True,
+    autoretry_for=(MurmurationsError,),
+    retry_backoff=True,
+    retry_backoff_max=600,
+    max_retries=5,
+)
+def delete_from_murmurations_task(self, *, profile_id: str):
+    """Celery wrapper. Retries on transient :class:`MurmurationsError`."""
+    asyncio.run(
+        _run_node_delete(
+            profile_id=uuid.UUID(profile_id),
+            session_maker=_build_session_maker(),
+            client=_build_client(),
+        )
+    )
+
+
 __all__ = [
     "_run_submission",
     "_run_cache_sync",
+    "_run_node_delete",
+    "delete_from_murmurations_task",
     "submit_to_murmurations_task",
     "sync_external_org_cache_task",
 ]

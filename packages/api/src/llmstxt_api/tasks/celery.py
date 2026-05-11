@@ -13,6 +13,7 @@ celery_app = Celery(
     include=[
         "llmstxt_api.tasks.generate",
         "llmstxt_api.tasks.monitor",
+        "llmstxt_api.tasks.open_org_creator",
         "llmstxt_api.tasks.open_org_generate",
         "llmstxt_api.tasks.open_org_murmurations",
     ],
@@ -42,5 +43,10 @@ celery_app.conf.beat_schedule = {
     "open-org-sync-external-cache": {
         "task": "open_org_sync_external_cache",
         "schedule": crontab(hour=5, minute=30),  # Daily at 5:30 AM UTC
+    },
+    # Daily CreatorSession sweep — remove rows past their 30-day TTL.
+    "open-org-evict-expired-creator-sessions": {
+        "task": "open_org_evict_expired_creator_sessions",
+        "schedule": crontab(hour=6, minute=0),   # Daily at 6:00 AM UTC
     },
 }
