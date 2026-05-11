@@ -444,14 +444,60 @@ If any must-pass case still fails, v0.2.6 explores deeper prompting / a per-them
 ## v0.2 build order
 
 ```
-v0.2.1  Wire website crawl into the generator                 (biggest lever)  ✅
-v0.2.2  Prompt: positive examples per theme                   (cheap, sharpens recall)
-v0.2.3  Prompt: 'education' negative-match rule               (cheap, reduces over-fitting)
-v0.2.4  Vocab: tighten health vs mental_health boundary       (low risk, high signal)
-v0.2.5  Re-baseline run + diff vs v0.1                        (operator action)
+v0.2.1  Wire website crawl into the generator                 (biggest lever)             ✅
+v0.2.2  Prompt: positive examples per theme                   (cheap, sharpens recall)    ✅
+v0.2.3  Prompt: 'education' negative-match rule               (cheap, reduces over-fitting) ✅
+v0.2.4  Vocab: tighten health vs mental_health boundary       (low risk, high signal)     ✅
+v0.2.5  Re-baseline run + diff vs v0.1                        (operator action)           ✅ (5/6 must-pass)
+v0.2.6  Crawler robustness — UA + activity-page bias          (closes Shelter + Mind)     ⏳
 ```
 
-Each step is its own commit; the re-baseline closes the loop.
+v0.2.5 closed the loop: see `tests/reports/baseline_v0.2.md`. Remaining gaps
+(Shelter + Mind) are crawler infrastructure, not theme-extractor logic —
+queued as v0.2.6.
+
+### v0.2.5 — re-baseline run (done 2026-05-11)
+
+Same 10-charity corpus, same harness. Report at `tests/reports/baseline_v0.2.md`.
+Cost: ~$0.10 (9,930 input + 3,498 output tokens — 2.5× v0.1 because each call
+now includes website content).
+
+**Must-pass scorecard (5 of 6 green):**
+
+| Criterion | v0.1 | v0.2 | Status |
+|---|---|---|---|
+| Trussell Trust includes `food_access` | ❌ | ✅ (now top theme) | **PASS** |
+| Shelter includes `housing_and_homelessness` | ❌ | ❌ | **FAIL — crawler issue** |
+| Mind includes `mental_health` (not `health`) | ❌ | ❌ | **FAIL — 403 from site** |
+| NSPCC includes `children_and_young_people` | ❌ | ✅ | **PASS** |
+| Macmillan includes `loneliness` or `families_and_carers` | ❌ | ✅ (`families_and_carers`) | **PASS** |
+| ≥ 3 of {Oxfam, Trussell, Shelter, NSPCC, SalArmy, BRC, Macmillan} no longer get `education` | n/a | 6 of 7 | **PASS** |
+
+**Other wins beyond the scorecard:**
+- BRC went from {education, health, disability, poverty} to **{refugees, health, poverty, disability, housing_and_homelessness, food_access}** — picked up the three themes that were missing in v0.1
+- Oxfam picked up `refugees_and_migration` (was missing)
+- Trussell also gets `volunteering` now
+- NSPCC now correctly identifies `children_and_young_people` + `mental_health` + `health` (was just `education`)
+- `education` over-application dropped from 7 of 10 orgs to ~2 of 10 (Cancer Research UK + Shelter still have it accepted; Salvation Army flagged at 0.60)
+
+**Two genuine failures, both crawler issues — not theme-extractor problems:**
+
+1. **Shelter** — crawler fetched only 24KB (one page, likely homepage), didn't surface enough activity language. Shelter's site is heavy on campaigns/news and may have JS-rendered service pages.
+2. **Mind** — site returned 403 on the unauthenticated crawler request. Anti-bot defence.
+
+### v0.2.6 — crawler robustness (planned, not yet built)
+
+Driven by the two v0.2.5 misses. Both are infrastructure improvements to
+`crawler.py`, not theme-extraction logic:
+
+- **Better User-Agent + reasonable retry on 403.** Some sites block bare
+  `httpx` UAs. A browser-like UA gets through most defences. Cap retries
+  to avoid abuse.
+- **Follow more activity-relevant links from the homepage.** Currently the
+  crawler may stop after one or two pages on sites that don't expose a
+  sitemap. Bias the link-following towards `/services`, `/what-we-do`,
+  `/our-work`, `/about`, etc.
+- **Re-run baseline_v0.2 → baseline_v0.3** as the closing step.
 
 ### v0.2.1 — wire crawl into the profile generator (done 2026-05-11)
 

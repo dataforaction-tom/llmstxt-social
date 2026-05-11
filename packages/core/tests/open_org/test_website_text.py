@@ -43,6 +43,43 @@ async def test_returns_empty_string_for_whitespace_url():
     assert await collect_website_text("   ") == ""
 
 
+async def test_adds_https_scheme_to_bare_hostname():
+    """The CC API returns bare hostnames like 'www.example.org' — httpx
+    rejects those without a scheme. Real-world finding from the v0.1 +
+    v0.2.x baseline: 10/10 charities had bare-hostname URLs, all crawls
+    failed silently. v0.2.1 follow-up fix."""
+    captured: dict = {}
+
+    async def fake_crawl(url, max_pages):
+        captured["url"] = url
+        return CrawlResult(pages=[], base_url=url)
+
+    await collect_website_text(
+        "www.oxfam.org.uk",
+        crawler=fake_crawl,
+        extractor=lambda p: None,
+        max_pages=5,
+    )
+    assert captured["url"] == "https://www.oxfam.org.uk"
+
+
+async def test_preserves_existing_scheme():
+    captured: dict = {}
+
+    async def fake_crawl(url, max_pages):
+        captured["url"] = url
+        return CrawlResult(pages=[], base_url=url)
+
+    await collect_website_text(
+        "http://x.example",
+        crawler=fake_crawl,
+        extractor=lambda p: None,
+        max_pages=5,
+    )
+    # No silent upgrade to https; respect the caller's intent.
+    assert captured["url"] == "http://x.example"
+
+
 # --- Crawl + extract concatenation ------------------------------------------
 
 

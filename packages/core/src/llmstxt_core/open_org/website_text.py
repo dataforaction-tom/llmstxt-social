@@ -37,6 +37,19 @@ CrawlFn = Callable[..., Awaitable[CrawlResult]]
 ExtractFn = Callable[..., "ExtractedPage | None"]
 
 
+def _normalise_url(url: str) -> str:
+    """Add an ``https://`` scheme when the CC API returns bare hostnames.
+
+    The Charity Commission API often gives back ``www.example.org`` with no
+    scheme; httpx then rejects it. This single defensive step makes the
+    common case work without forcing every CC consumer to clean URLs.
+    """
+    candidate = url.strip()
+    if "://" not in candidate:
+        candidate = "https://" + candidate.lstrip("/")
+    return candidate
+
+
 async def collect_website_text(
     url: str | None,
     *,
@@ -63,10 +76,12 @@ async def collect_website_text(
     crawl_fn = crawler or crawl_site
     extract_fn = extractor or extract_content
 
+    normalised_url = _normalise_url(url)
+
     try:
-        crawl_result = await crawl_fn(url.strip(), max_pages=max_pages)
+        crawl_result = await crawl_fn(normalised_url, max_pages=max_pages)
     except Exception as exc:  # noqa: BLE001 — broad on purpose; never break generation
-        log.info("website crawl failed for %s: %s", url, exc)
+        log.info("website crawl failed for %s: %s", normalised_url, exc)
         return ""
 
     pages = getattr(crawl_result, "pages", None) or []
