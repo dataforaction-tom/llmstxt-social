@@ -51,21 +51,28 @@ export default function EditIdeaPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold text-gray-900">Edit idea</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          <code className="font-mono">{orgId}</code> · {slug}
-        </p>
-      </header>
+    <div className="surface-paper min-h-screen">
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        <header className="mb-8">
+          <div className="kicker num">Editing · Idea</div>
+          <h1 className="display-head mt-2 text-3xl font-medium leading-tight sm:text-4xl">
+            Edit idea
+          </h1>
+          <p className="mt-2 text-sm text-muted">
+            <code className="font-mono text-ink">{orgId}</code>
+            <span className="mx-2 text-rule">·</span>
+            <span className="font-mono">{slug}</span>
+          </p>
+        </header>
 
-      <MarkdownEditor
-        initialMarkdown={idea.data?.markdown ?? ''}
-        onSave={handleSave}
-        saving={save.isPending}
-        validationErrors={validationErrors}
-        saveLabel="Save idea"
-      />
+        <MarkdownEditor
+          initialMarkdown={idea.data?.markdown ?? ''}
+          onSave={handleSave}
+          saving={save.isPending}
+          validationErrors={validationErrors}
+          saveLabel="Save idea"
+        />
+      </div>
     </div>
   );
 }

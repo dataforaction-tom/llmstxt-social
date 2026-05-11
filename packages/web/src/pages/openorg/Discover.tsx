@@ -6,6 +6,10 @@
  * a "Load more" button.
  *
  * Route: /openorg/discover
+ *
+ * Design: civic editorial. Warm paper background, Fraunces display heads,
+ * Public Sans body, hairline rules, small-caps kickers. Staggered card
+ * reveal on first paint.
  */
 
 import { useMemo, useState } from 'react';
@@ -21,8 +25,6 @@ import {
   useThemes,
 } from '../../api/openorg';
 
-// Vite-bundled Leaflet default-marker assets — Leaflet's own image URLs assume
-// they live alongside the script, which isn't true in a Vite build.
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import markerIcon2xUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
@@ -34,7 +36,6 @@ L.Icon.Default.mergeOptions({
 });
 
 const DEFAULT_LIMIT = 20;
-// Centre of the UK; first paint before any results have geolocations.
 const UK_CENTRE: [number, number] = [54.0, -2.5];
 
 export default function DiscoverPage() {
@@ -48,9 +49,6 @@ export default function DiscoverPage() {
   const themes = useThemes();
   const firstPage = useDiscoveryFirstPage(filters, DEFAULT_LIMIT);
 
-  // Reset extra pages when the filter set changes — TanStack's cache for
-  // (filters,limit) is the source of truth for the *first* page; later pages
-  // we manage in component state.
   useMemo(() => {
     setExtraPages([]);
     setPageCursor(firstPage.data?.next_cursor ?? null);
@@ -66,7 +64,6 @@ export default function DiscoverPage() {
   function applyFilter(next: Partial<DiscoveryFilters>) {
     setFilters((prev) => {
       const merged = { ...prev, ...next };
-      // Strip empty string filters so the cache key stays clean.
       (Object.keys(merged) as Array<keyof DiscoveryFilters>).forEach((k) => {
         if (!merged[k]) delete merged[k];
       });
@@ -86,192 +83,268 @@ export default function DiscoverPage() {
     }
   }
 
+  const totalCount = allRows.length;
+  const activeFilterChips = [
+    filters.theme && { label: filters.theme, key: 'theme' as const },
+    filters.areaCode && { label: filters.areaCode, key: 'areaCode' as const },
+    filters.q && { label: `"${filters.q}"`, key: 'q' as const },
+  ].filter(Boolean) as { label: string; key: keyof DiscoveryFilters }[];
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="surface-paper min-h-screen">
       <Helmet>
-        <title>Discover organisations · Open Org</title>
+        <title>Discover · Open Org</title>
         <meta
           name="description"
           content="Search Open Org-published UK social-sector organisations by theme, place, and keyword."
         />
       </Helmet>
 
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Discover organisations</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Profiles published in the Open Org format, drawn from this site and the
-          federated Murmurations index.
-        </p>
-      </header>
+      <div className="mx-auto max-w-6xl px-6 py-12">
+        {/* --- editorial header --------------------------------------- */}
+        <header className="mb-10">
+          <div className="kicker num">Discovery · Open Org</div>
+          <h1 className="display-head mt-2 text-4xl font-medium leading-[1.05] sm:text-5xl">
+            Find UK social-sector
+            <br />
+            organisations by what they do.
+          </h1>
+          <p className="mt-4 max-w-2xl text-base text-muted">
+            Profiles published in the Open Org format, drawn from this site
+            and the federated Murmurations index. Filter by theme, place, or
+            keyword.
+          </p>
+        </header>
 
-      <form
-        className="mb-6 grid gap-3 sm:grid-cols-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          applyFilter({ q: draftQ, areaCode: draftAreaCode });
-        }}
-      >
-        <label className="text-sm">
-          <span className="block text-gray-700">Search</span>
-          <input
-            type="text"
-            className="mt-1 w-full rounded border border-gray-300 px-2 py-1"
-            placeholder="Name or area"
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-          />
-        </label>
+        {/* --- filter band --------------------------------------------- */}
+        <form
+          className="rule-h border-b border-rule pb-6 pt-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            applyFilter({ q: draftQ, areaCode: draftAreaCode });
+          }}
+        >
+          <div className="grid items-end gap-4 sm:grid-cols-[1fr_1fr_1fr_auto]">
+            <label className="block">
+              <span className="kicker">Search</span>
+              <input
+                type="text"
+                className="mt-1.5 w-full border-0 border-b border-rule bg-transparent pb-1.5 text-base text-ink placeholder:text-muted focus:border-ink focus:outline-none focus:ring-0"
+                placeholder="Name or area"
+                value={draftQ}
+                onChange={(e) => setDraftQ(e.target.value)}
+              />
+            </label>
 
-        <label className="text-sm">
-          <span className="block text-gray-700">Theme</span>
-          <select
-            className="mt-1 w-full rounded border border-gray-300 px-2 py-1"
-            value={filters.theme ?? ''}
-            onChange={(e) => applyFilter({ theme: e.target.value })}
-          >
-            <option value="">All themes</option>
-            {themes.data?.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-sm">
-          <span className="block text-gray-700">ONS area code</span>
-          <input
-            type="text"
-            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 font-mono"
-            placeholder="E.g. E92000001"
-            value={draftAreaCode}
-            onChange={(e) => setDraftAreaCode(e.target.value)}
-          />
-        </label>
-
-        <div className="sm:col-span-3">
-          <button
-            type="submit"
-            className="rounded bg-primary-600 px-3 py-1.5 text-sm text-white hover:bg-primary-700"
-          >
-            Apply
-          </button>
-          <button
-            type="button"
-            className="ml-2 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-            onClick={() => {
-              setFilters({});
-              setDraftQ('');
-              setDraftAreaCode('');
-            }}
-          >
-            Reset
-          </button>
-        </div>
-      </form>
-
-      {mapped.length > 0 && (
-        <div className="mb-6 h-80 overflow-hidden rounded border border-gray-200">
-          <MapContainer
-            center={UK_CENTRE}
-            zoom={6}
-            scrollWheelZoom={false}
-            style={{ height: '100%', width: '100%' }}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            {mapped.map((row) => (
-              <Marker
-                key={row.org_id}
-                position={[row.geolocation!.lat, row.geolocation!.lon]}
+            <label className="block">
+              <span className="kicker">Theme</span>
+              <select
+                className="mt-1.5 w-full border-0 border-b border-rule bg-transparent pb-1.5 text-base text-ink focus:border-ink focus:outline-none focus:ring-0"
+                value={filters.theme ?? ''}
+                onChange={(e) => applyFilter({ theme: e.target.value })}
               >
-                <Popup>
-                  <strong>{row.name}</strong>
-                  {row.primary_area ? <div>{row.primary_area}</div> : null}
-                  <a className="text-primary-700 underline" href={row.profile_url}>
-                    View profile
-                  </a>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        </div>
-      )}
+                <option value="">All themes</option>
+                {themes.data?.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-      {firstPage.isLoading ? (
-        <div className="py-12 text-center text-gray-500">Loading…</div>
-      ) : firstPage.isError ? (
-        <div className="py-12 text-center text-red-700">
-          Couldn't load profiles. Please try again.
-        </div>
-      ) : allRows.length === 0 ? (
-        <div className="py-12 text-center text-gray-500">
-          No organisations match. Try a different filter.
-        </div>
-      ) : (
-        <>
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {allRows.map((row) => (
-              <li
-                key={row.org_id}
-                className="rounded border border-gray-200 bg-white p-4 shadow-sm"
+            <label className="block">
+              <span className="kicker">ONS area code</span>
+              <input
+                type="text"
+                className="mt-1.5 w-full border-0 border-b border-rule bg-transparent pb-1.5 font-mono text-sm text-ink placeholder:text-muted focus:border-ink focus:outline-none focus:ring-0"
+                placeholder="E92000001"
+                value={draftAreaCode}
+                onChange={(e) => setDraftAreaCode(e.target.value)}
+              />
+            </label>
+
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                className="bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-primary-700"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <h2 className="text-lg font-semibold text-gray-900">{row.name}</h2>
-                  <span
-                    className={
-                      'rounded-full px-2 py-0.5 text-xs ' +
-                      (row.source === 'local'
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'bg-gray-100 text-gray-700')
-                    }
-                  >
-                    {row.source}
-                  </span>
-                </div>
-                {row.primary_area ? (
-                  <p className="mt-1 text-sm text-gray-600">{row.primary_area}</p>
-                ) : null}
-                {row.summary ? (
-                  <p className="mt-2 text-sm text-gray-700 line-clamp-3">{row.summary}</p>
-                ) : null}
-                {row.themes.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-1">
-                    {row.themes.slice(0, 5).map((t) => (
-                      <span
-                        key={t}
-                        className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                <a
-                  className="mt-3 inline-block text-sm text-primary-700 underline"
-                  href={row.profile_url}
+                Apply
+              </button>
+              <button
+                type="button"
+                className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline"
+                onClick={() => {
+                  setFilters({});
+                  setDraftQ('');
+                  setDraftAreaCode('');
+                }}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          {activeFilterChips.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+              <span className="kicker">Active</span>
+              {activeFilterChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => applyFilter({ [chip.key]: undefined } as Partial<DiscoveryFilters>)}
+                  className="group inline-flex items-center gap-1.5 border border-rule bg-paper-2 px-2 py-0.5 text-ink hover:border-ink"
                 >
-                  View profile JSON →
-                </a>
-              </li>
-            ))}
-          </ul>
+                  <span className="font-mono">{chip.label}</span>
+                  <span className="text-muted group-hover:text-ink">×</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </form>
+
+        {/* --- map (only when there's something to plot) -------------- */}
+        {mapped.length > 0 && (
+          <section className="mt-10">
+            <div className="kicker num mb-2">Map · {mapped.length} located</div>
+            <div className="overflow-hidden border border-rule">
+              <MapContainer
+                center={UK_CENTRE}
+                zoom={6}
+                scrollWheelZoom={false}
+                style={{ height: '320px', width: '100%' }}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {mapped.map((row) => (
+                  <Marker
+                    key={row.org_id}
+                    position={[row.geolocation!.lat, row.geolocation!.lon]}
+                  >
+                    <Popup>
+                      <div className="font-display text-base text-ink">{row.name}</div>
+                      {row.primary_area ? (
+                        <div className="text-xs text-muted">{row.primary_area}</div>
+                      ) : null}
+                      <a className="text-xs text-primary-700 underline" href={row.profile_url}>
+                        View profile
+                      </a>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            </div>
+          </section>
+        )}
+
+        {/* --- results -------------------------------------------------- */}
+        <section className="mt-10">
+          <div className="kicker num mb-4 flex items-baseline justify-between">
+            <span>
+              Results · {totalCount}
+              {pageCursor ? '+' : ''}
+            </span>
+            {firstPage.isFetching && !firstPage.isLoading ? (
+              <span className="text-muted">Updating…</span>
+            ) : null}
+          </div>
+
+          {firstPage.isLoading ? (
+            <div className="py-16 text-center text-muted">Loading…</div>
+          ) : firstPage.isError ? (
+            <div className="py-16 text-center text-red-700">
+              Couldn't load profiles. Please try again.
+            </div>
+          ) : allRows.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="font-display text-2xl text-ink">No matches.</p>
+              <p className="mt-2 text-sm text-muted">
+                Try fewer filters, or a broader area.
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-rule border-y border-rule">
+              {allRows.map((row, i) => (
+                <li
+                  key={row.org_id}
+                  className="grid grid-cols-[1fr_auto] items-start gap-6 py-6"
+                  style={{
+                    animation: 'discoverFadeIn 320ms ease-out both',
+                    animationDelay: `${Math.min(i, 12) * 35}ms`,
+                  }}
+                >
+                  <div>
+                    <a
+                      href={row.profile_url}
+                      className="display-head text-2xl font-medium leading-tight text-ink hover:text-primary-700"
+                    >
+                      {row.name}
+                    </a>
+                    {row.primary_area ? (
+                      <p className="mt-0.5 text-sm italic text-muted">
+                        {row.primary_area}
+                      </p>
+                    ) : null}
+                    {row.summary ? (
+                      <p className="mt-2 max-w-prose text-sm leading-relaxed text-ink/90 line-clamp-3">
+                        {row.summary}
+                      </p>
+                    ) : null}
+                    {row.themes.length > 0 ? (
+                      <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+                        {row.themes.slice(0, 6).map((t) => (
+                          <li key={t} className="font-mono">
+                            #{t}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2 text-right">
+                    <span
+                      className={
+                        'kicker num ' +
+                        (row.source === 'local' ? 'text-primary-700' : 'text-muted')
+                      }
+                    >
+                      {row.source}
+                    </span>
+                    <a
+                      href={row.profile_url}
+                      className="text-xs text-muted underline-offset-4 hover:text-ink hover:underline"
+                    >
+                      profile.json →
+                    </a>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
           {pageCursor ? (
-            <div className="mt-6 text-center">
+            <div className="mt-10 text-center">
               <button
                 type="button"
                 disabled={loadingMore}
                 onClick={handleLoadMore}
-                className="rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="border border-rule bg-paper px-5 py-2 text-sm text-ink transition hover:bg-paper-2 disabled:opacity-50"
               >
                 {loadingMore ? 'Loading…' : 'Load more'}
               </button>
             </div>
           ) : null}
-        </>
-      )}
+        </section>
+      </div>
+
+      {/* keyframes inline so the page is self-contained */}
+      <style>{`
+        @keyframes discoverFadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }

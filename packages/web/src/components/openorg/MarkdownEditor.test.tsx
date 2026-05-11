@@ -42,18 +42,19 @@ describe('MarkdownEditor', () => {
     const { container } = render(
       <MarkdownEditor initialMarkdown={PROFILE_MD} onSave={vi.fn()} />
     );
-    // The preview pane wraps content in a <article class="prose">. Restrict
-    // the lookup to that to avoid matching the editor's CodeMirror layer too.
-    const preview = container.querySelector('article.prose');
+    // Preview pane: <article class="editorial-preview">. Restrict the
+    // lookup to that to avoid matching CodeMirror's editor layer too.
+    const preview = container.querySelector('article.editorial-preview');
     expect(preview).not.toBeNull();
     expect(preview!.textContent).toMatch(/We support older people in Norfolk/);
   });
 
-  it('starts in "all changes saved" state with the save button disabled', () => {
+  it('starts in saved state with the save button disabled', () => {
     render(
       <MarkdownEditor initialMarkdown={PROFILE_MD} onSave={vi.fn()} />
     );
-    expect(screen.getByText(/all changes saved/i)).toBeInTheDocument();
+    // The status kicker reads "Saved" (no leading dot) when not dirty.
+    expect(screen.getByText(/^saved$/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
 
@@ -67,7 +68,7 @@ describe('MarkdownEditor', () => {
         ]}
       />
     );
-    expect(screen.getByText(/Validation errors:/)).toBeInTheDocument();
+    expect(screen.getByText(/validation errors/i)).toBeInTheDocument();
     expect(screen.getByText(/must contain at least 1 item/)).toBeInTheDocument();
   });
 

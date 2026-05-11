@@ -51,4 +51,107 @@
   .label {
     @apply block text-sm font-medium text-gray-700 mb-2;
   }
+
+  /* --- Open Org editorial type utilities ---------------------------------
+     Local to the Open Org pages — call these out alongside Tailwind classes
+     so the page styles stay declarative. */
+
+  /* Small-caps kicker — used for category labels above headlines, role
+     tags in the chat transcript, and section markers in the editor. */
+  .kicker {
+    font-family: theme('fontFamily.sans');
+    font-weight: 600;
+    font-size: 0.6875rem;     /* 11px */
+    line-height: 1;
+    letter-spacing: theme('letterSpacing.kicker');
+    text-transform: uppercase;
+    color: theme('colors.muted');
+  }
+
+  /* Display headlines: enable Fraunces opsz axis at the larger end. */
+  .display-head {
+    font-family: theme('fontFamily.display');
+    font-optical-sizing: auto;
+    font-variation-settings: "opsz" 96, "SOFT" 50;
+    letter-spacing: theme('letterSpacing.display');
+    color: theme('colors.ink');
+  }
+
+  /* Tabular numerics for counts, dates, token totals — keeps columns
+     aligned and gives the data a print-publication feel. */
+  .num {
+    font-feature-settings: "tnum" 1, "ss01" 1;
+  }
+
+  /* Page wrapper for Open Org content surfaces. Sets the warm paper bg
+     and ink text. Apply on the outermost div of a page so the chrome
+     (Layout nav) stays untouched. */
+  .surface-paper {
+    background-color: theme('colors.paper');
+    color: theme('colors.ink');
+    font-family: theme('fontFamily.sans');
+  }
+
+  /* Hairline divider — a flat 1px rule in the editorial palette. Used
+     between cards and sections instead of heavier card-box borders. */
+  .rule-h {
+    border-top: 1px solid theme('colors.rule');
+  }
+
+  /* Editorial markdown preview. Shared by the MarkdownEditor preview pane
+     and the Create-page live draft so the two render identically. Lifted
+     out of inline <style> blocks per "reuse before rewrite". Selectors are
+     scoped to ``.editorial-preview`` to avoid bleeding into other surfaces. */
+  .editorial-preview h1,
+  .editorial-preview h2,
+  .editorial-preview h3 {
+    font-family: theme('fontFamily.display');
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+    color: theme('colors.ink');
+    font-weight: 500;
+    line-height: 1.15;
+  }
+  .editorial-preview h1 { font-size: 2rem;   margin: 0.5rem 0 1rem; }
+  .editorial-preview h2 { font-size: 1.4rem; margin: 1.8rem 0 0.5rem; }
+  .editorial-preview h3 { font-size: 1.1rem; margin: 1.4rem 0 0.4rem; }
+  .editorial-preview p  { margin: 0.7rem 0; line-height: 1.7; font-size: 0.95rem; }
+  .editorial-preview ul,
+  .editorial-preview ol { margin: 0.7rem 0; padding-left: 1.4rem; }
+  .editorial-preview li { margin: 0.25rem 0; line-height: 1.65; }
+  .editorial-preview strong { font-weight: 600; color: theme('colors.ink'); }
+  .editorial-preview a {
+    color: theme('colors.primary.700');
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .editorial-preview code {
+    font-family: theme('fontFamily.mono');
+    font-size: 0.85em;
+    background: theme('colors.paper-2');
+    padding: 0.1em 0.35em;
+    border-radius: 2px;
+  }
+  .editorial-preview hr {
+    border: 0;
+    border-top: 1px solid theme('colors.rule');
+    margin: 1.5rem 0;
+  }
+  .editorial-preview blockquote {
+    border-left: 3px solid theme('colors.rule');
+    padding-left: 1rem;
+    color: theme('colors.muted');
+    font-style: italic;
+    margin: 1rem 0;
+  }
+  /* Drop-cap on the first paragraph after the first h2 — small printer-
+     style flourish that signals this is a document, not an app screen. */
+  .editorial-preview h2 + p::first-letter {
+    font-family: theme('fontFamily.display');
+    font-size: 2.4em;
+    line-height: 0.9;
+    float: left;
+    margin: 0.05em 0.08em 0 0;
+    color: theme('colors.ink');
+  }
 }
