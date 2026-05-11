@@ -86,6 +86,83 @@ def _vocabulary_block_text() -> str:
         label = theme.get("label", "")
         desc = theme.get("description", "")
         lines.append(f"- {key} | {label} | {desc}")
+
+    # v0.2.3: negative-match rules. The v0.1 baseline showed `education`
+    # over-applied because awareness/training language appears in many
+    # charities' CC text even when education isn't their primary mission.
+    lines.append("")
+    lines.append("## Negative-match rules")
+    lines.append(
+        "- **education**: only apply when education is the charity's "
+        "primary activity (schools, tutoring, formal learning, literacy, "
+        "scholarships). Do NOT apply when training, awareness-raising, or "
+        "professional development is incidental to a different mission "
+        "(e.g. mental health charities that run training for clinicians; "
+        "food banks that run cooking workshops; refugees charities that "
+        "run language classes). When in doubt, leave education off and "
+        "let the primary theme stand."
+    )
+
+    # v0.2.2: worked examples for themes the v0.1 baseline missed on
+    # well-known charities (Trussell, Shelter, Mind, NSPCC, Macmillan, BRC,
+    # Oxfam). Each example pairs a charity-style activity snippet with the
+    # theme it should match — concrete anchors the model can pattern-match
+    # against rather than relying on the vocabulary description alone.
+    lines.append("")
+    lines.append("## Worked examples")
+    lines.append(
+        "These examples show the correct theme key for common charity "
+        "activities. When you see similar language in the input, prefer the "
+        "matching key. Examples are *positive matches*, not exhaustive — "
+        "many activities qualify for more than one key."
+    )
+    examples = [
+        ("food_access",
+         "A network of food banks distributing emergency food parcels to "
+         "people in crisis. Surplus-food redistribution. A community fridge "
+         "or pantry. Holiday meal provision for children."),
+        ("housing_and_homelessness",
+         "Supporting rough sleepers off the streets. Running a hostel or "
+         "night shelter. Tenancy advice and eviction prevention. Campaigning "
+         "for affordable housing. Outreach to people sleeping rough."),
+        ("mental_health",
+         "Mental health support services — counselling, talking therapies, "
+         "peer support. Anxiety and depression helplines. Suicide prevention. "
+         "Crisis cafes. Support for people with severe and enduring mental "
+         "illness. Use mental_health (NOT health) for anything that's "
+         "explicitly about psychological wellbeing or mental ill-health."),
+        ("domestic_abuse",
+         "Refuges and safehouses for people fleeing abusive relationships. "
+         "Helplines for survivors of domestic abuse. Perpetrator behaviour-"
+         "change programmes. Independent domestic violence advisors."),
+        ("children_and_young_people",
+         "Youth clubs, mentoring schemes for young people, after-school "
+         "programmes, helplines for children. Safeguarding children. "
+         "Activities aimed at under-18s or care leavers. Use this key "
+         "alongside more specific ones (e.g. children + education)."),
+        ("refugees_and_migration",
+         "Supporting refugees and asylum seekers. Migrant integration "
+         "services. Legal advice on immigration. Resettlement programmes. "
+         "Language classes for new arrivals."),
+        ("loneliness",
+         "Befriending services, social prescribing for isolated people, "
+         "telephone friendship lines, community lunch clubs aimed at "
+         "reducing social isolation, particularly among older adults."),
+        ("families_and_carers",
+         "Support for unpaid carers — respite, peer groups, training. "
+         "Family services, parenting support, carer assessments. Help for "
+         "kinship carers and care-experienced families."),
+        ("poverty_and_financial_inclusion",
+         "Debt advice, welfare rights, benefits advocacy, financial "
+         "education, emergency grants for people in hardship, fuel-poverty "
+         "support, money-management coaching."),
+        ("disability",
+         "Services for disabled people — accessibility advocacy, supported "
+         "living, day services, equipment loan, independent living advice. "
+         "Both physical and learning disabilities count here."),
+    ]
+    for key, snippet in examples:
+        lines.append(f"- **{key}**: {snippet}")
     return "\n".join(lines)
 
 

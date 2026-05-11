@@ -227,3 +227,65 @@ def test_no_call_when_all_three_inputs_are_empty():
     )
     assert result.themes == []
     client._client.messages.create.assert_not_called()
+
+
+# --- v0.2.2: positive examples per under-detected theme --------------------
+
+
+def test_system_prompt_includes_worked_examples_for_under_detected_themes():
+    """The v0.1 baseline missed food_access on Trussell and
+    housing_and_homelessness on Shelter despite obvious activity wording.
+    The cached system block now carries worked examples for these themes
+    so the model has explicit anchors."""
+    client = _client_returning([])
+    extract_themes(client=client, objects_text="x", activities_text="y")
+
+    system = client._client.messages.create.call_args.kwargs["system"]
+    joined = " ".join(b.get("text", "") for b in system if isinstance(b, dict))
+
+    for must_appear in [
+        "food_access",
+        "housing_and_homelessness",
+        "mental_health",
+        "domestic_abuse",
+        "children_and_young_people",
+        "refugees_and_migration",
+        "loneliness",
+        "families_and_carers",
+    ]:
+        assert must_appear in joined, f"missing worked-example anchor for {must_appear}"
+
+
+def test_worked_examples_ride_in_a_cached_system_block():
+    """The examples are stable across calls; they belong in the cached
+    block so we don't re-pay for them on every charity."""
+    client = _client_returning([])
+    extract_themes(client=client, objects_text="x", activities_text="y")
+
+    system = client._client.messages.create.call_args.kwargs["system"]
+    cached_text = " ".join(
+        b.get("text", "") for b in system if isinstance(b, dict) and b.get("cache_control")
+    )
+    # At least one worked example anchor must be inside a cached block.
+    assert "food_access" in cached_text
+    assert "housing_and_homelessness" in cached_text
+
+
+# --- v0.2.3: education negative-match rule ---------------------------------
+
+
+def test_system_prompt_carries_education_negative_match_rule():
+    """The v0.1 baseline over-applied `education` to 7 of 10 orgs because
+    awareness/training language in CC text triggered the match. The system
+    prompt now explicitly tells the model NOT to apply `education` when it
+    is incidental to a different primary mission."""
+    client = _client_returning([])
+    extract_themes(client=client, objects_text="x", activities_text="y")
+
+    system = client._client.messages.create.call_args.kwargs["system"]
+    joined = " ".join(b.get("text", "") for b in system if isinstance(b, dict))
+
+    # Match the spirit, not the exact phrasing — keep this test resilient.
+    lowered = joined.lower()
+    assert "education" in lowered
+    assert "primary" in lowered or "incidental" in lowered

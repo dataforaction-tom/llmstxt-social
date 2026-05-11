@@ -16,13 +16,13 @@
   },
   {
     "key": "health",
-    "label": "Health and wellbeing",
-    "description": "Physical health promotion, prevention, long-term condition support, and patient advocacy."
+    "label": "Physical health",
+    "description": "Physical health promotion, prevention, long-term physical condition support (cancer, cardiovascular, respiratory, diabetes, etc.), and patient advocacy on physical illness. Excludes mental health — use mental_health for anything about psychological wellbeing, anxiety, depression, psychosis, eating disorders, or mental illness."
   },
   {
     "key": "mental_health",
     "label": "Mental health",
-    "description": "Mental health support, crisis intervention, peer support, and psychological wellbeing."
+    "description": "Anything about psychological wellbeing or mental ill-health: anxiety, depression, psychosis, eating disorders, suicide prevention, crisis intervention, talking therapies, counselling, peer support, mental health helplines. Use this key — NOT health — whenever the activity is explicitly about the mind. A charity supporting people with mental illness belongs here even when it also touches physical health."
   },
   {
     "key": "disability",

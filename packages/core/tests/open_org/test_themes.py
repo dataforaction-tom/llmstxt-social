@@ -67,6 +67,29 @@ def test_is_valid_theme_helper():
     assert is_valid_theme("not_a_real_theme") is False
 
 
+def test_health_description_excludes_mental_health(themes):
+    """v0.2.4: Mind got `health, disability` in the v0.1 baseline because
+    the descriptions overlapped. The `health` description now explicitly
+    points at physical health and routes mental health to mental_health."""
+    health = next(t for t in themes if t["key"] == "health")
+    desc = health["description"].lower()
+    assert "physical" in desc, "`health` should be explicit about being physical"
+    assert "mental_health" in desc or "excludes mental" in desc, (
+        "`health` should route mental-health language to mental_health"
+    )
+
+
+def test_mental_health_description_is_unambiguous(themes):
+    """The mental_health description must spell out anxiety/depression-style
+    territory and explicitly distinguish from `health`."""
+    mh = next(t for t in themes if t["key"] == "mental_health")
+    desc = mh["description"].lower()
+    assert "anxiety" in desc or "depression" in desc
+    # The description must explicitly tell the model to prefer mental_health
+    # over `health` for psychological wellbeing.
+    assert "not health" in desc or "not the health key" in desc or "use this key" in desc
+
+
 def test_schemas_theme_enum_matches_vocabulary(themes):
     """The theme enum baked into each schema must match themes.json exactly,
     or the schema will silently accept retired themes / reject new ones."""
