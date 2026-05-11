@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 from typing import Awaitable, Callable
+from urllib.parse import urlparse
 
 from llmstxt_core.crawler import CrawlResult, Page, crawl_site
 from llmstxt_core.extractor import ExtractedPage, PageType, extract_content
@@ -40,6 +41,13 @@ _RELEVANT_PAGE_TYPES = {
 # descriptions the theme extractor needs.
 _LOW_SIGNAL_BODY_THRESHOLD = 1500
 _LOW_SIGNAL_PAGE_COUNT = 1
+
+# v0.2.7: the homepage is *always* activity-relevant by definition, but
+# ``classify_page_type`` checks URL patterns ahead of the homepage check and
+# can label /'s as GET_HELP or DONATE on banner-heavy sites (Shelter).
+# Recognise the homepage by URL path so we don't depend on the classifier
+# getting it right.
+_HOMEPAGE_PATH_MARKERS = {"", "/", "/index.html", "/index.php", "/home"}
 
 
 CrawlFn = Callable[..., Awaitable[CrawlResult]]
@@ -170,12 +178,31 @@ def _extract_relevant_bodies(
             continue
         if extracted is None:
             continue
-        if extracted.page_type not in _RELEVANT_PAGE_TYPES:
+        if extracted.page_type not in _RELEVANT_PAGE_TYPES and not _is_homepage_url(
+            getattr(page, "url", None)
+        ):
             continue
         body = (extracted.body_text or "").strip()
         if body:
             bodies.append(body)
     return bodies
+
+
+def _is_homepage_url(url: str | None) -> bool:
+    """Return True if ``url`` is plausibly the root of a site.
+
+    Independent of ``classify_page_type`` — only the URL matters here. The
+    homepage is always activity-relevant for our purposes, so we accept it
+    even if the classifier picked a different label based on banner text.
+    """
+    if not url:
+        return False
+    try:
+        parsed = urlparse(url)
+    except Exception:  # noqa: BLE001
+        return False
+    path = (parsed.path or "").lower()
+    return path in _HOMEPAGE_PATH_MARKERS
 
 
 __all__ = ["collect_website_text"]

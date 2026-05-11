@@ -1,10 +1,10 @@
 # Plan — Open Org Phase 1 + 1.5
 
 > Last updated: 2026-05-11
-> Status: **Phase 1 complete + baselined**. Phase 1.5 (schema v0.2 iteration) in planning — driven by the v0.1 baseline run on 10 UK charities.
+> Status: **Phase 1 + 1.5 complete**. All 6/6 must-pass scorecard items green at v0.4 baseline. Firecrawl reserved for a future corpus that defeats both httpx and Playwright.
 > Spec: `open-org/open-org-phase1-spec.md`
 > Resume guide: `HANDOFF.md`
-> Baseline: `tests/reports/baseline_v0.1.md`
+> Baselines: `tests/reports/baseline_v0.1.md` → `baseline_v0.4.md`
 
 ## Objective
 
@@ -450,8 +450,8 @@ v0.2.3  Prompt: 'education' negative-match rule               (cheap, reduces ov
 v0.2.4  Vocab: tighten health vs mental_health boundary       (low risk, high signal)     ✅
 v0.2.5  Re-baseline run + diff vs v0.1                        (operator action)           ✅ (5/6 must-pass)
 v0.2.6  Playwright fallback for httpx misses                  (closed Mind; still 5/6)    ✅
-v0.2.7  Shelter homepage classification fix                   (closes Shelter)            ⏳
-v0.3    Firecrawl as third tier                               (only if v0.2.7 not enough) ⏳
+v0.2.7  Shelter homepage classification fix                   (closes Shelter)            ✅ 6/6 must-pass
+v0.3    Firecrawl as third tier                               (held — not needed yet)     ⏳
 ```
 
 v0.2.5 closed the loop: see `tests/reports/baseline_v0.2.md`. Remaining gaps
@@ -524,20 +524,44 @@ as `GET_HELP` or `DONATE` because of the prominent banner content. Fix
 is in `extractor.classify_page_type`, not in the website-text or theme
 modules.
 
-### v0.2.7 — Shelter-class page classification (planned)
+### v0.2.7 — Shelter-class page classification (done 2026-05-11)
 
-Driven by the v0.3 baseline. Three options:
+The homepage is always activity-relevant by definition, but
+`classify_page_type` checks URL keyword patterns ahead of the homepage
+fallback. For banner-heavy sites like Shelter the homepage body mentions
+"get help with housing" in the first 1000 chars and the classifier
+returns `GET_HELP`, then `_RELEVANT_PAGE_TYPES` drops it.
 
-1. **Loosen `_RELEVANT_PAGE_TYPES`** to include the page types Shelter's
-   home gets mis-classified as. Low risk — these pages still carry useful
-   activity language.
-2. **Improve `classify_page_type`** so a URL of `/` always classifies as
-   `HOME` regardless of banner-heavy content.
-3. **Tag the homepage as HOME by URL** in `collect_website_text` itself,
-   independent of `classify_page_type`. Avoids touching `extractor.py`.
+**Implemented:** `_is_homepage_url(url)` in `collect_website_text`. A
+page passes the relevance filter if its page_type is in
+`_RELEVANT_PAGE_TYPES` OR its URL path is one of `""`, `/`,
+`/index.html`, `/index.php`, `/home`. No `extractor.py` change — keeps
+the shared classifier untouched. Three new tests cover the override.
 
-Recommend (3) — narrowest change, no shared-code refactor. The other
-options are right for a future llmstxt.social pass.
+**v0.4 scorecard (all 6/6 must-pass green):**
+
+| Criterion | v0.1 | v0.2 | v0.3 | v0.4 |
+|---|---|---|---|---|
+| Trussell `food_access` | ❌ | ✅ | ✅ | ✅ |
+| Shelter `housing_and_homelessness` | ❌ | ❌ | ❌ | **✅ NEW WIN** |
+| Mind `mental_health` | ❌ | ❌ | ✅ | ✅ |
+| NSPCC `children_and_young_people` | ❌ | ✅ | ✅ | ✅ |
+| Macmillan `families_and_carers` | ❌ | ✅ | ✅ | ✅ (now also `mental_health`) |
+| ≥3 orgs no spurious `education` | n/a | 6/7 | 5/7 | **6/7** (only RSPCA at 0.60 flagged) |
+
+**Other v0.4 highlights:**
+- Salvation Army now richly tagged: 11 themes including housing,
+  food_access, crime_and_justice, older_people, loneliness — a far
+  fuller picture than v0.1's {education, health, disability, poverty}.
+- Oxfam gets food_access flagged at 0.50.
+- Macmillan picked up `mental_health` (cancer charities deal with
+  significant mental-health burden — correct match).
+- `education` is essentially gone from the accepted themes list across
+  the corpus, despite being one of the most common false positives in
+  the v0.1 baseline.
+
+**Phase 1.5 complete. v0.3 (Firecrawl) reserved for a future corpus
+that surfaces sites neither httpx nor Playwright can reach.**
 
 ### v0.3 — Firecrawl fallback (only if needed)
 

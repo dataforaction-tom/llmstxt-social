@@ -405,6 +405,83 @@ async def test_keeps_httpx_body_when_browser_returns_less():
     assert "Welcome to our small charity." in text
 
 
+# --- v0.2.7: homepage-by-URL override --------------------------------------
+
+
+async def test_homepage_body_is_accepted_even_when_classifier_says_get_help():
+    """Shelter-class: the homepage URL is /, but classify_page_type returns
+    GET_HELP because the page body mentions 'get help with housing' near
+    the top. The page-type filter would drop it. We override by URL so the
+    actual homepage always counts."""
+    home_mislabelled = _extracted(
+        url="https://shelter.example/",
+        body="Shelter helps people facing homelessness and bad housing. "
+        "We provide free advice, advocacy, and support. " * 30,
+        page_type=PageType.GET_HELP,  # mis-classified
+    )
+
+    async def fake_crawl(url, max_pages):
+        return CrawlResult(pages=[_page("https://shelter.example/")], base_url=url)
+
+    text = await collect_website_text(
+        "https://shelter.example",
+        crawler=fake_crawl,
+        extractor=lambda p: home_mislabelled,
+        max_pages=5,
+    )
+    assert "Shelter helps people facing homelessness" in text
+
+
+async def test_homepage_url_variants_all_treated_as_home():
+    """Different forms of the same homepage URL all qualify as homepage."""
+    home_body = _extracted(
+        url="placeholder",
+        body="Activity-rich homepage content. " * 30,
+        page_type=PageType.DONATE,  # mis-classified
+    )
+
+    for url in [
+        "https://x.example",
+        "https://x.example/",
+        "https://x.example/index.html",
+        "https://x.example/home",
+    ]:
+        async def fake_crawl(url, max_pages, _url=url):
+            return CrawlResult(pages=[_page(_url)], base_url=url)
+
+        text = await collect_website_text(
+            "https://x.example",
+            crawler=fake_crawl,
+            extractor=lambda p: home_body,
+            max_pages=5,
+        )
+        assert "Activity-rich homepage content" in text, url
+
+
+async def test_non_home_pages_still_filtered_when_irrelevant():
+    """A deep page that classifies as DONATE/CONTACT should still be filtered."""
+    donate_page = _extracted(
+        url="https://x.example/donate",
+        body="DONATE PAGE BODY",
+        page_type=PageType.DONATE,
+    )
+
+    async def fake_crawl(url, max_pages):
+        return CrawlResult(pages=[_page("https://x.example/donate")], base_url=url)
+
+    async def empty_browser(url, *, max_pages):
+        return []
+
+    text = await collect_website_text(
+        "https://x.example",
+        crawler=fake_crawl,
+        browser_fetch=empty_browser,
+        extractor=lambda p: donate_page,
+        max_pages=5,
+    )
+    assert text == ""
+
+
 async def test_playwright_fallback_failure_collapses_to_empty():
     """If both tiers fail, return '' so the generator falls back to CC-only."""
 
