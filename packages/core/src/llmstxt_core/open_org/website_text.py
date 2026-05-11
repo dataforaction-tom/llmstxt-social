@@ -15,8 +15,9 @@ from __future__ import annotations
 import logging
 from typing import Awaitable, Callable
 
-from llmstxt_core.crawler import CrawlResult, crawl_site
+from llmstxt_core.crawler import CrawlResult, Page, crawl_site
 from llmstxt_core.extractor import ExtractedPage, PageType, extract_content
+from llmstxt_core.playwright_fetch import fetch_with_browser
 
 
 log = logging.getLogger(__name__)
@@ -32,9 +33,18 @@ _RELEVANT_PAGE_TYPES = {
     PageType.VOLUNTEER,
 }
 
+# v0.2.6 follow-up: trigger Playwright when httpx returned content that is
+# probably the homepage alone with no service-page detail. The Shelter case
+# in baseline_v0.2 had httpx return a 24KB homepage that extracted to one
+# short HOME body — passing the page-type filter but lacking the activity
+# descriptions the theme extractor needs.
+_LOW_SIGNAL_BODY_THRESHOLD = 1500
+_LOW_SIGNAL_PAGE_COUNT = 1
+
 
 CrawlFn = Callable[..., Awaitable[CrawlResult]]
 ExtractFn = Callable[..., "ExtractedPage | None"]
+BrowserFetchFn = Callable[..., Awaitable["list[Page]"]]
 
 
 def _normalise_url(url: str) -> str:
@@ -54,18 +64,23 @@ async def collect_website_text(
     url: str | None,
     *,
     crawler: CrawlFn | None = None,
+    browser_fetch: BrowserFetchFn | None = None,
     extractor: ExtractFn | None = None,
     max_pages: int = 5,
     max_chars: int = 20_000,
 ) -> str:
     """Return concatenated body text from the most relevant pages on ``url``.
 
-    Crawls up to ``max_pages`` pages; filters to page types likely to describe
-    activities (home, about, services, get help, volunteer); concatenates body
-    text from the resulting pages; truncates to ``max_chars``.
+    Two-tier fetch:
+      1. Lightweight httpx crawler (fast, free, ~200ms/page).
+      2. Playwright fallback when (1) errors, returns no pages, or returns
+         only pages that fail the page-type filter. Slower (~2-5s/page) but
+         renders JS and survives basic bot defences (the v0.2 baseline showed
+         Mind's site 403's the httpx crawler).
 
-    ``crawler`` and ``extractor`` are injectable for tests. Production callers
-    use the package defaults (``crawl_site`` + ``extract_content``).
+    ``crawler``, ``browser_fetch``, and ``extractor`` are injectable for tests.
+    Production callers use the package defaults (``crawl_site``,
+    ``fetch_with_browser``, ``extract_content``).
 
     Returns ``""`` on any failure so the calling generator can fall back to
     CC-only theme extraction without raising.
@@ -75,19 +90,77 @@ async def collect_website_text(
 
     crawl_fn = crawler or crawl_site
     extract_fn = extractor or extract_content
+    browser_fn = browser_fetch or fetch_with_browser
 
     normalised_url = _normalise_url(url)
 
+    pages = await _fetch_via_httpx(crawl_fn, normalised_url, max_pages)
+    bodies = _extract_relevant_bodies(pages, extract_fn)
+
+    # Fallback to Playwright when httpx returned nothing usable OR only a
+    # low-signal single page. The Mind case is "0 bodies" (httpx hit 403);
+    # the Shelter case is "1 thin body" (homepage scraped but no service
+    # pages followed). Both want the browser to try.
+    if _is_low_signal(bodies):
+        log.info("falling back to browser fetch for %s", normalised_url)
+        browser_pages = await _fetch_via_browser(browser_fn, normalised_url, max_pages)
+        browser_bodies = _extract_relevant_bodies(browser_pages, extract_fn)
+        # Use whichever path produced more text — Playwright should normally
+        # win, but if it returns nothing (Mind-class 403 to the browser too)
+        # we keep the thin httpx body rather than throwing both away.
+        if _total_chars(browser_bodies) > _total_chars(bodies):
+            bodies = browser_bodies
+
+    if not bodies:
+        return ""
+
+    text = "\n\n".join(bodies)
+    if len(text) > max_chars:
+        text = text[:max_chars].rstrip()
+    return text
+
+
+async def _fetch_via_httpx(
+    crawl_fn: CrawlFn, url: str, max_pages: int
+) -> list[Page]:
     try:
-        crawl_result = await crawl_fn(normalised_url, max_pages=max_pages)
+        crawl_result = await crawl_fn(url, max_pages=max_pages)
     except Exception as exc:  # noqa: BLE001 — broad on purpose; never break generation
-        log.info("website crawl failed for %s: %s", normalised_url, exc)
-        return ""
+        log.info("httpx crawl failed for %s: %s", url, exc)
+        return []
+    return list(getattr(crawl_result, "pages", None) or [])
 
-    pages = getattr(crawl_result, "pages", None) or []
-    if not pages:
-        return ""
 
+async def _fetch_via_browser(
+    browser_fn: BrowserFetchFn, url: str, max_pages: int
+) -> list[Page]:
+    try:
+        return await browser_fn(url, max_pages=max_pages)
+    except Exception as exc:  # noqa: BLE001
+        log.info("browser fetch failed for %s: %s", url, exc)
+        return []
+
+
+def _is_low_signal(bodies: list[str]) -> bool:
+    """True when the httpx result is unlikely to give the theme extractor
+    enough to work with, so the Playwright fallback should also run."""
+    if not bodies:
+        return True
+    if (
+        len(bodies) <= _LOW_SIGNAL_PAGE_COUNT
+        and _total_chars(bodies) < _LOW_SIGNAL_BODY_THRESHOLD
+    ):
+        return True
+    return False
+
+
+def _total_chars(bodies: list[str]) -> int:
+    return sum(len(b) for b in bodies)
+
+
+def _extract_relevant_bodies(
+    pages: list[Page], extract_fn: ExtractFn
+) -> list[str]:
     bodies: list[str] = []
     for page in pages:
         try:
@@ -102,14 +175,7 @@ async def collect_website_text(
         body = (extracted.body_text or "").strip()
         if body:
             bodies.append(body)
-
-    if not bodies:
-        return ""
-
-    text = "\n\n".join(bodies)
-    if len(text) > max_chars:
-        text = text[:max_chars].rstrip()
-    return text
+    return bodies
 
 
 __all__ = ["collect_website_text"]

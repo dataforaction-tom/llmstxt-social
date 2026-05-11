@@ -449,7 +449,9 @@ v0.2.2  Prompt: positive examples per theme                   (cheap, sharpens r
 v0.2.3  Prompt: 'education' negative-match rule               (cheap, reduces over-fitting) ✅
 v0.2.4  Vocab: tighten health vs mental_health boundary       (low risk, high signal)     ✅
 v0.2.5  Re-baseline run + diff vs v0.1                        (operator action)           ✅ (5/6 must-pass)
-v0.2.6  Crawler robustness — UA + activity-page bias          (closes Shelter + Mind)     ⏳
+v0.2.6  Playwright fallback for httpx misses                  (closed Mind; still 5/6)    ✅
+v0.2.7  Shelter homepage classification fix                   (closes Shelter)            ⏳
+v0.3    Firecrawl as third tier                               (only if v0.2.7 not enough) ⏳
 ```
 
 v0.2.5 closed the loop: see `tests/reports/baseline_v0.2.md`. Remaining gaps
@@ -485,19 +487,66 @@ now includes website content).
 1. **Shelter** — crawler fetched only 24KB (one page, likely homepage), didn't surface enough activity language. Shelter's site is heavy on campaigns/news and may have JS-rendered service pages.
 2. **Mind** — site returned 403 on the unauthenticated crawler request. Anti-bot defence.
 
-### v0.2.6 — crawler robustness (planned, not yet built)
+### v0.2.6 — httpx → Playwright fallback (done 2026-05-11)
 
-Driven by the two v0.2.5 misses. Both are infrastructure improvements to
-`crawler.py`, not theme-extraction logic:
+Two-tier fetch chain: lightweight httpx first, Playwright when the result
+is empty or low-signal. Beats most basic anti-bot defences without
+introducing a hosted service. See `tests/reports/baseline_v0.3.md`.
 
-- **Better User-Agent + reasonable retry on 403.** Some sites block bare
-  `httpx` UAs. A browser-like UA gets through most defences. Cap retries
-  to avoid abuse.
-- **Follow more activity-relevant links from the homepage.** Currently the
-  crawler may stop after one or two pages on sites that don't expose a
-  sitemap. Bias the link-following towards `/services`, `/what-we-do`,
-  `/our-work`, `/about`, etc.
-- **Re-run baseline_v0.2 → baseline_v0.3** as the closing step.
+**Implementation:**
+- New `core/playwright_fetch.py`: thin wrapper around the existing
+  `PlaywrightCrawler` that exposes `fetch_with_browser(url, max_pages)`.
+- `collect_website_text` now does httpx → (if low signal) → Playwright,
+  keeping whichever path produced more body text. "Low signal" = empty
+  bodies OR single page under 1500 chars.
+
+**v0.3 scorecard (vs v0.1 baseline):**
+
+| Criterion | v0.1 | v0.2 | v0.3 | Status |
+|---|---|---|---|---|
+| Trussell `food_access` | ❌ | ✅ | ✅ | PASS |
+| Shelter `housing_and_homelessness` | ❌ | ❌ | ❌ | **STILL FAIL** (now root-caused — see below) |
+| Mind `mental_health` (not `health`) | ❌ | ❌ | ✅ | **PASS — Playwright bypassed the 403** |
+| NSPCC `children_and_young_people` | ❌ | ✅ | ✅ | PASS |
+| Macmillan `loneliness` / `families_and_carers` | ❌ | ✅ | ✅ | PASS |
+| ≥3 orgs no longer get spurious `education` | n/a | 6/7 | 5/7 | PASS |
+
+**Net progress: Mind moved from FAIL to PASS.** Shelter is the lone
+remaining must-pass miss, and the diagnosis has sharpened.
+
+**Shelter root cause (queued as v0.2.7):**
+
+Token usage stayed flat at 387 (the no-website baseline) across v0.1,
+v0.2, and v0.3. Playwright is firing (Mind proves it) — but Shelter's
+homepage gets extracted to a body that fails the page-type filter in
+`_RELEVANT_PAGE_TYPES`. Likely `extract_content` classifies the home page
+as `GET_HELP` or `DONATE` because of the prominent banner content. Fix
+is in `extractor.classify_page_type`, not in the website-text or theme
+modules.
+
+### v0.2.7 — Shelter-class page classification (planned)
+
+Driven by the v0.3 baseline. Three options:
+
+1. **Loosen `_RELEVANT_PAGE_TYPES`** to include the page types Shelter's
+   home gets mis-classified as. Low risk — these pages still carry useful
+   activity language.
+2. **Improve `classify_page_type`** so a URL of `/` always classifies as
+   `HOME` regardless of banner-heavy content.
+3. **Tag the homepage as HOME by URL** in `collect_website_text` itself,
+   independent of `classify_page_type`. Avoids touching `extractor.py`.
+
+Recommend (3) — narrowest change, no shared-code refactor. The other
+options are right for a future llmstxt.social pass.
+
+### v0.3 — Firecrawl fallback (only if needed)
+
+If a future corpus surfaces sites that block both httpx AND Playwright
+(real-world: aggressive Cloudflare, hCaptcha-protected), introduce
+Firecrawl as a third tier. Hosted service, paid per request, violates
+local-first preference — only justify if (1) shows up in the
+real-charity corpus. v0.3 baseline shows we don't need this yet for the
+10 charities we tested.
 
 ### v0.2.1 — wire crawl into the profile generator (done 2026-05-11)
 

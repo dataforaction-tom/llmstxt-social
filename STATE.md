@@ -15,7 +15,7 @@ stateDiagram-v2
     Deploying --> Live: Caddy + Tunnel routes openorg.good-ship.co.uk
     Live --> [*]
 
-    note right of Testing: ← WE ARE HERE (v0.2 baselined; 5/6 must-pass green; v0.2.6 crawler tweaks queued)
+    note right of Testing: ← WE ARE HERE (v0.3 baselined; Mind ✅ via Playwright fallback; Shelter the lone remaining miss, queued as v0.2.7)
 ```
 
 ## Component status
