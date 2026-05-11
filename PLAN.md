@@ -1,7 +1,7 @@
 # Plan — Open Org Phase 1 + 1.5
 
 > Last updated: 2026-05-11
-> Status: **Phase 1 + 1.5 complete**. All 6/6 must-pass scorecard items green at v0.4 baseline. Firecrawl reserved for a future corpus that defeats both httpx and Playwright.
+> Status: **Phase 1 + 1.5 complete + frontend polish landed**. All 6/6 v0.4 baseline must-pass items green; SPA now has CodeMirror+preview editor, strategy/idea editor pages, Vitest+RTL setup, and an SSE chat-creator page. Firecrawl reserved for a future corpus that defeats both httpx and Playwright.
 > Spec: `open-org/open-org-phase1-spec.md`
 > Resume guide: `HANDOFF.md`
 > Baselines: `tests/reports/baseline_v0.1.md` → `baseline_v0.4.md`
@@ -68,7 +68,7 @@ Step 11 Real-world testing harness (5-10 known orgs)
 - [x] **Step 1** — converter (2026-05-10)
 - [x] **Step 2** — DB models + migration (2026-05-10)
 - [x] **Step 3** — CachedAnthropic + usage log (2026-05-10)
-- [⚠] **Step 4** — editor UI + auth (2026-05-10; backend complete + minimal frontend; CodeMirror/Vitest/live-preview/strategy+idea pages deferred)
+- [x] **Step 4** — editor UI + auth (2026-05-10 backend; 2026-05-11 frontend polish: CodeMirror 6 + react-markdown live preview + strategy/idea editor pages + Vitest+RTL with 5 smoke tests + SSE chat-creator page consuming Step 8 routes)
 - [x] **Step 5** — profile generator (2026-05-11; orchestrator + ONS lookup + theme extractor + mission rewriter + magic-link claim flow + POST /api/open-org/generate + Celery task)
 - [x] **Step 7** — Murmurations connector (2026-05-11; postcodes.io + LAD centroid + envelope builder + client + public /murmurations.json + publish route + submit task + daily cache sync beat)
 - [x] **Step 8** — strategy/idea chat creator (2026-05-11; prompts + extractors + conversation orchestrator + SSE streaming routes + £0.50/org/day enforcement)

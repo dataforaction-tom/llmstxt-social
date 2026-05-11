@@ -9,6 +9,9 @@ import SubscribePage from './pages/Subscribe';
 import LoginPage from './pages/Login';
 import AuthVerifyPage from './pages/AuthVerify';
 import EditProfilePage from './pages/openorg/EditProfile';
+import EditStrategyPage from './pages/openorg/EditStrategy';
+import EditIdeaPage from './pages/openorg/EditIdea';
+import CreatePage from './pages/openorg/Create';
 import DiscoverPage from './pages/openorg/Discover';
 
 /**
@@ -81,6 +84,30 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <EditProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/openorg/edit/:orgId/strategies/:slug"
+        element={
+          <ProtectedRoute>
+            <EditStrategyPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/openorg/edit/:orgId/ideas/:slug"
+        element={
+          <ProtectedRoute>
+            <EditIdeaPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/openorg/:orgId/create/:kind"
+        element={
+          <ProtectedRoute>
+            <CreatePage />
           </ProtectedRoute>
         }
       />

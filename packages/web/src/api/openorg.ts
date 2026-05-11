@@ -302,3 +302,134 @@ export function useDiscoveryFirstPage(filters: DiscoveryFilters, limit = 20) {
     queryFn: () => fetchDiscoveryPage(filters, null, limit),
   });
 }
+
+// --- chat creator (Step 8) ---------------------------------------------
+
+export type CreatorKind = 'strategy' | 'idea';
+
+export interface CreatorSessionInit {
+  session_id: string;
+  kind: CreatorKind;
+  org_id: string;
+  current_markdown: string | null;
+}
+
+export interface CreatorSessionDetail {
+  session_id: string;
+  kind: CreatorKind;
+  org_id: string;
+  conversation_history: { role: 'user' | 'assistant'; content: string }[];
+  current_markdown: string | null;
+  expires_at: string;
+}
+
+export interface FinalizeResponse {
+  kind: CreatorKind;
+  org_id: string;
+  slug: string;
+}
+
+export async function createCreatorSession(
+  orgId: string,
+  kind: CreatorKind,
+  upload?: File,
+): Promise<CreatorSessionInit> {
+  const url = `/api/open-org/${orgId}/create/${kind}`;
+  if (upload) {
+    const form = new FormData();
+    form.append('upload', upload);
+    const { data } = await api.post(url, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  }
+  const { data } = await api.post(url);
+  return data;
+}
+
+export async function fetchCreatorSession(sessionId: string): Promise<CreatorSessionDetail> {
+  const { data } = await api.get(`/api/open-org/create/${sessionId}`);
+  return data;
+}
+
+export async function finalizeCreatorSession(sessionId: string): Promise<FinalizeResponse> {
+  const { data } = await api.post(`/api/open-org/create/${sessionId}/finalize`);
+  return data;
+}
+
+/**
+ * Stream a chat-creator message via SSE. Calls ``onDelta`` for each text chunk
+ * and ``onDone`` with the final state (current_markdown + usage) when the
+ * server emits the ``event: done`` frame.
+ *
+ * Uses ``fetch`` directly because EventSource doesn't support POST bodies.
+ * Parses the wire format ourselves: each frame is
+ *     event: <name>\n
+ *     data: <json>\n\n
+ */
+export async function streamCreatorMessage(
+  sessionId: string,
+  content: string,
+  onDelta: (text: string) => void,
+  onDone: (payload: { current_markdown: string | null; usage?: unknown }) => void,
+): Promise<void> {
+  const baseUrl = API_BASE_URL || '';
+  const response = await fetch(`${baseUrl}/api/open-org/create/${sessionId}/message`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`creator stream failed: HTTP ${response.status}`);
+  }
+  if (!response.body) {
+    throw new Error('creator stream returned no body');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE frames are separated by a blank line.
+    let blank = buffer.indexOf('\n\n');
+    while (blank !== -1) {
+      const frame = buffer.slice(0, blank);
+      buffer = buffer.slice(blank + 2);
+      const event = parseSseFrame(frame);
+      if (event) {
+        if (event.name === 'delta' && typeof event.data.text === 'string') {
+          onDelta(event.data.text);
+        } else if (event.name === 'done') {
+          onDone(event.data as { current_markdown: string | null; usage?: unknown });
+        }
+      }
+      blank = buffer.indexOf('\n\n');
+    }
+  }
+}
+
+function parseSseFrame(frame: string): { name: string; data: any } | null {
+  const lines = frame.split('\n');
+  let name = 'message';
+  const dataParts: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith('event:')) {
+      name = line.slice(6).trim();
+    } else if (line.startsWith('data:')) {
+      dataParts.push(line.slice(5).trim());
+    }
+  }
+  if (!dataParts.length) return null;
+  try {
+    return { name, data: JSON.parse(dataParts.join('\n')) };
+  } catch {
+    return null;
+  }
+}
