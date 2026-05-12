@@ -1,13 +1,13 @@
-# Handoff — Phase 1 + 1.5 shipped; publish/unpublish UI in; click-through verified
+# Handoff — Phase 1 + 1.5 shipped; publish parity across all three record types; click-through verified
 
 > Session ended: 2026-05-12
-> Branch: `master` (post-merge of PR #12)
-> Picks up from: end-to-end click-through verified against an isolated test stack
-> Resumes at: post-claim redirect fix, or Phase 2 planning
+> Branch: `master` (post-merge of PR #14)
+> Picks up from: publish/unpublish wired for profiles, strategies, ideas — full Phase-1 publish flow now complete end-to-end
+> Resumes at: post-claim redirect fix, production rebuild, or Phase 2 planning
 
 ## TL;DR
 
-Seven PRs landed across the last two sessions, in order:
+Eight PRs landed across the last two sessions, in order:
 
 - **PR #6** (`99bfee2`) — Phase 1 + 1.5 + frontend polish: the Open Org sub-application, schema v0.2 prompt/crawler iteration, all baseline reports v0.1 → v0.4, CodeMirror editor, chat creator, strategy/idea editor pages, Vitest+RTL setup.
 - **PR #7** (`86c7fbe`) — dev-mode magic-link logger + `LOCAL.md` walkthrough.
@@ -16,6 +16,7 @@ Seven PRs landed across the last two sessions, in order:
 - **PR #10** (`7022cb1`) — Rate limit + £0.50/org/day budget cap on `/api/open-org/generate`. The endpoint stays unauthenticated; two deterrents (per-IP 5/hour, per-org spend cap) sit in front of it.
 - **PR #11** (`ec83c47`) — Daily `CreatorSession` eviction beat task + admin `POST /api/open-org/{org_id}/unpublish` route that flips `published=False` and dispatches a Murmurations node-delete task.
 - **PR #12** (`0d0ae6b`) — Publish/Unpublish UI buttons on the profile editor, surfaced `published` on the GET profile.md response, fixed a pre-existing TZ bug in the daily-budget query window that was failing every `/api/open-org/generate` call against a real Postgres.
+- **PR #14** (`0bb62f5`) — Publish/unpublish parity for strategies and ideas: 4 new admin routes, `published` flag on GET strategy.md/idea.md, badge + toggle on the strategy and idea editors, shared `PublishToggle` component used by all three editors. Closes a hidden Phase-1 gap where strategies/ideas had the column + the public-route gate but no API or UI to flip the flag — they were effectively un-publishable.
 
 The v0.4 baseline scorecard (10 UK charities) is **6/6 must-pass green**. Click-through has been **executed** end-to-end on an isolated stack (generate → claim → publish → unpublish, JSON appears/disappears at the public URL, Murmurations submit/delete tasks fire).
 
@@ -31,14 +32,14 @@ The v0.4 baseline scorecard (10 UK charities) is **6/6 must-pass green**. Click-
 | 5 — Profile generator | ✅ Done | Rate limit (5/IP/hour) + £0.50/org/day cap landed in PR #10 |
 | 6 — Murmurations schema YAML | ✅ Drafted | **User opens upstream PR** |
 | 7 — Murmurations connector | ✅ Done | Plus PR #11's unpublish + node-delete task |
-| 8 — Strategy/idea chat creator | ✅ Done | Plus PR #11's daily CreatorSession eviction beat |
+| 8 — Strategy/idea chat creator | ✅ Done | Plus PR #11's daily CreatorSession eviction beat; publish/unpublish parity added in PR #14 |
 | 9 — Discovery page | ✅ Done | `DiscoverPage` lazy-loaded as of PR #9 |
 | 10 — Subdomain routing + Caddy | ✅ Done | `AUTH_COOKIE_DOMAIN` env-driven, Caddyfile updated, `HostRoot` redirect |
 | 11 — Real-world testing harness | ✅ Done + baselined v0.1 → v0.4 |
 | **Phase 1.5 — schema v0.2 iteration** | ✅ Done | v0.2.1 → v0.2.7, all 6/6 must-pass at v0.4 |
 | **Editorial design pass** | ✅ Done | Civic-editorial type system + paper palette + per-page polish + four code-review fixes |
 | **Operational hygiene** | ✅ Done | Chromium in worker image; per-IP + per-org caps on generate; eviction beat; unpublish + node-delete |
-| **Publish/unpublish UI + click-through** | ✅ Done | PR #12 — buttons live in SPA, click-through validated end-to-end on isolated stack |
+| **Publish/unpublish UI + click-through** | ✅ Done | PR #12 (profile) + PR #14 (strategy + idea parity) — all three record types now publishable from the SPA; profile flow validated end-to-end |
 
 ## v0.1 → v0.4 baseline scorecard
 
@@ -88,7 +89,7 @@ docker run --rm -v "$(pwd):/work" -w /work python:3.11-slim bash -c '
   cd ../api && python -m pytest tests/ -q
 '
 ```
-Expected: 268 core + 134 api = **402 backend** green.
+Expected: 268 core + 145 api = **413 backend** green.
 
 **Frontend**:
 ```bash
@@ -96,7 +97,7 @@ docker run --rm -v "$(pwd)/packages/web:/work" -w /work node:20-alpine sh -c '
   npm install --silent && npx tsc --noEmit && npm test
 '
 ```
-Expected: tsc clean, **9/9 vitest** green.
+Expected: tsc clean, **17/17 vitest** green.
 
 **Real-world harness** (Playwright is now in the worker image, but the harness still installs ad-hoc when run standalone):
 ```bash
@@ -125,15 +126,16 @@ Remaining from prior sessions:
 - **API tenant gating per host** (deliberately deferred — revisit when real logs show traffic on the wrong host).
 - **Firecrawl as a third fetch tier** (only if a future corpus surfaces sites that defeat both httpx and Playwright).
 - **Lower-scored design-pass items from the code review**: result-card `<h2>` semantics, file-input focus indicator, form-input focus ring beyond the 1px border, link underlines at rest on the Discover org name.
-- **`react-hooks/rules-of-hooks` violations** across the OpenOrg pages (Create, EditIdea, EditStrategy, parts of Discover). PR #12 cleaned up `EditProfile.tsx`; the others remain. Pre-existing on master; lint script `--max-warnings 0` would block CI if it ever ran.
+- **`react-hooks/rules-of-hooks` violations** across the remaining OpenOrg pages (Create.tsx, parts of Discover.tsx). PR #12 cleaned up `EditProfile.tsx`; PR #14 cleaned up `EditStrategy.tsx` and `EditIdea.tsx` — bringing the total error count from 24 → 17. Pre-existing on master; lint script `--max-warnings 0` would block CI if it ever ran.
 
 Items that landed across the last two sessions (strikes from the prior follow-ups list):
 - ~~Chromium in the `celery_worker` Docker image~~ → PR #9
 - ~~Rate limiting + £0.50/org/day cap on `/api/open-org/generate`~~ → PR #10
 - ~~Daily Celery beat to evict expired `CreatorSession` rows~~ → PR #11
 - ~~Murmurations node deletion when an OrgProfile is unpublished~~ → PR #11
-- ~~Publish/unpublish UI buttons in the SPA~~ → PR #12
+- ~~Publish/unpublish UI buttons in the SPA~~ → PR #12 (profile) + PR #14 (strategy + idea)
 - ~~Local click-through executed end-to-end~~ → PR #12 session
+- ~~Strategy/idea publish parity (hidden Phase-1 gap)~~ → PR #14
 
 ## Notable decisions this session
 
@@ -148,13 +150,21 @@ Click-through methodology (worth keeping for next time):
 
 ## Files of note
 
-PR #12:
+PR #14 (strategy/idea publish parity):
+- `packages/api/src/llmstxt_api/routes/open_org_admin.py` — 4 new routes (`publish_strategy`, `unpublish_strategy`, `publish_idea`, `unpublish_idea`) + `RecordPublishResponse` schema + `published` on the GET strategy.md / idea.md responses.
+- `packages/api/tests/test_open_org_record_publish_route.py` — 11 tests for the new routes + the GET flag.
+- `packages/web/src/api/openorg.ts` — `publishStrategy` / `unpublishStrategy` / `publishIdea` / `unpublishIdea` + matching `use*` hooks.
+- `packages/web/src/components/openorg/PublishToggle.tsx` — shared `PublishBadge` + `PublishControls` used by all three editors.
+- `packages/web/src/pages/openorg/EditStrategy.tsx`, `EditIdea.tsx` — badge + toggle + inline alert, hooks lifted above early-return.
+- `packages/web/src/pages/openorg/{EditStrategy,EditIdea}.test.tsx` — 4 Vitest tests each, mirroring the profile test pattern.
+
+PR #12 (profile publish + TZ fix):
 - `packages/api/src/llmstxt_api/routes/open_org_admin.py` — `MarkdownResponse.published`; GET handler populates it from `profile.published`.
 - `packages/api/src/llmstxt_api/services/llm_usage.py` — `_today_window_utc` returns naive UTC datetimes.
 - `packages/api/tests/test_open_org_admin_routes.py` — new test for the `published` field.
 - `packages/api/tests/test_llm_usage_service.py` — regression test for the naive-window contract.
 - `packages/web/src/api/openorg.ts` — `publishProfile` / `unpublishProfile` + `usePublishProfile` / `useUnpublishProfile` hooks + `OpenOrgPublishError`.
-- `packages/web/src/pages/openorg/EditProfile.tsx` — Draft/Published badge, single toggle button, inline alert, hooks lifted above early-return.
+- `packages/web/src/pages/openorg/EditProfile.tsx` — Draft/Published badge, single toggle button, inline alert, hooks lifted above early-return (refactored to use the shared `PublishToggle` in PR #14).
 - `packages/web/src/pages/openorg/EditProfile.test.tsx` — 4 Vitest+RTL tests for the toggle.
 
 Earlier this Phase (still relevant context):
@@ -175,11 +185,13 @@ After `cd /Users/tomcwxyz/llmstxt-local`:
 
 ```
 Read CLAUDE.md, then PLAN.md, then HANDOFF.md. Phase 1 + 1.5 + design pass
-+ operational hygiene + publish/unpublish UI are all merged. Click-through
-has been validated end-to-end. Status check + propose next focus.
++ operational hygiene + publish/unpublish UI (all three record types) are
+all merged. Profile click-through has been validated end-to-end. Status
+check + propose next focus.
 ```
 
 Most natural next picks:
 - **Post-claim redirect fix** so the verify flow lands directly on the profile editor when the magic-link token carries an `org_id`. ~30 min.
+- **Strategy/idea click-through on the isolated stack** — same pattern PR #12 used for the profile. Validates the PR #14 paths end-to-end (chat-create a strategy → save → publish → public JSON appears → unpublish → 404). ~15 min.
 - **Production rebuild** — `docker compose build` + `up -d --force-recreate api worker` so the live deploy actually picks up everything PR #6+ added. The live image is currently still May-3.
 - **Phase 2 planning** (access control + grants, MCP integrations, funder profiles, strategy matching).
