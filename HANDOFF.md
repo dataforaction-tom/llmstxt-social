@@ -65,6 +65,7 @@ Deploy:
 4. **Set production env vars**:
    - `AUTH_COOKIE_DOMAIN=.good-ship.co.uk`
    - `MURMURATIONS_INDEX_URL` + `MURMURATIONS_LIBRARY_URL` — flip from test-index once the schema PR merges
+   - `CORS_ORIGINS=https://llmstxt.social,https://openorg.good-ship.co.uk` — **required**, otherwise the SPA can't talk to the API from prod hosts (SECURITY-REVIEW.md M3)
 5. **Add Cloudflare Tunnel route** for `openorg.good-ship.co.uk`:
    ```
    cloudflared tunnel route dns <tunnel-id> openorg.good-ship.co.uk

@@ -63,5 +63,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"
 
-# Default command (can be overridden for worker/beat)
-CMD ["uvicorn", "llmstxt_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default command (can be overridden for worker/beat). ``--forwarded-allow-ips``
+# is required so uvicorn honors X-Forwarded-For from the reverse proxy — without
+# it, RateLimitMiddleware keys on the proxy's IP and the per-IP cap collapses
+# to a server-wide cap. See SECURITY-REVIEW.md H1.
+CMD ["uvicorn", "llmstxt_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips=127.0.0.1"]

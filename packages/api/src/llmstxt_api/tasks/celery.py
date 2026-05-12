@@ -49,4 +49,11 @@ celery_app.conf.beat_schedule = {
         "task": "open_org_evict_expired_creator_sessions",
         "schedule": crontab(hour=6, minute=0),   # Daily at 6:00 AM UTC
     },
+    # Weekly Murmurations health check — re-validate published profiles
+    # against the live schema and flag drift. Recovery is automatic on the
+    # next run if the issue resolves itself.
+    "open-org-health-check-murmurations": {
+        "task": "open_org_health_check_murmurations",
+        "schedule": crontab(hour=4, minute=0, day_of_week=1),  # Mondays 04:00 UTC
+    },
 }

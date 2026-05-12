@@ -113,6 +113,23 @@ export async function fetchPublicIdea(
   return data;
 }
 
+export interface PublicRecordSummary {
+  slug: string;
+  themes: string[];
+  status?: string;
+  summary?: string;
+}
+
+export async function fetchPublicStrategies(orgId: string): Promise<PublicRecordSummary[]> {
+  const { data } = await api.get(`/open-org/${orgId}/strategies`);
+  return data;
+}
+
+export async function fetchPublicIdeas(orgId: string): Promise<PublicRecordSummary[]> {
+  const { data } = await api.get(`/open-org/${orgId}/ideas`);
+  return data;
+}
+
 // --- admin (auth required) ----------------------------------------------
 
 export async function fetchProfileMarkdown(orgId: string): Promise<MarkdownResponse> {
@@ -222,6 +239,49 @@ export interface RecordPublishResponse {
   slug: string;
   schema_kind: 'strategy' | 'idea';
   published: boolean;
+}
+
+export interface GenerateProfileResponse {
+  org_id: string;
+  profile_id: string;
+  generation_status: string;
+  task_id: string | null;
+}
+
+export class OpenOrgGenerateError extends Error {
+  readonly status: number;
+  readonly detail: string;
+  constructor(status: number, detail: string) {
+    super(detail || `generate failed: HTTP ${status}`);
+    this.name = 'OpenOrgGenerateError';
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+export async function generateProfile(
+  charityNumber: string,
+  ownerEmail: string,
+): Promise<GenerateProfileResponse> {
+  try {
+    const { data } = await api.post('/api/open-org/generate', {
+      charity_number: charityNumber,
+      owner_email: ownerEmail,
+    });
+    return data;
+  } catch (err) {
+    if (err instanceof AxiosError && err.response) {
+      const raw = err.response.data?.detail;
+      const detail =
+        typeof raw === 'string'
+          ? raw
+          : Array.isArray(raw)
+          ? raw.map((d: { msg?: string }) => d.msg ?? '').join('; ')
+          : 'generate failed';
+      throw new OpenOrgGenerateError(err.response.status, detail);
+    }
+    throw err;
+  }
 }
 
 async function postRecordPublish(
@@ -397,6 +457,39 @@ export function useHistory(orgId: string) {
   });
 }
 
+export interface RestoreResponse {
+  org_id: string;
+  restored_from_version: string;
+  new_version_id: string;
+}
+
+export async function restoreVersion(
+  orgId: string,
+  versionId: string,
+): Promise<RestoreResponse> {
+  try {
+    const { data } = await api.post(
+      `/api/open-org/${orgId}/history/${versionId}/restore`,
+    );
+    return data;
+  } catch (err) {
+    const validation = asValidationError(err);
+    if (validation) throw validation;
+    throw err;
+  }
+}
+
+export function useRestoreVersion(orgId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (versionId: string) => restoreVersion(orgId, versionId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['openorg', 'profile-md', orgId] });
+      qc.invalidateQueries({ queryKey: ['openorg', 'history', orgId] });
+    },
+  });
+}
+
 // --- discovery (public, no auth) ----------------------------------------
 
 export interface ThemeEntry {
@@ -459,6 +552,57 @@ export function useDiscoveryFirstPage(filters: DiscoveryFilters, limit = 20) {
   return useQuery({
     queryKey: ['openorg', 'discover', filters, limit],
     queryFn: () => fetchDiscoveryPage(filters, null, limit),
+  });
+}
+
+// --- idea browser (cross-org) ---------------------------------------------
+
+export interface IdeaRow {
+  org_id: string;
+  org_name: string;
+  slug: string;
+  summary: string | null;
+  themes: string[];
+  status: string | null;
+  primary_area: string | null;
+  cost_lower: number | null;
+  cost_upper: number | null;
+  cost_currency: string | null;
+  idea_url: string;
+  profile_url: string;
+}
+
+export interface IdeaPage {
+  results: IdeaRow[];
+  next_cursor: string | null;
+}
+
+export interface IdeaFilters {
+  theme?: string;
+  status?: string;
+  q?: string;
+  costMax?: number;
+}
+
+export async function fetchIdeasPage(
+  filters: IdeaFilters,
+  cursor: string | null = null,
+  limit = 20,
+): Promise<IdeaPage> {
+  const params: Record<string, string | number> = { limit };
+  if (filters.theme) params.theme = filters.theme;
+  if (filters.status) params.status = filters.status;
+  if (filters.q) params.q = filters.q;
+  if (filters.costMax !== undefined) params.cost_max = filters.costMax;
+  if (cursor) params.cursor = cursor;
+  const { data } = await api.get('/api/open-org/discover/ideas', { params });
+  return data;
+}
+
+export function useIdeasFirstPage(filters: IdeaFilters, limit = 20) {
+  return useQuery({
+    queryKey: ['openorg', 'discover-ideas', filters, limit],
+    queryFn: () => fetchIdeasPage(filters, null, limit),
   });
 }
 

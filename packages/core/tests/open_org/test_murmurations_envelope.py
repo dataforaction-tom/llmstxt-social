@@ -248,6 +248,38 @@ async def test_envelope_passes_registration_and_area_fields():
     assert envelope["annual_income_band"] == "100k-250k"
 
 
+async def test_envelope_ignores_v0_5_enrichment_fields():
+    """v0.5 added mission.programmes, evidence_summary, beneficiaries, theory_of_change
+    to the profile. The envelope shape is intentionally minimal — those fields stay
+    on the profile.json URL, not duplicated into the federated envelope."""
+    payload = _profile_payload(
+        mission={
+            "themes": ["education"],
+            "programmes": [
+                {"name": "After-school club", "description": "Daily support"}
+            ],
+            "beneficiaries": ["Young people in East London"],
+            "theory_of_change": "We reach young people through everyday touchpoints.",
+            "evidence_summary": {
+                "beneficiaries_served_text": "600 young people per year",
+                "outcomes": ["85% report improved confidence"],
+            },
+        }
+    )
+    envelope = await build_envelope(
+        payload,
+        frontend_base_url="https://openorg.example",
+        postcodes_io_lookup=await _postcodes_returning(None),
+        ons_centroid_lookup=await _centroid_returning(None),
+    )
+    # Tags still come from mission.themes; new fields don't leak in.
+    assert envelope["tags"] == ["education"]
+    assert "programmes" not in envelope
+    assert "beneficiaries" not in envelope
+    assert "theory_of_change" not in envelope
+    assert "evidence_summary" not in envelope
+
+
 async def test_envelope_is_resilient_to_minimal_profile():
     """A profile with just name + themes + org_id must still produce a valid envelope."""
     payload = {

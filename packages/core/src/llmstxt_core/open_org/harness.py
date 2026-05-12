@@ -52,6 +52,13 @@ class CharityResult:
     flagged_themes: list[dict]
     usage: Usage
     error: str | None
+    # v0.5: enrichment landings from the analyzer. Empty values mean the
+    # crawl or analyzer didn't fire for this charity.
+    programme_names: list[str] = field(default_factory=list)
+    beneficiaries: list[str] = field(default_factory=list)
+    has_theory_of_change: bool = False
+    has_evidence_summary: bool = False
+    also_known_as: list[str] = field(default_factory=list)
 
 
 GeneratorFn = Callable[..., Awaitable[GenerationResult]]
@@ -125,17 +132,28 @@ async def run_corpus(
             results.append(_failure(entry, f"{exc.__class__.__name__}: {exc}"))
             continue
 
-        themes = list((result.json_payload.get("mission") or {}).get("themes") or [])
+        payload = result.json_payload or {}
+        mission = payload.get("mission") or {}
+        identity = payload.get("identity") or {}
+        programmes = mission.get("programmes") or []
+        evidence_summary = mission.get("evidence_summary") or {}
         results.append(
             CharityResult(
                 entry=entry,
                 success=True,
                 org_id=result.org_id,
                 markdown_length=len(result.markdown or ""),
-                themes=themes,
+                themes=list(mission.get("themes") or []),
                 flagged_themes=list(result.flagged_themes or []),
                 usage=result.total_usage,
                 error=None,
+                programme_names=[
+                    p.get("name", "") for p in programmes if isinstance(p, dict)
+                ],
+                beneficiaries=list(mission.get("beneficiaries") or []),
+                has_theory_of_change=bool(mission.get("theory_of_change")),
+                has_evidence_summary=bool(evidence_summary),
+                also_known_as=list(identity.get("also_known_as") or []),
             )
         )
     return results
@@ -209,6 +227,24 @@ def render_report(results: list[CharityResult], *, run_at: datetime) -> str:
                     for f in r.flagged_themes
                 ]
                 lines.append(f"- Flagged for review: {', '.join(flagged_strs)}")
+            # v0.5: report which enrichment landed on this charity.
+            if r.programme_names:
+                lines.append(
+                    f"- Programmes ({len(r.programme_names)}): "
+                    + ", ".join(r.programme_names[:5])
+                    + ("…" if len(r.programme_names) > 5 else "")
+                )
+            if r.beneficiaries:
+                lines.append(f"- Beneficiaries: {r.beneficiaries[0][:140]}")
+            if r.also_known_as:
+                lines.append(f"- Also known as: {', '.join(r.also_known_as)}")
+            enrichment_flags = []
+            if r.has_theory_of_change:
+                enrichment_flags.append("theory_of_change")
+            if r.has_evidence_summary:
+                enrichment_flags.append("evidence_summary")
+            if enrichment_flags:
+                lines.append(f"- Enrichment: {', '.join(enrichment_flags)}")
             lines.append(
                 f"- Usage: {r.usage.input_tokens} input, {r.usage.output_tokens} output"
             )
