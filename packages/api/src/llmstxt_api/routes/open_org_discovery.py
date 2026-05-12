@@ -23,7 +23,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from llmstxt_api.database import get_db
-from llmstxt_api.open_org_models import ExternalOrgCache, OrgProfile
+from llmstxt_api.open_org_models import ExternalOrgCache, OrgIdea, OrgProfile
 from llmstxt_core.open_org.themes import load_themes
 
 
@@ -257,10 +257,162 @@ async def _gather_rows(
     return discovery_rows
 
 
+# ---------------------------------------------------------------------------
+# Idea browser — cross-org list of published ideas
+# ---------------------------------------------------------------------------
+
+
+class IdeaRow(BaseModel):
+    org_id: str
+    org_name: str
+    slug: str
+    summary: str | None = None
+    themes: list[str] = Field(default_factory=list)
+    status: str | None = None
+    primary_area: str | None = None
+    cost_lower: int | None = None
+    cost_upper: int | None = None
+    cost_currency: str | None = None
+    idea_url: str  # /open-org/{org_id}/ideas/{slug}.json
+    profile_url: str  # /openorg/{org_id} — human-readable page
+
+
+class IdeaPage(BaseModel):
+    results: list[IdeaRow]
+    next_cursor: str | None = None
+
+
+@router.get("/discover/ideas", response_model=IdeaPage)
+async def discover_ideas(
+    theme: str | None = Query(default=None),
+    area_code: str | None = Query(default=None),
+    status: str | None = Query(default=None, description="seed|developing|active|done"),
+    q: str | None = Query(default=None, description="Free-text search across slug + summary"),
+    cost_max: int | None = Query(default=None, ge=0, description="Filter to ideas whose lower cost is ≤ this (GBP)"),
+    cursor: str | None = Query(default=None, description="Opaque pagination cursor"),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Cross-org list of published ideas. Joins each idea against its parent
+    profile so unpublished profiles don't expose orphan ideas. Theme / status
+    filters narrow at the DB layer; cost-range and free-text are applied
+    in-memory since the JSONB shape varies."""
+    idea_q = select(OrgIdea).where(OrgIdea.published.is_(True))
+    if theme:
+        idea_q = idea_q.where(OrgIdea.themes.op("?")(theme))
+    if status:
+        idea_q = idea_q.where(OrgIdea.status == status)
+
+    ideas = (await db.execute(idea_q)).scalars().all()
+    if not ideas:
+        return _idea_page_response([], None)
+
+    org_ids = {i.org_id for i in ideas}
+    profiles = (
+        await db.execute(
+            select(OrgProfile).where(
+                OrgProfile.org_id.in_(org_ids),
+                OrgProfile.published.is_(True),
+            )
+        )
+    ).scalars().all()
+    by_org: dict[str, OrgProfile] = {p.org_id: p for p in profiles}
+
+    rows: list[IdeaRow] = []
+    for idea in ideas:
+        profile = by_org.get(idea.org_id)
+        if profile is None:
+            continue  # parent profile unpublished — don't surface orphan idea
+        row = _idea_to_row(idea, profile)
+        if not _matches_idea_filters(row, q=q, area_code=area_code, cost_max=cost_max):
+            continue
+        rows.append(row)
+
+    rows.sort(key=lambda r: (r.org_name.casefold(), r.slug))
+    after = _decode_cursor(cursor)
+    if after is not None:
+        cutoff_org, cutoff_slug = after
+        rows = [
+            r for r in rows
+            if (r.org_name.casefold(), r.slug) > (cutoff_org.casefold(), cutoff_slug)
+        ]
+
+    page = rows[:limit]
+    next_cursor: str | None = None
+    if len(page) == limit and len(rows) > limit:
+        last = page[-1]
+        next_cursor = _encode_cursor(last.org_name, last.slug)
+
+    return _idea_page_response(page, next_cursor)
+
+
+def _idea_page_response(results: list[IdeaRow], next_cursor: str | None) -> Response:
+    payload = IdeaPage(results=results, next_cursor=next_cursor)
+    return Response(
+        content=payload.model_dump_json().encode("utf-8"),
+        media_type="application/json",
+        headers={"Cache-Control": _DISCOVER_CACHE},
+    )
+
+
+def _idea_to_row(idea: OrgIdea, profile: OrgProfile) -> IdeaRow:
+    idea_payload = idea.idea_json or {}
+    profile_payload = profile.profile_json or {}
+    identity = profile_payload.get("identity") or {}
+    geography = identity.get("geography") or {}
+
+    summary = idea_payload.get("summary") if isinstance(idea_payload.get("summary"), str) else None
+
+    cost = idea_payload.get("indicative_cost") or {}
+    cost_lower = cost.get("lower") if isinstance(cost.get("lower"), int) else None
+    cost_upper = cost.get("upper") if isinstance(cost.get("upper"), int) else None
+    cost_currency = cost.get("currency") if isinstance(cost.get("currency"), str) else None
+
+    return IdeaRow(
+        org_id=idea.org_id,
+        org_name=identity.get("name") or idea.org_id,
+        slug=idea.slug,
+        summary=summary[:280] if summary else None,
+        themes=list(idea.themes or []),
+        status=idea.status,
+        primary_area=geography.get("primary_area"),
+        cost_lower=cost_lower,
+        cost_upper=cost_upper,
+        cost_currency=cost_currency,
+        idea_url=f"/open-org/{idea.org_id}/ideas/{idea.slug}.json",
+        profile_url=f"/openorg/{idea.org_id}",
+    )
+
+
+def _matches_idea_filters(
+    row: IdeaRow,
+    *,
+    q: str | None,
+    area_code: str | None,
+    cost_max: int | None,
+) -> bool:
+    if q:
+        haystack = " ".join(filter(None, [row.org_name, row.slug, row.summary or ""])).lower()
+        if q.lower() not in haystack:
+            return False
+    if area_code:
+        # area_code filter requires a precise match on the org's primary_area_code;
+        # we don't have that on IdeaRow yet, so this filter is currently a no-op
+        # on local rows. Future Phase 2 work: surface primary_area_code on the row.
+        pass
+    if cost_max is not None and row.cost_lower is not None:
+        if row.cost_lower > cost_max:
+            return False
+    return True
+
+
 __all__ = [
     "DiscoveryPage",
     "DiscoveryRow",
+    "IdeaPage",
+    "IdeaRow",
     "discover",
+    "discover_ideas",
     "get_themes",
     "router",
 ]

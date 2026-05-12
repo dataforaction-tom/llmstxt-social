@@ -1,5 +1,6 @@
 """Rate limiting middleware using Redis."""
 
+import logging
 from datetime import date, datetime, timezone
 from typing import Callable
 
@@ -8,6 +9,10 @@ from redis import Redis
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from llmstxt_api.config import settings
+
+
+log = logging.getLogger(__name__)
+
 
 # Redis client for rate limiting
 redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
@@ -29,6 +34,16 @@ def _rule_for(path: str):
         return (
             "rate_limit:open_org_generate",
             settings.open_org_generate_hourly_limit,
+            3600,
+            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H"),
+        )
+    if path.startswith("/api/auth/magic-link"):
+        # Unauthenticated + triggers a real Resend email per call — needs
+        # a tight per-IP cap or it becomes an email-bomb against arbitrary
+        # addresses. See SECURITY-REVIEW.md H2.
+        return (
+            "rate_limit:magic_link",
+            settings.magic_link_hourly_limit,
             3600,
             datetime.now(timezone.utc).strftime("%Y-%m-%dT%H"),
         )
@@ -78,7 +93,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         except HTTPException:
             raise
-        except Exception as e:
-            # If Redis is down, allow request but log error.
-            print(f"Rate limit error: {e}")
+        except Exception as exc:  # noqa: BLE001
+            # Fail-open if Redis is unreachable: a brief Redis outage shouldn't
+            # take the whole API down. Logged at error level so it lands in a
+            # log aggregator instead of being swallowed by container stdout —
+            # see SECURITY-REVIEW.md M4.
+            log.error("rate_limit middleware: %s", exc)
             return await call_next(request)

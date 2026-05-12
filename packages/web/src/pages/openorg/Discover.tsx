@@ -227,7 +227,10 @@ export default function DiscoverPage() {
                       {row.primary_area ? (
                         <div className="text-xs text-muted">{row.primary_area}</div>
                       ) : null}
-                      <a className="text-xs text-primary-700 underline" href={row.profile_url}>
+                      <a
+                        className="text-xs text-primary-700 underline"
+                        href={`/openorg/${row.org_id}`}
+                      >
                         View profile
                       </a>
                     </Popup>
@@ -276,7 +279,7 @@ export default function DiscoverPage() {
                 >
                   <div>
                     <a
-                      href={row.profile_url}
+                      href={`/openorg/${row.org_id}`}
                       className="display-head text-2xl font-medium leading-tight text-ink hover:text-primary-700"
                     >
                       {row.name}

@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     # Each generation costs real Anthropic spend.
     open_org_generate_hourly_limit: int = 5
 
+    # /api/auth/magic-link — per-IP hourly cap. The endpoint is
+    # unauthenticated and triggers a real email send via Resend, so an
+    # attacker could otherwise email-bomb any address. 5/hour is generous
+    # for fat-finger retries but stops abuse. See SECURITY-REVIEW.md H2.
+    magic_link_hourly_limit: int = 5
+
     # Job Settings
     job_expiry_days: int = 30
     max_crawl_pages: int = 30

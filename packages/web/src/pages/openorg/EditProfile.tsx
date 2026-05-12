@@ -5,15 +5,18 @@
  * Auth: relies on AuthContext + backend require_org_admin.
  */
 
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import {
   OpenOrgPublishError,
   OpenOrgValidationError,
+  useHistory,
   usePublishProfile,
   useProfileMarkdown,
+  useRestoreVersion,
   useSaveProfile,
   useUnpublishProfile,
+  type HistoryEntry,
   type ValidationFieldError,
 } from '../../api/openorg';
 import MarkdownEditor from '../../components/openorg/MarkdownEditor';
@@ -32,6 +35,8 @@ export default function EditProfilePage() {
   const save = useSaveProfile(orgId);
   const publish = usePublishProfile(orgId);
   const unpublish = useUnpublishProfile(orgId);
+  const history = useHistory(orgId);
+  const restore = useRestoreVersion(orgId);
 
   if (!orgId) {
     return <div className="p-6 text-red-700">Missing org_id in URL.</div>;
@@ -129,8 +134,126 @@ export default function EditProfilePage() {
           validationErrors={validationErrors}
           saveLabel="Save profile"
         />
+
+        <HistoryPanel
+          versions={history.data ?? []}
+          onRestore={async (id) => {
+            await restore.mutateAsync(id);
+          }}
+          busy={restore.isPending}
+        />
+
+        {/* Spec section 2 mode 3: blank-template creation entry points. */}
+        <section className="mt-12 border-t border-rule pt-6">
+          <div className="kicker num mb-3">Add a strategy or idea</div>
+          <p className="mb-4 max-w-prose text-sm text-muted">
+            Use the guided chat creator for a conversational walkthrough, or
+            start with a blank template if you'd rather write it yourself.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to={`/openorg/${orgId}/create/strategy`}
+              className="border border-rule px-4 py-2 text-sm text-ink hover:bg-paper-2"
+            >
+              Chat: new strategy
+            </Link>
+            <Link
+              to={`/openorg/edit/${orgId}/strategies/new`}
+              className="border border-rule px-4 py-2 text-sm text-ink hover:bg-paper-2"
+            >
+              Blank template: new strategy
+            </Link>
+            <Link
+              to={`/openorg/${orgId}/create/idea`}
+              className="border border-rule px-4 py-2 text-sm text-ink hover:bg-paper-2"
+            >
+              Chat: new idea
+            </Link>
+            <Link
+              to={`/openorg/edit/${orgId}/ideas/new`}
+              className="border border-rule px-4 py-2 text-sm text-ink hover:bg-paper-2"
+            >
+              Blank template: new idea
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   );
+}
+
+function HistoryPanel({
+  versions,
+  onRestore,
+  busy,
+}: {
+  versions: HistoryEntry[];
+  onRestore: (id: string) => Promise<void>;
+  busy: boolean;
+}) {
+  if (versions.length <= 1) {
+    // First save shows up in history; show the panel only once there's
+    // something to compare against.
+    return null;
+  }
+  return (
+    <section className="mt-12 border-t border-rule pt-6">
+      <details>
+        <summary className="kicker num cursor-pointer select-none">
+          History · {versions.length} versions
+        </summary>
+        <ul className="mt-4 divide-y divide-rule border border-rule">
+          {versions.map((v, i) => {
+            const isLatest = i === 0;
+            return (
+              <li
+                key={v.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm"
+              >
+                <div>
+                  <span className="font-mono text-xs text-muted">
+                    {formatVersionTime(v.created_at)}
+                  </span>
+                  {isLatest && (
+                    <span className="ml-2 text-xs uppercase tracking-wider text-emerald-700">
+                      current
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={busy || isLatest}
+                  onClick={() => onRestore(v.id)}
+                  className="border border-rule px-3 py-1 text-xs hover:bg-paper-2 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {busy ? 'Restoring…' : 'Restore'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-2 text-xs text-muted">
+          Restoring is non-destructive — it creates a new version pointing to
+          the chosen snapshot. Nothing is overwritten.
+        </p>
+      </details>
+    </section>
+  );
+}
+
+function formatVersionTime(iso: string): string {
+  if (!iso) return '(unknown)';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
 }
 

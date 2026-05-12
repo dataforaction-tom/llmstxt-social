@@ -68,6 +68,48 @@ def _normalise_url(url: str) -> str:
     return candidate
 
 
+async def collect_website_pages(
+    url: str | None,
+    *,
+    crawler: CrawlFn | None = None,
+    browser_fetch: BrowserFetchFn | None = None,
+    extractor: ExtractFn | None = None,
+    max_pages: int = 5,
+) -> list[ExtractedPage]:
+    """Return the relevant ``ExtractedPage`` objects from the most useful
+    pages on ``url``.
+
+    Two-tier fetch (httpx → Playwright fallback). Same selection logic as
+    :func:`collect_website_text`, but returns the structured pages so callers
+    can run additional analysis (e.g. the analyzer for programmes / contact /
+    beneficiaries) without re-crawling.
+    """
+    if not url or not url.strip():
+        return []
+
+    crawl_fn = crawler or crawl_site
+    extract_fn = extractor or extract_content
+    browser_fn = browser_fetch or fetch_with_browser
+
+    normalised_url = _normalise_url(url)
+
+    pages = await _fetch_via_httpx(crawl_fn, normalised_url, max_pages)
+    relevant = _select_relevant(pages, extract_fn)
+
+    # Fallback to Playwright when httpx returned nothing usable OR only a
+    # low-signal single page. The Mind case is "0 bodies" (httpx hit 403);
+    # the Shelter case is "1 thin body" (homepage scraped but no service
+    # pages followed). Both want the browser to try.
+    if _is_low_signal_pages(relevant):
+        log.info("falling back to browser fetch for %s", normalised_url)
+        browser_pages = await _fetch_via_browser(browser_fn, normalised_url, max_pages)
+        browser_relevant = _select_relevant(browser_pages, extract_fn)
+        if _total_body_chars(browser_relevant) > _total_body_chars(relevant):
+            relevant = browser_relevant
+
+    return relevant
+
+
 async def collect_website_text(
     url: str | None,
     *,
@@ -79,46 +121,19 @@ async def collect_website_text(
 ) -> str:
     """Return concatenated body text from the most relevant pages on ``url``.
 
-    Two-tier fetch:
-      1. Lightweight httpx crawler (fast, free, ~200ms/page).
-      2. Playwright fallback when (1) errors, returns no pages, or returns
-         only pages that fail the page-type filter. Slower (~2-5s/page) but
-         renders JS and survives basic bot defences (the v0.2 baseline showed
-         Mind's site 403's the httpx crawler).
-
-    ``crawler``, ``browser_fetch``, and ``extractor`` are injectable for tests.
-    Production callers use the package defaults (``crawl_site``,
-    ``fetch_with_browser``, ``extract_content``).
-
-    Returns ``""`` on any failure so the calling generator can fall back to
-    CC-only theme extraction without raising.
+    Thin wrapper around :func:`collect_website_pages`. Kept as the primary
+    entry point for the theme extractor and mission rewriter, which only
+    need the text.
     """
-    if not url or not url.strip():
-        return ""
-
-    crawl_fn = crawler or crawl_site
-    extract_fn = extractor or extract_content
-    browser_fn = browser_fetch or fetch_with_browser
-
-    normalised_url = _normalise_url(url)
-
-    pages = await _fetch_via_httpx(crawl_fn, normalised_url, max_pages)
-    bodies = _extract_relevant_bodies(pages, extract_fn)
-
-    # Fallback to Playwright when httpx returned nothing usable OR only a
-    # low-signal single page. The Mind case is "0 bodies" (httpx hit 403);
-    # the Shelter case is "1 thin body" (homepage scraped but no service
-    # pages followed). Both want the browser to try.
-    if _is_low_signal(bodies):
-        log.info("falling back to browser fetch for %s", normalised_url)
-        browser_pages = await _fetch_via_browser(browser_fn, normalised_url, max_pages)
-        browser_bodies = _extract_relevant_bodies(browser_pages, extract_fn)
-        # Use whichever path produced more text — Playwright should normally
-        # win, but if it returns nothing (Mind-class 403 to the browser too)
-        # we keep the thin httpx body rather than throwing both away.
-        if _total_chars(browser_bodies) > _total_chars(bodies):
-            bodies = browser_bodies
-
+    pages = await collect_website_pages(
+        url,
+        crawler=crawler,
+        browser_fetch=browser_fetch,
+        extractor=extractor,
+        max_pages=max_pages,
+    )
+    bodies = [(p.body_text or "").strip() for p in pages if p.body_text]
+    bodies = [b for b in bodies if b]
     if not bodies:
         return ""
 
@@ -149,27 +164,32 @@ async def _fetch_via_browser(
         return []
 
 
-def _is_low_signal(bodies: list[str]) -> bool:
-    """True when the httpx result is unlikely to give the theme extractor
+def _is_low_signal_pages(pages: list[ExtractedPage]) -> bool:
+    """True when the httpx result is unlikely to give downstream extractors
     enough to work with, so the Playwright fallback should also run."""
-    if not bodies:
+    if not pages:
         return True
     if (
-        len(bodies) <= _LOW_SIGNAL_PAGE_COUNT
-        and _total_chars(bodies) < _LOW_SIGNAL_BODY_THRESHOLD
+        len(pages) <= _LOW_SIGNAL_PAGE_COUNT
+        and _total_body_chars(pages) < _LOW_SIGNAL_BODY_THRESHOLD
     ):
         return True
     return False
 
 
-def _total_chars(bodies: list[str]) -> int:
-    return sum(len(b) for b in bodies)
+def _total_body_chars(pages: list[ExtractedPage]) -> int:
+    return sum(len(p.body_text or "") for p in pages)
 
 
-def _extract_relevant_bodies(
+def _select_relevant(
     pages: list[Page], extract_fn: ExtractFn
-) -> list[str]:
-    bodies: list[str] = []
+) -> list[ExtractedPage]:
+    """Run the per-page extractor and keep the ones whose page type is in
+    ``_RELEVANT_PAGE_TYPES`` (or whose URL path is the homepage). Returns the
+    extracted pages so callers can keep ``body_text`` *and* metadata
+    (title, page_type, url) for downstream use.
+    """
+    relevant: list[ExtractedPage] = []
     for page in pages:
         try:
             extracted = extract_fn(page)
@@ -182,10 +202,9 @@ def _extract_relevant_bodies(
             getattr(page, "url", None)
         ):
             continue
-        body = (extracted.body_text or "").strip()
-        if body:
-            bodies.append(body)
-    return bodies
+        if (extracted.body_text or "").strip():
+            relevant.append(extracted)
+    return relevant
 
 
 def _is_homepage_url(url: str | None) -> bool:
@@ -205,4 +224,4 @@ def _is_homepage_url(url: str | None) -> bool:
     return path in _HOMEPAGE_PATH_MARKERS
 
 
-__all__ = ["collect_website_text"]
+__all__ = ["collect_website_pages", "collect_website_text"]

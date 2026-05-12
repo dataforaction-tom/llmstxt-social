@@ -295,11 +295,84 @@ def delete_from_murmurations_task(self, *, profile_id: str):
     )
 
 
+# ---------------------------------------------------------------------------
+# Weekly health-check task — re-validate published profiles
+# ---------------------------------------------------------------------------
+
+
+async def _run_health_check(
+    *,
+    session_maker: Any,
+    client: MurmurationsClient,
+    frontend_base_url: str,
+) -> dict[str, int]:
+    """Re-validate every published profile against the live Murmurations
+    schema and flag drift.
+
+    Catches the case where the upstream schema tightened, or a profile's
+    derived JSON contains fields the index doesn't accept any more. The
+    federated envelope is rebuilt on the fly via the public route, so we
+    validate by the profile URL rather than re-uploading the JSON.
+
+    Returns ``{checked, drifted, errored}`` for observability.
+    """
+    base = frontend_base_url.rstrip("/")
+    checked = 0
+    drifted = 0
+    errored = 0
+
+    async with session_maker() as session:
+        result = await session.execute(
+            select(OrgProfile).where(OrgProfile.published.is_(True))
+        )
+        profiles = result.scalars().all()
+
+        for profile in profiles:
+            checked += 1
+            url = f"{base}/open-org/{profile.org_id}/murmurations.json"
+            try:
+                validation = await client.validate_profile(url)
+            except MurmurationsError as exc:
+                log.warning(
+                    "health-check: transient error validating %s: %s",
+                    profile.org_id,
+                    exc,
+                )
+                errored += 1
+                continue
+
+            if not validation.get("valid"):
+                profile.murmurations_status = "drift"
+                drifted += 1
+            elif profile.murmurations_status == "drift":
+                # Recovered from a previous drift run.
+                profile.murmurations_status = "validated"
+
+        await session.commit()
+
+    return {"checked": checked, "drifted": drifted, "errored": errored}
+
+
+@celery_app.task(name="open_org_health_check_murmurations", bind=True)
+def health_check_murmurations_task(self):
+    """Celery wrapper. Returns the per-run counts so the result backend
+    can surface them in beat logs."""
+    return asyncio.run(
+        _run_health_check(
+            session_maker=_build_session_maker(),
+            client=_build_client(),
+            frontend_base_url=settings.frontend_url,
+        )
+    )
+
+
 __all__ = [
     "_run_submission",
     "_run_cache_sync",
     "_run_node_delete",
+    "_run_health_check",
     "delete_from_murmurations_task",
+    "health_check_murmurations_task",
     "submit_to_murmurations_task",
     "sync_external_org_cache_task",
 ]

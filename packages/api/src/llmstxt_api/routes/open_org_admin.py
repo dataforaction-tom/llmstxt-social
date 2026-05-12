@@ -114,7 +114,11 @@ async def _snapshot_version(
     markdown_snapshot: str,
     user_id: uuid.UUID | None,
 ) -> OrgVersion:
+    # Pre-generate the UUID so callers can read it before flush — the model
+    # default ``uuid.uuid4`` fires at INSERT time and leaves the attribute
+    # None until then.
     version = OrgVersion(
+        id=uuid.uuid4(),
         parent_kind=parent_kind,
         parent_id=parent_id,
         markdown_snapshot=markdown_snapshot,
@@ -348,6 +352,78 @@ async def list_history(
             )
             for v in versions
         ],
+    )
+
+
+class RestoreResponse(BaseModel):
+    org_id: str
+    restored_from_version: uuid.UUID
+    new_version_id: uuid.UUID
+
+
+@router.post(
+    "/{org_id}/history/{version_id}/restore",
+    response_model=RestoreResponse,
+)
+async def restore_version(
+    org_id: str,
+    version_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: OrgAdmin = Depends(require_org_admin),
+):
+    """Apply a past ``OrgVersion`` snapshot as the current markdown_source.
+
+    Non-destructive — appends a NEW version pointing to the restored content
+    rather than rewriting history. Schema validation runs again on the
+    restored markdown; if the schema has tightened since the snapshot was
+    taken, the restore is rejected with a 400 (same shape as a failed PUT).
+    """
+    profile_result = await db.execute(
+        select(OrgProfile).where(OrgProfile.org_id == org_id)
+    )
+    profile = profile_result.scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="profile not found")
+
+    version_result = await db.execute(
+        select(OrgVersion).where(
+            OrgVersion.id == version_id,
+            OrgVersion.parent_kind == "profile",
+            OrgVersion.parent_id == profile.id,
+        )
+    )
+    version = version_result.scalar_one_or_none()
+    if version is None:
+        raise HTTPException(status_code=404, detail="version not found")
+
+    snapshot = version.markdown_snapshot or ""
+    try:
+        derived = markdown_to_json(snapshot, kind="profile")
+    except ConverterError as e:
+        raise _converter_error_to_http(e) from e
+
+    profile.markdown_source = snapshot
+    profile.profile_json = derived
+
+    new_version = await _snapshot_version(
+        db,
+        parent_kind="profile",
+        parent_id=profile.id,
+        markdown_snapshot=snapshot,
+        user_id=admin.user_id,
+    )
+
+    await db.commit()
+
+    # Re-submit to the Murmurations index if the profile is published — same
+    # contract as PUT.
+    if profile.published and profile.profile_json:
+        submit_to_murmurations_task.delay(profile_id=str(profile.id))
+
+    return RestoreResponse(
+        org_id=org_id,
+        restored_from_version=version_id,
+        new_version_id=new_version.id,
     )
 
 

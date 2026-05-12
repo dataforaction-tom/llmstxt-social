@@ -122,6 +122,31 @@
         "beneficiaries": {
           "type": "array",
           "items": {"type": "string"}
+        },
+        "programmes": {
+          "description": "What the organisation actually delivers — ongoing services and specific projects. Populated from the website crawl + LLM analysis when the organisation is generated; editable by the org thereafter.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "description": {"type": "string"},
+              "eligibility": {"type": "string"},
+              "location": {"type": "string"}
+            }
+          }
+        },
+        "evidence_summary": {
+          "description": "Lightweight Phase-1 impact stubs from CC annual return data + website extraction. Richer evidence with external links (Hypercerts at https://docs.hypercerts.org, evaluation reports, programme data feeds) is planned for a future top-level `evidence` array — Phase 4.",
+          "type": "object",
+          "properties": {
+            "beneficiaries_served_text": {"type": "string"},
+            "outcomes": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
         }
       }
     },

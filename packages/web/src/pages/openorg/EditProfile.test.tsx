@@ -34,6 +34,8 @@ vi.mock('../../api/openorg', async () => {
     useSaveProfile: () => ({ mutateAsync: saveMutateAsync, isPending: false }),
     usePublishProfile: () => ({ mutateAsync: publishMutateAsync, isPending: false }),
     useUnpublishProfile: () => ({ mutateAsync: unpublishMutateAsync, isPending: false }),
+    useHistory: () => ({ isLoading: false, isError: false, data: [], error: null }),
+    useRestoreVersion: () => ({ mutateAsync: vi.fn(), isPending: false }),
   };
 });
 

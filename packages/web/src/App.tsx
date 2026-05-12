@@ -13,6 +13,11 @@ import EditProfilePage from './pages/openorg/EditProfile';
 import EditStrategyPage from './pages/openorg/EditStrategy';
 import EditIdeaPage from './pages/openorg/EditIdea';
 import CreatePage from './pages/openorg/Create';
+import ProfileDetailPage from './pages/openorg/ProfileDetail';
+import IdeasPage from './pages/openorg/Ideas';
+import AboutPage from './pages/openorg/About';
+import NewRecordPage from './pages/openorg/NewRecord';
+import OpenOrgGeneratePage from './pages/openorg/Generate';
 // Lazy-load Discover because it pulls in Leaflet, which evaluates
 // ``window`` at module-load time. Eager import broke the prerender script
 // (which does ``vite.ssrLoadModule('/src/App.tsx')`` under Node). Splitting
@@ -93,6 +98,24 @@ export function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {/* "New" routes must come BEFORE the :slug routes — otherwise
+          react-router matches "new" as the slug. */}
+      <Route
+        path="/openorg/edit/:orgId/strategies/new"
+        element={
+          <ProtectedRoute>
+            <NewRecordPage kind="strategy" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/openorg/edit/:orgId/ideas/new"
+        element={
+          <ProtectedRoute>
+            <NewRecordPage kind="idea" />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/openorg/edit/:orgId/strategies/:slug"
         element={
@@ -133,6 +156,13 @@ export function AppRoutes() {
           </Suspense>
         }
       />
+      <Route path="/openorg/ideas" element={<IdeasPage />} />
+      <Route path="/openorg/about" element={<AboutPage />} />
+      <Route path="/openorg/generate" element={<OpenOrgGeneratePage />} />
+      {/* Public profile detail page — must come AFTER the static routes
+          (/openorg/discover, /openorg/ideas) so react-router doesn't match
+          :orgId against those names. */}
+      <Route path="/openorg/:orgId" element={<ProfileDetailPage />} />
     </Routes>
   );
 }

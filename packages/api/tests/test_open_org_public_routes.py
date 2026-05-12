@@ -168,3 +168,117 @@ def test_get_idea_404_when_unpublished(app_with_public_routes):
     client = TestClient(app_with_public_routes)
     response = client.get("/open-org/GB-CHC-1234567/ideas/kitchen-network.json")
     assert response.status_code == 404
+
+
+# --- listing strategies + ideas --------------------------------------------
+
+
+def _execute_returning(session, scalars_value=None, scalar_value=None):
+    """Wire ``session.execute`` to dispatch by call order.
+
+    The list endpoints call execute twice: first for the profile published
+    check (scalar_one_or_none), then for the rows query (scalars().all()).
+    Tests can pass both shapes via ``side_effect``.
+    """
+    profile_result = mock.MagicMock()
+    profile_result.scalar_one_or_none.return_value = scalar_value
+    rows_result = mock.MagicMock()
+    rows_result.scalars.return_value.all.return_value = scalars_value or []
+    session.execute.side_effect = [profile_result, rows_result]
+
+
+def test_list_strategies_returns_summaries_when_profile_published(app_with_public_routes):
+    from llmstxt_api.open_org_models import OrgStrategy
+
+    strategies = [
+        OrgStrategy(
+            org_id="GB-CHC-1",
+            slug="2025-2028",
+            strategy_json={
+                "summary": "Three-year plan to grow community kitchens across the borough."
+            },
+            themes=["food_access", "community_development"],
+            status="active",
+            published=True,
+        ),
+    ]
+    _execute_returning(
+        app_with_public_routes.state.mock_session,
+        scalars_value=strategies,
+        scalar_value=True,
+    )
+
+    client = TestClient(app_with_public_routes)
+    response = client.get("/open-org/GB-CHC-1/strategies")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert body[0]["slug"] == "2025-2028"
+    assert body[0]["status"] == "active"
+    assert "food_access" in body[0]["themes"]
+    assert body[0]["summary"].startswith("Three-year plan")
+
+
+def test_list_strategies_404_when_profile_unpublished(app_with_public_routes):
+    _execute_returning(
+        app_with_public_routes.state.mock_session,
+        scalars_value=[],
+        scalar_value=False,
+    )
+
+    client = TestClient(app_with_public_routes)
+    response = client.get("/open-org/GB-CHC-1/strategies")
+    assert response.status_code == 404
+
+
+def test_list_strategies_returns_empty_array_when_none_published(app_with_public_routes):
+    _execute_returning(
+        app_with_public_routes.state.mock_session,
+        scalars_value=[],
+        scalar_value=True,
+    )
+
+    client = TestClient(app_with_public_routes)
+    response = client.get("/open-org/GB-CHC-1/strategies")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_ideas_returns_summaries(app_with_public_routes):
+    from llmstxt_api.open_org_models import OrgIdea
+
+    ideas = [
+        OrgIdea(
+            org_id="GB-CHC-1",
+            slug="literacy-pop-up",
+            idea_json={"summary": "Six-week intensive reading sessions in libraries."},
+            themes=["education"],
+            status="developing",
+            published=True,
+        ),
+    ]
+    _execute_returning(
+        app_with_public_routes.state.mock_session,
+        scalars_value=ideas,
+        scalar_value=True,
+    )
+
+    client = TestClient(app_with_public_routes)
+    response = client.get("/open-org/GB-CHC-1/ideas")
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["slug"] == "literacy-pop-up"
+    assert body[0]["status"] == "developing"
+    assert body[0]["themes"] == ["education"]
+
+
+def test_list_ideas_404_when_profile_unpublished(app_with_public_routes):
+    _execute_returning(
+        app_with_public_routes.state.mock_session,
+        scalars_value=[],
+        scalar_value=False,
+    )
+
+    client = TestClient(app_with_public_routes)
+    response = client.get("/open-org/GB-CHC-1/ideas")
+    assert response.status_code == 404
