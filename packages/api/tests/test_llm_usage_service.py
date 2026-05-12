@@ -90,6 +90,20 @@ def test_daily_budget_constant_is_fifty_pence():
     assert DAILY_BUDGET_GBP == Decimal("0.50")
 
 
+def test_today_window_returns_naive_datetimes():
+    """LlmUsage.created_at is TIMESTAMP WITHOUT TIME ZONE, so the budget
+    query window must be naive too — asyncpg refuses to compare naive
+    columns against TZ-aware bounds."""
+    from llmstxt_api.services.llm_usage import _today_window_utc
+
+    start, end = _today_window_utc()
+    assert start.tzinfo is None, "start must be naive to match the column type"
+    assert end.tzinfo is None, "end must be naive to match the column type"
+    # Sanity: still represents a one-day window.
+    assert start.hour == 0 and start.minute == 0
+    assert end.hour == 23 and end.minute == 59
+
+
 # --- log_usage --------------------------------------------------------------
 
 def test_log_usage_creates_row_with_correct_fields():
