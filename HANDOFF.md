@@ -1,13 +1,13 @@
-# Handoff — Phase 1 + 1.5 shipped; publish parity across all three record types; click-through verified
+# Handoff — Phase 1 spec-complete; security blockers patched; ready for production rebuild
 
 > Session ended: 2026-05-12
-> Branch: `master` (post-merge of PR #14)
-> Picks up from: publish/unpublish wired for profiles, strategies, ideas — full Phase-1 publish flow now complete end-to-end
-> Resumes at: post-claim redirect fix, production rebuild, or Phase 2 planning
+> Branch: `master` (post-merge of PR #16)
+> Picks up from: spec-complete pass — analyzer enrichment, discovery surface (detail view + idea browser + about), blank templates, generate UI, history restore, Murmurations health-check, packaged Claude skills, security review with three blockers patched in
+> Resumes at: production rebuild, post-claim redirect fix, or Phase 2 planning
 
 ## TL;DR
 
-Eight PRs landed across the last two sessions, in order:
+Nine PRs landed across the last two sessions, in order:
 
 - **PR #6** (`99bfee2`) — Phase 1 + 1.5 + frontend polish: the Open Org sub-application, schema v0.2 prompt/crawler iteration, all baseline reports v0.1 → v0.4, CodeMirror editor, chat creator, strategy/idea editor pages, Vitest+RTL setup.
 - **PR #7** (`86c7fbe`) — dev-mode magic-link logger + `LOCAL.md` walkthrough.
@@ -17,8 +17,9 @@ Eight PRs landed across the last two sessions, in order:
 - **PR #11** (`ec83c47`) — Daily `CreatorSession` eviction beat task + admin `POST /api/open-org/{org_id}/unpublish` route that flips `published=False` and dispatches a Murmurations node-delete task.
 - **PR #12** (`0d0ae6b`) — Publish/Unpublish UI buttons on the profile editor, surfaced `published` on the GET profile.md response, fixed a pre-existing TZ bug in the daily-budget query window that was failing every `/api/open-org/generate` call against a real Postgres.
 - **PR #14** (`0bb62f5`) — Publish/unpublish parity for strategies and ideas: 4 new admin routes, `published` flag on GET strategy.md/idea.md, badge + toggle on the strategy and idea editors, shared `PublishToggle` component used by all three editors. Closes a hidden Phase-1 gap where strategies/ideas had the column + the public-route gate but no API or UI to flip the flag — they were effectively un-publishable.
+- **PR #16** (`ee6c88e`) — Phase-1 spec-complete pass. Wires `llmstxt_core.analyzer` into the profile generator (schema gains `mission.programmes` + `evidence_summary`; v0.5 baseline shows ~2× richer profiles). Adds rendered profile detail at `/openorg/{orgId}`, cross-org idea browser at `/openorg/ideas`, About page, blank-template "New strategy/idea" flows, public `/openorg/generate` form, non-destructive history restore + UI. Weekly Murmurations health-check task. Packaged `/org-strategy` + `/org-idea` Claude skills at `.claude/skills/`. Security review with three blocker patches included (forwarded-allow-ips, magic-link rate limit, CORS env-var documentation).
 
-The v0.4 baseline scorecard (10 UK charities) is **6/6 must-pass green**. Click-through has been **executed** end-to-end on an isolated stack (generate → claim → publish → unpublish, JSON appears/disappears at the public URL, Murmurations submit/delete tasks fire).
+The v0.5 baseline scorecard (10 UK charities) is **6/6 must-pass green**, with substantially richer enrichment: programmes for 9/10, beneficiaries for 9/10, theory_of_change for 9/10, evidence_summary for 8/10, also_known_as for 7/10. Markdown length roughly doubled compared with v0.4. Click-through has been **executed** end-to-end on an isolated stack (generate → claim → publish → unpublish, JSON appears/disappears at the public URL, Murmurations submit/delete tasks fire).
 
 ## State at handoff
 
@@ -40,19 +41,24 @@ The v0.4 baseline scorecard (10 UK charities) is **6/6 must-pass green**. Click-
 | **Editorial design pass** | ✅ Done | Civic-editorial type system + paper palette + per-page polish + four code-review fixes |
 | **Operational hygiene** | ✅ Done | Chromium in worker image; per-IP + per-org caps on generate; eviction beat; unpublish + node-delete |
 | **Publish/unpublish UI + click-through** | ✅ Done | PR #12 (profile) + PR #14 (strategy + idea parity) — all three record types now publishable from the SPA; profile flow validated end-to-end |
+| **Phase-1 spec-complete pass** | ✅ Done | PR #16 — analyzer enrichment + schema v0.1.1 fields + profile detail view + idea browser + about page + blank templates + generate UI + history restore + Murmurations health-check + Claude skills + security review |
 
-## v0.1 → v0.4 baseline scorecard
+## v0.1 → v0.5 baseline scorecard
 
-| Criterion | v0.1 | v0.2 | v0.3 | v0.4 |
-|---|---|---|---|---|
-| Trussell `food_access` | ❌ | ✅ | ✅ | ✅ |
-| Shelter `housing_and_homelessness` | ❌ | ❌ | ❌ | ✅ |
-| Mind `mental_health` | ❌ | ❌ | ✅ | ✅ |
-| NSPCC `children_and_young_people` | ❌ | ✅ | ✅ | ✅ |
-| Macmillan `families_and_carers` | ❌ | ✅ | ✅ | ✅ |
-| ≥3 orgs no spurious `education` | n/a | 6/7 | 5/7 | 6/7 |
+| Criterion | v0.1 | v0.2 | v0.3 | v0.4 | v0.5 |
+|---|---|---|---|---|---|
+| Trussell `food_access` | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Shelter `housing_and_homelessness` | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Mind `mental_health` | ❌ | ❌ | ✅ | ✅ | ✅ |
+| NSPCC `children_and_young_people` | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Macmillan `families_and_carers` | ❌ | ✅ | ✅ | ✅ | ✅ |
+| ≥3 orgs no spurious `education` | n/a | 6/7 | 5/7 | 6/7 | 6/7 |
+| **v0.5 enrichment** — programmes populated | n/a | n/a | n/a | n/a | **9/10** |
+| **v0.5 enrichment** — beneficiaries populated | n/a | n/a | n/a | n/a | **9/10** |
+| **v0.5 enrichment** — theory_of_change populated | n/a | n/a | n/a | n/a | **9/10** |
+| **v0.5 enrichment** — evidence_summary populated | n/a | n/a | n/a | n/a | **8/10** |
 
-Reports committed at `tests/reports/baseline_v0.{1,2,3,4}.md`.
+Reports committed at `tests/reports/baseline_v0.{1,2,3,4,5}.md`.
 
 ## Action items for the user
 
@@ -90,7 +96,7 @@ docker run --rm -v "$(pwd):/work" -w /work python:3.11-slim bash -c '
   cd ../api && python -m pytest tests/ -q
 '
 ```
-Expected: 268 core + 145 api = **413 backend** green.
+Expected: 281 core + 170 api = **451 backend** green.
 
 **Frontend**:
 ```bash
@@ -98,7 +104,7 @@ docker run --rm -v "$(pwd)/packages/web:/work" -w /work node:20-alpine sh -c '
   npm install --silent && npx tsc --noEmit && npm test
 '
 ```
-Expected: tsc clean, **17/17 vitest** green.
+Expected: tsc clean, **31/31 vitest** green.
 
 **Real-world harness** (Playwright is now in the worker image, but the harness still installs ad-hoc when run standalone):
 ```bash
@@ -115,19 +121,22 @@ Cost: ~$0.15 for 10 charities. Writes to `tests/reports/real_world_run_<ts>.md` 
 
 ## Open follow-ups (no order, none block ship)
 
-Newly added this session:
-- **Post-claim redirect honours `org_id`**. `/auth/verify` returns JSON and the frontend post-auth landing is hardcoded to `/dashboard`. After a claim flow the user should land at `/openorg/edit/{org_id}/profile`. Backend has the `org_id` on the magic-link token; needs (a) the verify response to surface it and (b) the frontend Verify page to use it.
+From the security review (SECURITY-REVIEW.md):
+- **M1** — design decision on whether to verify `owner_email` against the CC-registered email before sending claim links. Currently first-come-first-served — anyone who knows a charity number can race to claim ownership. Phase-1 design choice per spec; revisit before broad public launch.
+- **M2** — audit which subdomains under `good-ship.co.uk` should receive the auth cookie. `AUTH_COOKIE_DOMAIN=.good-ship.co.uk` sends the cookie to every subdomain; if `ghost.good-ship.co.uk` / `soundings.good-ship.co.uk` / others are also under that suffix, they receive the auth token.
+- **L1–L7** — defence-in-depth hardening: HSTS at Caddy, CSP header, JWT secret-key strength documentation, content-sniffing on uploads, TZ-naive comparison in auth (same class as PR #12's fix), Murmurations URL pinning, 409 existence-leak softening.
 
-Remaining from prior sessions:
+From prior sessions, still open:
+- **Post-claim redirect honours `org_id`**. `/auth/verify` returns JSON and the frontend post-auth landing is hardcoded to `/dashboard`. After a claim flow the user should land at `/openorg/edit/{org_id}/profile`. Backend has the `org_id` on the magic-link token; needs (a) the verify response to surface it and (b) the frontend Verify page to use it.
 - **`GET /api/open-org/areas` typeahead** for the discovery area-code filter (~30 min).
-- **Diff-vs-baseline mode for the harness** — `llmstxt openorg compare baseline_v0.4.md` (~45 min).
-- **History restore endpoint + UI** (~1h). The list endpoint exists; restore is a v0.2 feature.
+- **Diff-vs-baseline mode for the harness** — `llmstxt openorg compare baseline_v0.5.md` (~45 min).
 - **Live ONS centroid coverage** beyond UK nations + major cities; `refresh_from_ons` CLI hook (~1h).
 - **Postgres integration tests for JSONB filter paths** — needs a test-container fixture (~1.5h). Would also catch the class of bug PR #12 fixed (asyncpg TZ comparison) — that's only visible against a real Postgres.
 - **API tenant gating per host** (deliberately deferred — revisit when real logs show traffic on the wrong host).
 - **Firecrawl as a third fetch tier** (only if a future corpus surfaces sites that defeat both httpx and Playwright).
 - **Lower-scored design-pass items from the code review**: result-card `<h2>` semantics, file-input focus indicator, form-input focus ring beyond the 1px border, link underlines at rest on the Discover org name.
-- **`react-hooks/rules-of-hooks` violations** across the remaining OpenOrg pages (Create.tsx, parts of Discover.tsx). PR #12 cleaned up `EditProfile.tsx`; PR #14 cleaned up `EditStrategy.tsx` and `EditIdea.tsx` — bringing the total error count from 24 → 17. Pre-existing on master; lint script `--max-warnings 0` would block CI if it ever ran.
+- **`react-hooks/rules-of-hooks` violations** on `Create.tsx` and parts of `Discover.tsx` (still pre-existing — PR #12, #14, #16 cleaned up everything they touched).
+- **Analyzer token usage not reported by the harness** — `analyze_organisation` instantiates its own SDK client and doesn't return usage, so the harness's per-charity token totals undercount real spend by ~2-3×. Cosmetic; cost cap is still enforced at the budget service which sees logged usage.
 
 Items that landed across the last two sessions (strikes from the prior follow-ups list):
 - ~~Chromium in the `celery_worker` Docker image~~ → PR #9
@@ -137,8 +146,31 @@ Items that landed across the last two sessions (strikes from the prior follow-up
 - ~~Publish/unpublish UI buttons in the SPA~~ → PR #12 (profile) + PR #14 (strategy + idea)
 - ~~Local click-through executed end-to-end~~ → PR #12 session
 - ~~Strategy/idea publish parity (hidden Phase-1 gap)~~ → PR #14
+- ~~Profile fills as much as possible from the initial crawl and API pull~~ → PR #16 (analyzer wired in, programmes + beneficiaries + evidence_summary)
+- ~~Profile detail view at `/openorg/{orgId}` (rendered, not raw JSON)~~ → PR #16
+- ~~Idea browser at `/openorg/ideas`~~ → PR #16
+- ~~About page at `/openorg/about`~~ → PR #16
+- ~~Blank "New strategy" / "New idea" templates with HTML-comment guidance~~ → PR #16
+- ~~Frontend Generate Profile UI~~ → PR #16
+- ~~History restore endpoint + UI~~ → PR #16
+- ~~Weekly Murmurations health-check task~~ → PR #16
+- ~~Package `/org-strategy` and `/org-idea` as installable Claude skills~~ → PR #16
+- ~~Run `/security-review` on the five deliverables~~ → PR #16 (SECURITY-REVIEW.md)
+- ~~Rate-limit middleware honours real client IP behind reverse proxy~~ → PR #16 (H1)
+- ~~`/api/auth/magic-link` rate-limited~~ → PR #16 (H2)
+- ~~`CORS_ORIGINS` documented as a required production env var~~ → PR #16 (M3)
 
 ## Notable decisions this session
+
+PR #16 (spec-complete pass):
+- **Schema additions are additive — no v0.2 bump.** `mission.programmes` and `mission.evidence_summary` are optional fields on `open-org/v0.1`. Existing profiles validate unchanged. Hypercerts is documented in the `evidence_summary` description as the planned Phase-4 extension for richer evidence linking.
+- **Single crawl, multiple consumers.** `collect_website_pages` is the new core function; `collect_website_text` is a thin wrapper. The generator calls the crawl once and feeds both the theme extractor (text) and the analyzer (pages) — no duplicate HTTP.
+- **CC is the spine, analyzer fills soft tissue.** CC contact wins where present; analyzer fills gaps (email/phone/address). Analyzer geography wins only when CC's value is vague ("England", "United Kingdom"). Working name only added to `also_known_as` when distinct from CC registered name.
+- **Analyzer failures degrade gracefully.** A flaky analyzer (network, parse error) returns no enrichment but CC-only profile generation still succeeds.
+- **Cross-org idea browser is a separate endpoint** (`/api/open-org/discover/ideas`) rather than overloading the existing org-discovery endpoint. Different result shape (idea-centric, with cost range) justifies the split.
+- **History restore is non-destructive.** Restoring a past version appends a new version pointing to the chosen snapshot; old versions stay in place. Schema validation runs against the snapshot, so if v0.2 ever tightens a constraint and an old snapshot becomes invalid, restore returns 400 with structured field errors rather than silently writing bad data.
+- **Murmurations health check** is weekly (Mondays 04:00 UTC) — schema drift is rare and validating every published profile against the live library schema is mildly expensive. Recovers automatically: a profile that flips to `drift` then validates clean on the next run flips back to `validated`.
+- **Three security blockers fixed in this PR** so the production rebuild can proceed without queueing a follow-up PR first.
 
 PR #12 (publish/unpublish + TZ fix):
 - Extended `MarkdownResponse` with `published: bool` rather than adding a new state endpoint — backwards-compatible (older clients ignore the field) and saves a round-trip.
@@ -150,6 +182,28 @@ Click-through methodology (worth keeping for next time):
 - Isolated test stack (`COMPOSE_PROJECT_NAME=llmstxt-test`, ports `:8001` / `:5434` / `:6380`, named volume) with a fresh DB per run — production data untouched, teardown is `docker compose -p llmstxt-test down -v`. The `llmstxt-test-api` extension image is kept on disk between runs.
 
 ## Files of note
+
+PR #16 (spec-complete pass — 40 files, +4546/-99):
+- `packages/core/src/llmstxt_core/open_org/schemas/org_profile.schema.json` — `mission.programmes` + `mission.evidence_summary` (additive).
+- `packages/core/src/llmstxt_core/open_org/generator.py` — analyzer wired in via `_build_payload(analysis=...)`; merge helpers (`_merge_programmes`, `_evidence_summary`, vague-area override).
+- `packages/core/src/llmstxt_core/open_org/website_text.py` — refactored to expose `collect_website_pages`; `collect_website_text` is now a wrapper.
+- `packages/core/src/llmstxt_core/open_org/harness.py` — richer per-charity report (programme names, beneficiaries, enrichment flags).
+- `tests/reports/baseline_v0.5.md` — v0.5 corpus run report.
+- `packages/api/src/llmstxt_api/routes/open_org_public.py` — new `GET /open-org/{org_id}/{strategies,ideas}` list endpoints feeding the profile detail page.
+- `packages/api/src/llmstxt_api/routes/open_org_discovery.py` — new `GET /api/open-org/discover/ideas` cross-org idea endpoint.
+- `packages/api/src/llmstxt_api/routes/open_org_admin.py` — `POST .../history/{version_id}/restore` (non-destructive).
+- `packages/api/src/llmstxt_api/tasks/open_org_murmurations.py` — `_run_health_check` + `health_check_murmurations_task` (Mondays 04:00 UTC beat).
+- `packages/api/src/llmstxt_api/middleware/rate_limit.py` — new rule for `/api/auth/magic-link` (H2); `print` → `log.error` (M4).
+- `packages/api/src/llmstxt_api/config.py` — `magic_link_hourly_limit` setting.
+- `packages/api/Dockerfile` + `docker-compose.yml` — `--forwarded-allow-ips=127.0.0.1` on uvicorn (H1).
+- `packages/web/src/pages/openorg/ProfileDetail.tsx` — rendered profile detail view at `/openorg/{orgId}`.
+- `packages/web/src/pages/openorg/Ideas.tsx` — cross-org idea browser at `/openorg/ideas`.
+- `packages/web/src/pages/openorg/About.tsx` — explainer page.
+- `packages/web/src/pages/openorg/NewRecord.tsx` + `packages/web/src/openorgTemplates.ts` — blank-template "New strategy" / "New idea" flows.
+- `packages/web/src/pages/openorg/Generate.tsx` — public form to kick off profile generation.
+- `packages/web/src/pages/openorg/EditProfile.tsx` — `HistoryPanel` + chat/template create entry-point buttons.
+- `.claude/skills/org-strategy/SKILL.md` + `.claude/skills/org-idea/SKILL.md` — installable Claude skills (per spec section 2.5).
+- `SECURITY-REVIEW.md` — `/security-review` skill output + per-finding fixes.
 
 PR #14 (strategy/idea publish parity):
 - `packages/api/src/llmstxt_api/routes/open_org_admin.py` — 4 new routes (`publish_strategy`, `unpublish_strategy`, `publish_idea`, `unpublish_idea`) + `RecordPublishResponse` schema + `published` on the GET strategy.md / idea.md responses.
@@ -185,14 +239,13 @@ Earlier this Phase (still relevant context):
 After `cd /Users/tomcwxyz/llmstxt-local`:
 
 ```
-Read CLAUDE.md, then PLAN.md, then HANDOFF.md. Phase 1 + 1.5 + design pass
-+ operational hygiene + publish/unpublish UI (all three record types) are
-all merged. Profile click-through has been validated end-to-end. Status
-check + propose next focus.
+Read CLAUDE.md, then PLAN.md, then HANDOFF.md, then SECURITY-REVIEW.md.
+Phase 1 is spec-complete and security-reviewed; three blocker patches
+are in. Status check + propose next focus.
 ```
 
 Most natural next picks:
+- **Production rebuild + DNS** — `docker compose build` + `up -d --force-recreate api worker` so the live deploy picks up everything from PR #6 through PR #16, then add the Cloudflare Tunnel route to `openorg.good-ship.co.uk`. The live image at session-start was still May-3 and predates all open-org code.
 - **Post-claim redirect fix** so the verify flow lands directly on the profile editor when the magic-link token carries an `org_id`. ~30 min.
-- **Strategy/idea click-through on the isolated stack** — same pattern PR #12 used for the profile. Validates the PR #14 paths end-to-end (chat-create a strategy → save → publish → public JSON appears → unpublish → 404). ~15 min.
-- **Production rebuild** — `docker compose build` + `up -d --force-recreate api worker` so the live deploy actually picks up everything PR #6+ added. The live image is currently still May-3.
+- **Subdomain cookie audit (SECURITY-REVIEW.md M2)** — confirm every `*.good-ship.co.uk` subdomain that will receive the auth cookie is a trusted service. Ghost / Soundings run on the same host; if any are reachable under that root they receive `auth_token` on every request.
 - **Phase 2 planning** (access control + grants, MCP integrations, funder profiles, strategy matching).
