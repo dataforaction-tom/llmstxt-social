@@ -70,6 +70,19 @@ class UnpublishResponse(BaseModel):
     delete_task_id: str | None = None
 
 
+class RecordPublishResponse(BaseModel):
+    """Publish/unpublish response for strategies and ideas.
+
+    Strategies and ideas aren't individually indexed in Murmurations (the
+    federated envelope is profile-level), so there's no task id to surface.
+    Index counts catch up via the daily sync beat or the next profile save.
+    """
+    org_id: str
+    slug: str
+    schema_kind: Literal["strategy", "idea"]
+    published: bool
+
+
 class VersionListEntry(BaseModel):
     id: uuid.UUID
     parent_kind: str
@@ -192,6 +205,7 @@ async def get_strategy_markdown(
         markdown=strategy.markdown_source or "",
         org_id=org_id,
         schema_kind="strategy",
+        published=bool(strategy.published),
     )
 
 
@@ -253,6 +267,7 @@ async def get_idea_markdown(
         markdown=idea.markdown_source or "",
         org_id=org_id,
         schema_kind="idea",
+        published=bool(idea.published),
     )
 
 
@@ -399,4 +414,139 @@ async def unpublish_profile(
         org_id=org_id,
         published=False,
         delete_task_id=delete_task_id,
+    )
+
+
+# --- strategy publish / unpublish ------------------------------------------
+
+@router.post(
+    "/{org_id}/strategies/{slug}/publish", response_model=RecordPublishResponse
+)
+async def publish_strategy(
+    org_id: str,
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    admin: OrgAdmin = Depends(require_org_admin),
+):
+    """Flip ``OrgStrategy.published=True``. No Murmurations submit — the
+    federated envelope is profile-level; counts refresh via the daily sync.
+    """
+    result = await db.execute(
+        select(OrgStrategy).where(
+            OrgStrategy.org_id == org_id, OrgStrategy.slug == slug
+        )
+    )
+    strategy = result.scalar_one_or_none()
+    if strategy is None:
+        raise HTTPException(status_code=404, detail="strategy not found")
+    if not strategy.strategy_json:
+        raise HTTPException(
+            status_code=400,
+            detail="strategy has no content yet; save markdown before publishing",
+        )
+
+    strategy.published = True
+    await db.commit()
+
+    return RecordPublishResponse(
+        org_id=org_id,
+        slug=slug,
+        schema_kind="strategy",
+        published=True,
+    )
+
+
+@router.post(
+    "/{org_id}/strategies/{slug}/unpublish", response_model=RecordPublishResponse
+)
+async def unpublish_strategy(
+    org_id: str,
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    admin: OrgAdmin = Depends(require_org_admin),
+):
+    """Flip ``OrgStrategy.published=False``. The public JSON URL 404s
+    immediately; nothing federated to retract.
+    """
+    result = await db.execute(
+        select(OrgStrategy).where(
+            OrgStrategy.org_id == org_id, OrgStrategy.slug == slug
+        )
+    )
+    strategy = result.scalar_one_or_none()
+    if strategy is None:
+        raise HTTPException(status_code=404, detail="strategy not found")
+
+    strategy.published = False
+    await db.commit()
+
+    return RecordPublishResponse(
+        org_id=org_id,
+        slug=slug,
+        schema_kind="strategy",
+        published=False,
+    )
+
+
+# --- idea publish / unpublish ----------------------------------------------
+
+@router.post(
+    "/{org_id}/ideas/{slug}/publish", response_model=RecordPublishResponse
+)
+async def publish_idea(
+    org_id: str,
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    admin: OrgAdmin = Depends(require_org_admin),
+):
+    """Flip ``OrgIdea.published=True``. Same Phase-1 caveat as strategies:
+    ideas aren't individually indexed; counts refresh via the daily sync.
+    """
+    result = await db.execute(
+        select(OrgIdea).where(OrgIdea.org_id == org_id, OrgIdea.slug == slug)
+    )
+    idea = result.scalar_one_or_none()
+    if idea is None:
+        raise HTTPException(status_code=404, detail="idea not found")
+    if not idea.idea_json:
+        raise HTTPException(
+            status_code=400,
+            detail="idea has no content yet; save markdown before publishing",
+        )
+
+    idea.published = True
+    await db.commit()
+
+    return RecordPublishResponse(
+        org_id=org_id,
+        slug=slug,
+        schema_kind="idea",
+        published=True,
+    )
+
+
+@router.post(
+    "/{org_id}/ideas/{slug}/unpublish", response_model=RecordPublishResponse
+)
+async def unpublish_idea(
+    org_id: str,
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    admin: OrgAdmin = Depends(require_org_admin),
+):
+    result = await db.execute(
+        select(OrgIdea).where(OrgIdea.org_id == org_id, OrgIdea.slug == slug)
+    )
+    idea = result.scalar_one_or_none()
+    if idea is None:
+        raise HTTPException(status_code=404, detail="idea not found")
+
+    idea.published = False
+    await db.commit()
+
+    return RecordPublishResponse(
+        org_id=org_id,
+        slug=slug,
+        schema_kind="idea",
+        published=False,
     )
