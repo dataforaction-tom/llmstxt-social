@@ -217,6 +217,48 @@ export async function unpublishProfile(orgId: string): Promise<UnpublishResponse
   }
 }
 
+export interface RecordPublishResponse {
+  org_id: string;
+  slug: string;
+  schema_kind: 'strategy' | 'idea';
+  published: boolean;
+}
+
+async function postRecordPublish(
+  orgId: string,
+  kind: 'strategies' | 'ideas',
+  slug: string,
+  action: 'publish' | 'unpublish',
+): Promise<RecordPublishResponse> {
+  try {
+    const { data } = await api.post(
+      `/api/open-org/${orgId}/${kind}/${slug}/${action}`,
+    );
+    return data;
+  } catch (err) {
+    if (err instanceof AxiosError && err.response) {
+      const detail = err.response.data?.detail;
+      throw new OpenOrgPublishError(
+        err.response.status,
+        typeof detail === 'string' ? detail : `${action} failed`,
+      );
+    }
+    throw err;
+  }
+}
+
+export const publishStrategy = (orgId: string, slug: string) =>
+  postRecordPublish(orgId, 'strategies', slug, 'publish');
+
+export const unpublishStrategy = (orgId: string, slug: string) =>
+  postRecordPublish(orgId, 'strategies', slug, 'unpublish');
+
+export const publishIdea = (orgId: string, slug: string) =>
+  postRecordPublish(orgId, 'ideas', slug, 'publish');
+
+export const unpublishIdea = (orgId: string, slug: string) =>
+  postRecordPublish(orgId, 'ideas', slug, 'unpublish');
+
 export interface HistoryEntry {
   id: string;
   parent_kind: string;
@@ -289,6 +331,26 @@ export function useSaveStrategy(orgId: string, slug: string) {
   });
 }
 
+export function usePublishStrategy(orgId: string, slug: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => publishStrategy(orgId, slug),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['openorg', 'strategy-md', orgId, slug] });
+    },
+  });
+}
+
+export function useUnpublishStrategy(orgId: string, slug: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => unpublishStrategy(orgId, slug),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['openorg', 'strategy-md', orgId, slug] });
+    },
+  });
+}
+
 export function useIdeaMarkdown(orgId: string, slug: string) {
   return useQuery({
     queryKey: ['openorg', 'idea-md', orgId, slug],
@@ -301,6 +363,26 @@ export function useSaveIdea(orgId: string, slug: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (markdown: string) => saveIdeaMarkdown(orgId, slug, markdown),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['openorg', 'idea-md', orgId, slug] });
+    },
+  });
+}
+
+export function usePublishIdea(orgId: string, slug: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => publishIdea(orgId, slug),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['openorg', 'idea-md', orgId, slug] });
+    },
+  });
+}
+
+export function useUnpublishIdea(orgId: string, slug: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => unpublishIdea(orgId, slug),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['openorg', 'idea-md', orgId, slug] });
     },
