@@ -99,9 +99,14 @@ def log_usage(
 
 
 def _today_window_utc(on_date: date | None = None) -> tuple[datetime, datetime]:
-    """Return [start, end) UTC datetimes for the given date (default: today)."""
+    """Return naive UTC ``[start, end)`` datetimes for the given date.
+
+    ``LlmUsage.created_at`` is ``TIMESTAMP WITHOUT TIME ZONE`` and rows are
+    written with ``datetime.utcnow`` (also naive). asyncpg refuses to compare
+    a naive column against TZ-aware bounds, so the window must be naive too.
+    """
     target = on_date or datetime.now(timezone.utc).date()
-    start = datetime.combine(target, time.min, tzinfo=timezone.utc)
+    start = datetime.combine(target, time.min)
     end = start.replace(hour=23, minute=59, second=59, microsecond=999_999)
     return start, end
 

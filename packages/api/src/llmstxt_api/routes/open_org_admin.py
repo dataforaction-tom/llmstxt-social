@@ -53,6 +53,9 @@ class MarkdownResponse(BaseModel):
     markdown: str
     org_id: str
     schema_kind: Literal["profile", "strategy", "idea"]
+    # Only meaningful for profiles; strategy/idea ignore it. Surfaced so the
+    # editor UI can render Publish vs Unpublish without an extra round-trip.
+    published: bool = False
 
 
 class PublishResponse(BaseModel):
@@ -124,6 +127,7 @@ async def get_profile_markdown(
         markdown=profile.markdown_source or "",
         org_id=org_id,
         schema_kind="profile",
+        published=bool(profile.published),
     )
 
 

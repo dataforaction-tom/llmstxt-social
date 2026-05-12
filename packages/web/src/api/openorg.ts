@@ -30,6 +30,31 @@ export interface MarkdownResponse {
   markdown: string;
   org_id: string;
   schema_kind: SchemaKind;
+  // Only set for profiles. Drives the Publish/Unpublish toggle on the editor.
+  published?: boolean;
+}
+
+export interface PublishResponse {
+  org_id: string;
+  published: boolean;
+  submission_task_id: string | null;
+}
+
+export interface UnpublishResponse {
+  org_id: string;
+  published: boolean;
+  delete_task_id: string | null;
+}
+
+export class OpenOrgPublishError extends Error {
+  readonly status: number;
+  readonly detail: string;
+  constructor(status: number, detail: string) {
+    super(detail || `publish failed: HTTP ${status}`);
+    this.name = 'OpenOrgPublishError';
+    this.status = status;
+    this.detail = detail;
+  }
 }
 
 export interface SaveResponse {
@@ -160,6 +185,38 @@ export async function saveIdeaMarkdown(
   }
 }
 
+export async function publishProfile(orgId: string): Promise<PublishResponse> {
+  try {
+    const { data } = await api.post(`/api/open-org/${orgId}/publish`);
+    return data;
+  } catch (err) {
+    if (err instanceof AxiosError && err.response) {
+      const detail = err.response.data?.detail;
+      throw new OpenOrgPublishError(
+        err.response.status,
+        typeof detail === 'string' ? detail : 'publish failed',
+      );
+    }
+    throw err;
+  }
+}
+
+export async function unpublishProfile(orgId: string): Promise<UnpublishResponse> {
+  try {
+    const { data } = await api.post(`/api/open-org/${orgId}/unpublish`);
+    return data;
+  } catch (err) {
+    if (err instanceof AxiosError && err.response) {
+      const detail = err.response.data?.detail;
+      throw new OpenOrgPublishError(
+        err.response.status,
+        typeof detail === 'string' ? detail : 'unpublish failed',
+      );
+    }
+    throw err;
+  }
+}
+
 export interface HistoryEntry {
   id: string;
   parent_kind: string;
@@ -190,6 +247,26 @@ export function useSaveProfile(orgId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['openorg', 'profile-md', orgId] });
       qc.invalidateQueries({ queryKey: ['openorg', 'history', orgId] });
+    },
+  });
+}
+
+export function usePublishProfile(orgId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => publishProfile(orgId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['openorg', 'profile-md', orgId] });
+    },
+  });
+}
+
+export function useUnpublishProfile(orgId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => unpublishProfile(orgId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['openorg', 'profile-md', orgId] });
     },
   });
 }
