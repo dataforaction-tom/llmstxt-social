@@ -111,6 +111,27 @@ def test_get_profile_md_returns_markdown_source(app_with_admin_routes):
     assert response.json()["markdown"] == VALID_PROFILE_MD
 
 
+def test_get_profile_md_includes_published_flag(app_with_admin_routes):
+    """The editor uses ``published`` to decide whether to show Publish or Unpublish."""
+    from llmstxt_api.open_org_models import OrgProfile
+
+    profile = OrgProfile(
+        id=uuid.uuid4(),
+        org_id="GB-CHC-1",
+        markdown_source=VALID_PROFILE_MD,
+        profile_json={"identity": {"name": "Test"}},
+        published=True,
+    )
+    _mock_execute_returning(app_with_admin_routes.state.mock_session, profile)
+
+    client = TestClient(app_with_admin_routes)
+    response = client.get("/api/open-org/GB-CHC-1/profile.md")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["published"] is True
+    assert body["schema_kind"] == "profile"
+
+
 def test_get_profile_md_returns_404_when_no_profile(app_with_admin_routes):
     _mock_execute_returning(app_with_admin_routes.state.mock_session, None)
 
