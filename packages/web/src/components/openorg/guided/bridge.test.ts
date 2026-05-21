@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { spliceFrontmatterKey } from './bridge';
+import { spliceFrontmatterKey, spliceBodySection } from './bridge';
 
 const SOURCE = `---
 schema_version: open-org/v0.1
@@ -49,5 +49,42 @@ describe('spliceFrontmatterKey', () => {
     expect(() => spliceFrontmatterKey('# heading only\n', 'identity', { name: 'X' })).toThrow(
       /no frontmatter/i,
     );
+  });
+});
+
+describe('spliceBodySection', () => {
+  const BODY_SOURCE = `---
+schema_version: open-org/v0.1
+---
+
+## Mission
+
+Old mission text.
+
+## Values
+
+- Honesty
+- Care
+`;
+
+  it('replaces a heading section and leaves other body sections intact', () => {
+    const updated = spliceBodySection(BODY_SOURCE, 'Mission', 'New mission text.');
+    expect(updated).toContain('## Mission\n\nNew mission text.');
+    expect(updated).toContain('## Values\n\n- Honesty\n- Care');
+    expect(updated).toMatch(/^---\nschema_version/);
+  });
+
+  it('appends the section when it is missing', () => {
+    const updated = spliceBodySection(BODY_SOURCE, 'Culture', 'Curious and kind.');
+    expect(updated).toContain('## Culture\n\nCurious and kind.');
+    // Existing sections preserved.
+    expect(updated).toContain('## Mission\n\nOld mission text.');
+    expect(updated).toContain('## Values\n\n- Honesty');
+  });
+
+  it('removes the section when value is empty', () => {
+    const updated = spliceBodySection(BODY_SOURCE, 'Mission', '');
+    expect(updated).not.toContain('## Mission');
+    expect(updated).toContain('## Values');
   });
 });

@@ -85,6 +85,83 @@ function renderKeyAsYaml(key: string, value: unknown): string {
   return dumped.endsWith('\n') ? dumped : dumped + '\n';
 }
 
+const HEADING_RE = /^## (.+)$/;
+
+interface BodyBlock {
+  heading: string;
+  startLine: number;
+  endLine: number;
+}
+
+function findBodyBlocks(bodyText: string): { lines: string[]; blocks: BodyBlock[] } {
+  const lines = bodyText.split('\n');
+  const blocks: BodyBlock[] = [];
+  let current: BodyBlock | null = null;
+
+  lines.forEach((line, i) => {
+    const match = line.match(HEADING_RE);
+    if (match) {
+      if (current) {
+        current.endLine = i;
+        blocks.push(current);
+      }
+      current = { heading: match[1].trim(), startLine: i, endLine: lines.length };
+    }
+  });
+  if (current) {
+    blocks.push(current);
+  }
+  return { lines, blocks };
+}
+
+function bodyOf(source: string): { preBody: string; body: string } {
+  const fm = splitFrontmatter(source);
+  // fm.suffix starts with ``---`` (close delim). Everything after the close
+  // delim's line is the body.
+  const closeNl = fm.suffix.indexOf('\n');
+  if (closeNl === -1) {
+    return { preBody: fm.prefix + fm.body + fm.suffix, body: '' };
+  }
+  const preBody = fm.prefix + fm.body + fm.suffix.slice(0, closeNl + 1);
+  return { preBody, body: fm.suffix.slice(closeNl + 1) };
+}
+
+export function spliceBodySection(source: string, heading: string, value: string): string {
+  const { preBody, body } = bodyOf(source);
+  const { lines, blocks } = findBodyBlocks(body);
+  const target = blocks.find((b) => b.heading === heading);
+
+  const trimmedValue = value.trim();
+  const rendered = trimmedValue ? `## ${heading}\n\n${trimmedValue}\n` : '';
+
+  let newBody: string;
+  if (target) {
+    const before = lines.slice(0, target.startLine).join('\n');
+    const after = lines.slice(target.endLine).join('\n');
+    const beforeChunk = before === '' ? '' : before + (before.endsWith('\n') ? '' : '\n');
+    if (!rendered) {
+      // Removing: drop a leading blank line if present.
+      const cleanedAfter = after.replace(/^\n+/, '');
+      const cleanedBefore = beforeChunk.replace(/\n+$/, '\n');
+      newBody = cleanedBefore + cleanedAfter;
+    } else {
+      // Need a blank line before the new heading if there's content above.
+      const sep = beforeChunk && !beforeChunk.endsWith('\n\n') ? '\n' : '';
+      const afterSep = after && !after.startsWith('\n') ? '\n' : '';
+      newBody = beforeChunk + sep + rendered + afterSep + after;
+    }
+  } else {
+    if (!rendered) {
+      newBody = body;
+    } else {
+      const sep = body.endsWith('\n\n') ? '' : body.endsWith('\n') ? '\n' : '\n\n';
+      newBody = body + sep + rendered;
+    }
+  }
+
+  return preBody + newBody;
+}
+
 export function spliceFrontmatterKey(
   source: string,
   key: string,
