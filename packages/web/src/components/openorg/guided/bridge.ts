@@ -172,13 +172,13 @@ export interface SectionSpec {
 }
 
 export interface ParsedSection {
-  yaml: Record<string, any>;
+  yaml: Record<string, unknown>;
   body: Record<string, string>;
 }
 
-function parseFrontmatterYaml(source: string): Record<string, any> {
+function parseFrontmatterYaml(source: string): Record<string, unknown> {
   const fm = splitFrontmatter(source);
-  const loaded = yaml.load(fm.body) as Record<string, any> | null | undefined;
+  const loaded = yaml.load(fm.body) as Record<string, unknown> | null | undefined;
   return loaded && typeof loaded === 'object' ? loaded : {};
 }
 

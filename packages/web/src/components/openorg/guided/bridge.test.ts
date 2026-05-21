@@ -155,7 +155,7 @@ describe('parseSection', () => {
 describe('applySectionEdit', () => {
   it('round-trips: parse, change one yaml field, apply — only that section changes', () => {
     const parsed = parseSection(FULL_SOURCE, PROFILE_SPEC);
-    parsed.yaml.identity = { ...parsed.yaml.identity, name: 'Riverside Community Trust' };
+    parsed.yaml.identity = { ...(parsed.yaml.identity as Record<string, unknown>), name: 'Riverside Community Trust' };
     const updated = applySectionEdit(FULL_SOURCE, PROFILE_SPEC, parsed);
 
     expect(updated).toContain('name: Riverside Community Trust');
