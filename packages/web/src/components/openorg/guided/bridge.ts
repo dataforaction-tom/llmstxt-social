@@ -162,6 +162,79 @@ export function spliceBodySection(source: string, heading: string, value: string
   return preBody + newBody;
 }
 
+export interface SectionSpec {
+  /** Stable id used for nav + localStorage; matches the section file name. */
+  id: string;
+  /** Top-level YAML keys this section owns. */
+  yamlKeys: string[];
+  /** Level-2 body headings this section owns. */
+  bodyHeadings: string[];
+}
+
+export interface ParsedSection {
+  yaml: Record<string, any>;
+  body: Record<string, string>;
+}
+
+function parseFrontmatterYaml(source: string): Record<string, any> {
+  const fm = splitFrontmatter(source);
+  const loaded = yaml.load(fm.body) as Record<string, any> | null | undefined;
+  return loaded && typeof loaded === 'object' ? loaded : {};
+}
+
+export function parseSection(source: string, spec: SectionSpec): ParsedSection {
+  const fmDict = parseFrontmatterYaml(source);
+  const out: ParsedSection = { yaml: {}, body: {} };
+  for (const key of spec.yamlKeys) {
+    if (key in fmDict) {
+      out.yaml[key] = fmDict[key];
+    }
+  }
+  if (spec.bodyHeadings.length > 0) {
+    const { body } = bodyOf(source);
+    const { lines, blocks } = findBodyBlocks(body);
+    for (const heading of spec.bodyHeadings) {
+      const block = blocks.find((b) => b.heading === heading);
+      if (block) {
+        out.body[heading] = lines.slice(block.startLine + 1, block.endLine).join('\n').trim();
+      }
+    }
+  }
+  return out;
+}
+
+export function applySectionEdit(
+  source: string,
+  spec: SectionSpec,
+  parsed: ParsedSection,
+): string {
+  let current = source;
+  // Diff against the original parse to decide which keys/headings to splice.
+  const original = parseSection(source, spec);
+
+  for (const key of spec.yamlKeys) {
+    const before = JSON.stringify(original.yaml[key] ?? null);
+    const after = JSON.stringify(parsed.yaml[key] ?? null);
+    if (before !== after) {
+      if (parsed.yaml[key] === undefined || parsed.yaml[key] === null) {
+        // Leave as-is for now; deletion isn't a Phase 1 guided affordance.
+        continue;
+      }
+      current = spliceFrontmatterKey(current, key, parsed.yaml[key]);
+    }
+  }
+
+  for (const heading of spec.bodyHeadings) {
+    const before = (original.body[heading] ?? '').trim();
+    const after = (parsed.body[heading] ?? '').trim();
+    if (before !== after) {
+      current = spliceBodySection(current, heading, after);
+    }
+  }
+
+  return current;
+}
+
 export function spliceFrontmatterKey(
   source: string,
   key: string,

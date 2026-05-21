@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { spliceFrontmatterKey, spliceBodySection } from './bridge';
+import {
+  spliceFrontmatterKey,
+  spliceBodySection,
+  parseSection,
+  applySectionEdit,
+  type SectionSpec,
+} from './bridge';
 
 const SOURCE = `---
 schema_version: open-org/v0.1
@@ -86,5 +92,94 @@ Old mission text.
     const updated = spliceBodySection(BODY_SOURCE, 'Mission', '');
     expect(updated).not.toContain('## Mission');
     expect(updated).toContain('## Values');
+  });
+});
+
+const PROFILE_SPEC: SectionSpec = {
+  id: 'identity',
+  yamlKeys: ['identity'],
+  bodyHeadings: [],
+};
+
+const MISSION_SPEC: SectionSpec = {
+  id: 'mission',
+  yamlKeys: ['mission'],
+  bodyHeadings: ['Mission', 'Theory of change'],
+};
+
+const FULL_SOURCE = `---
+schema_version: open-org/v0.1
+identity:
+  name: Riverside Trust
+  website: https://riverside.org
+mission:
+  themes:
+    - older_people
+  beneficiaries:
+    - older_people
+---
+
+## Mission
+
+We support older people in Norfolk.
+
+## Theory of change
+
+Holistic support reduces isolation.
+
+## Values
+
+- Honesty
+`;
+
+describe('parseSection', () => {
+  it('returns the YAML keys + body chunks for the section', () => {
+    const parsed = parseSection(FULL_SOURCE, PROFILE_SPEC);
+    expect(parsed.yaml).toEqual({
+      identity: { name: 'Riverside Trust', website: 'https://riverside.org' },
+    });
+    expect(parsed.body).toEqual({});
+  });
+
+  it('returns the body sections owned by the section spec', () => {
+    const parsed = parseSection(FULL_SOURCE, MISSION_SPEC);
+    expect(parsed.yaml.mission).toEqual({
+      themes: ['older_people'],
+      beneficiaries: ['older_people'],
+    });
+    expect(parsed.body.Mission).toMatch(/We support older people/);
+    expect(parsed.body['Theory of change']).toMatch(/Holistic support/);
+  });
+});
+
+describe('applySectionEdit', () => {
+  it('round-trips: parse, change one yaml field, apply — only that section changes', () => {
+    const parsed = parseSection(FULL_SOURCE, PROFILE_SPEC);
+    parsed.yaml.identity = { ...parsed.yaml.identity, name: 'Riverside Community Trust' };
+    const updated = applySectionEdit(FULL_SOURCE, PROFILE_SPEC, parsed);
+
+    expect(updated).toContain('name: Riverside Community Trust');
+    // Mission section untouched: themes still present and body intact.
+    expect(updated).toContain('themes:\n    - older_people');
+    expect(updated).toContain('## Mission\n\nWe support older people');
+    expect(updated).toContain('## Values\n\n- Honesty');
+  });
+
+  it('round-trips a body section edit', () => {
+    const parsed = parseSection(FULL_SOURCE, MISSION_SPEC);
+    parsed.body.Mission = 'We support older people across East Anglia.';
+    const updated = applySectionEdit(FULL_SOURCE, MISSION_SPEC, parsed);
+
+    expect(updated).toContain('## Mission\n\nWe support older people across East Anglia.');
+    // Identity untouched.
+    expect(updated).toContain('name: Riverside Trust');
+    // Other body sections untouched.
+    expect(updated).toContain('## Values\n\n- Honesty');
+  });
+
+  it('full round-trip with no edits is byte-identical', () => {
+    const parsed = parseSection(FULL_SOURCE, MISSION_SPEC);
+    const updated = applySectionEdit(FULL_SOURCE, MISSION_SPEC, parsed);
+    expect(updated).toBe(FULL_SOURCE);
   });
 });
