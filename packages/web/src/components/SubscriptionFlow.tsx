@@ -81,7 +81,7 @@ export default function SubscriptionFlow({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="label">URL to Monitor</label>
+            <div className="label">URL to Monitor</div>
             <p className="text-gray-900 font-medium">{url}</p>
           </div>
 

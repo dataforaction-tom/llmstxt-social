@@ -41,8 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiClient.sendMagicLink(email);
       return { success: true, message: response.message };
-    } catch (error: any) {
-      const message = error.response?.data?.detail || 'Failed to send magic link';
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { detail?: string } } }).response?.data?.detail ||
+        'Failed to send magic link';
       return { success: false, message };
     }
   };
@@ -54,8 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Refetch auth status after successful verification
       await refetch();
       return { success: true, user: response.user, message: response.message };
-    } catch (error: any) {
-      const message = error.response?.data?.detail || 'Invalid or expired link';
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { detail?: string } } }).response?.data?.detail ||
+        'Invalid or expired link';
       return { success: false, message };
     } finally {
       setVerifying(false);
@@ -88,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- context hook co-located with its provider is idiomatic; HMR-only rule
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {

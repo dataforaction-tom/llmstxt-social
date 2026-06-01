@@ -56,11 +56,14 @@ export default function PaymentFlow({ url, template, sector, goal, userEmail, on
     },
   });
 
+  // ``mutate`` is referentially stable, so the effect runs only when the
+  // email actually becomes available — not on every render.
+  const { mutate: createPaymentIntent } = paymentMutation;
   useEffect(() => {
     if (userEmail || email) {
-      paymentMutation.mutate();
+      createPaymentIntent();
     }
-  }, [userEmail, email]);
+  }, [userEmail, email, createPaymentIntent]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

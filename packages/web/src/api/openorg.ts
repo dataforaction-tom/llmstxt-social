@@ -695,9 +695,13 @@ export async function streamCreatorMessage(
   const decoder = new TextDecoder('utf-8');
   let buffer = '';
 
-  while (true) {
+  let reading = true;
+  while (reading) {
     const { value, done } = await reader.read();
-    if (done) break;
+    if (done) {
+      reading = false;
+      continue;
+    }
     buffer += decoder.decode(value, { stream: true });
 
     // SSE frames are separated by a blank line.
@@ -718,7 +722,7 @@ export async function streamCreatorMessage(
   }
 }
 
-function parseSseFrame(frame: string): { name: string; data: any } | null {
+function parseSseFrame(frame: string): { name: string; data: Record<string, unknown> } | null {
   const lines = frame.split('\n');
   let name = 'message';
   const dataParts: string[] = [];

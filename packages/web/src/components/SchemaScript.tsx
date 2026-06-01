@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- schema generators co-located with the component; HMR-only rule */
 import { Helmet } from 'react-helmet-async';
 
 interface SchemaScriptProps {
