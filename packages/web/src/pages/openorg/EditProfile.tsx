@@ -20,8 +20,9 @@ import {
   type ValidationFieldError,
 } from '../../api/openorg';
 import EditorShell from '../../components/openorg/EditorShell';
-import { PublishBadge, PublishControls } from '../../components/openorg/PublishToggle';
+import PublishStrip from '../../components/openorg/PublishStrip';
 import { PROFILE_SECTIONS } from '../../components/openorg/guided/sections/profile';
+import { useThemes } from '../../api/openorg';
 
 export default function EditProfilePage() {
   const { orgId: rawOrgId } = useParams<{ orgId: string }>();
@@ -31,8 +32,10 @@ export default function EditProfilePage() {
 
   const [validationErrors, setValidationErrors] = useState<ValidationFieldError[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [justPublishedAt, setJustPublishedAt] = useState<Date | undefined>();
 
   const profile = useProfileMarkdown(orgId);
+  const themes = useThemes();
   const save = useSaveProfile(orgId);
   const publish = usePublishProfile(orgId);
   const unpublish = useUnpublishProfile(orgId);
@@ -71,6 +74,7 @@ export default function EditProfilePage() {
     setPublishError(null);
     try {
       await publish.mutateAsync();
+      setJustPublishedAt(new Date());
     } catch (err) {
       if (err instanceof OpenOrgPublishError) {
         setPublishError(err.detail);
@@ -95,6 +99,7 @@ export default function EditProfilePage() {
 
   const published = Boolean(profile.data?.published);
   const mutating = publish.isPending || unpublish.isPending;
+  const liveUrl = `https://openorg.good-ship.co.uk/openorg/${orgId}`;
 
   return (
     <div className="surface-paper min-h-screen">
@@ -108,14 +113,15 @@ export default function EditProfilePage() {
               </h1>
               <p className="mt-2 flex items-center gap-3 text-sm text-muted">
                 <code className="font-mono text-ink">{orgId}</code>
-                <PublishBadge published={published} />
               </p>
             </div>
-            <PublishControls
+            <PublishStrip
               published={published}
               busy={mutating}
               onPublish={handlePublish}
               onUnpublish={handleUnpublish}
+              liveUrl={liveUrl}
+              justPublishedAt={justPublishedAt}
             />
           </div>
           {publishError && (
@@ -133,7 +139,9 @@ export default function EditProfilePage() {
           initialSource={profile.data?.markdown ?? ''}
           sections={PROFILE_SECTIONS}
           onSave={handleSave}
-          vocabs={{}}
+          vocabs={{
+            themes: (themes.data ?? []).map((t) => ({ key: t.key, label: t.label })),
+          }}
           saving={save.isPending}
           validationErrors={validationErrors}
           saveLabel="Save profile"
