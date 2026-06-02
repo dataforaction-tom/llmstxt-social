@@ -34,6 +34,14 @@ function splitFrontmatter(source: string): FrontmatterSplit {
     throw new Error('no frontmatter found in source');
   }
   const afterOpen = openMatch[0].length;
+  // Empty-frontmatter case: ``---\n---`` (close delim immediately follows open).
+  if (source.slice(afterOpen, afterOpen + 3) === '---') {
+    return {
+      prefix: source.slice(0, afterOpen),
+      body: '',
+      suffix: source.slice(afterOpen),
+    };
+  }
   // Find the closing ``---`` on its own line.
   const closeIdx = source.indexOf('\n---', afterOpen);
   if (closeIdx === -1) {
