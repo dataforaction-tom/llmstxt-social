@@ -29,33 +29,38 @@ vi.mock('../../api/openorg', async () => {
       saveStrategy(orgId, slug, md),
     saveIdeaMarkdown: (orgId: string, slug: string, md: string) =>
       saveIdea(orgId, slug, md),
+    useThemes: () => ({
+      isLoading: false,
+      data: [{ key: 'older_people', label: 'Older people', description: '' }],
+      error: null,
+    }),
   };
 });
 
-// Stub out the actual markdown editor — its CodeMirror integration is
-// browser-driven and not what we're testing here. We replace it with a
-// minimal harness that exposes the initial value and a Save button that
-// drives ``onSave`` with whatever the parent passes.
+// Stub out EditorShell — its CodeMirror + Guided integration is browser-
+// driven and not what we're testing here. We replace it with a minimal
+// harness that exposes the initial source and a Save button that drives
+// ``onSave`` with whatever the parent passes.
 let editorSnapshot = { initial: '', lastSaveArg: '' };
-vi.mock('../../components/openorg/MarkdownEditor', () => ({
+vi.mock('../../components/openorg/EditorShell', () => ({
   default: ({
-    initialMarkdown,
+    initialSource,
     onSave,
     saveLabel,
   }: {
-    initialMarkdown: string;
+    initialSource: string;
     onSave: (md: string) => Promise<unknown>;
     saveLabel: string;
   }) => {
-    editorSnapshot.initial = initialMarkdown;
+    editorSnapshot.initial = initialSource;
     return (
       <div>
-        <pre data-testid="initial-md">{initialMarkdown}</pre>
+        <pre data-testid="initial-md">{initialSource}</pre>
         <button
           type="button"
           onClick={() => {
-            editorSnapshot.lastSaveArg = initialMarkdown;
-            onSave(initialMarkdown);
+            editorSnapshot.lastSaveArg = initialSource;
+            onSave(initialSource);
           }}
         >
           {saveLabel}
