@@ -3,6 +3,8 @@ import MarkdownEditor from './MarkdownEditor';
 import GuidedEditor from './guided/GuidedEditor';
 import SurfaceSwitch from './SurfaceSwitch';
 import { useEditorSurface, type RecordKind } from './useEditorSurface';
+import SaveIndicator from './SaveIndicator';
+import { useAutosave } from './useAutosave';
 import type { GuidedSection } from './guided/sections/profile';
 import type { PillOption } from './guided/fields/PillPicker';
 import type { ValidationFieldError } from '../../api/openorg';
@@ -37,9 +39,13 @@ export default function EditorShell({
     setSource(initialSource);
   }, [initialSource]);
 
+  // Only autosave on the guided surface; markdown surface uses explicit Save.
+  const autosave = useAutosave(surface === 'guided' ? source : initialSource, onSave);
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between">
+        <SaveIndicator state={autosave.state} savedAt={autosave.savedAt} onRetry={autosave.retry} />
         <SurfaceSwitch value={surface} onChange={setSurface} />
       </div>
 
@@ -53,7 +59,7 @@ export default function EditorShell({
         />
       ) : (
         <MarkdownEditor
-          initialMarkdown={source}
+          initialMarkdown={initialSource}
           onSave={async (md) => {
             setSource(md);
             return onSave(md);

@@ -30,6 +30,39 @@ describe('EditorShell', () => {
     expect(screen.getByRole('button', { name: /^identity$/i })).toBeInTheDocument();
   });
 
+  it('autosaves the guided surface after a debounce window', async () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn(async () => undefined);
+    render(
+      <EditorShell
+        kind="profile"
+        initialSource={SOURCE}
+        sections={PROFILE_SECTIONS}
+        onSave={onSave}
+        vocabs={{}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: 'Trussell' } });
+    expect(onSave).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(700);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toContain('name: Trussell');
+    vi.useRealTimers();
+  });
+
+  it('shows the save indicator', () => {
+    render(
+      <EditorShell
+        kind="profile"
+        initialSource={SOURCE}
+        sections={PROFILE_SECTIONS}
+        onSave={vi.fn()}
+        vocabs={{}}
+      />,
+    );
+    expect(screen.getByText(/saved/i)).toBeInTheDocument();
+  });
+
   it('switches to markdown surface and persists', () => {
     const { unmount } = render(
       <EditorShell
