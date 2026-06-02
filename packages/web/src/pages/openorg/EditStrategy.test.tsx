@@ -34,6 +34,11 @@ vi.mock('../../api/openorg', async () => {
     useSaveStrategy: () => ({ mutateAsync: saveMutateAsync, isPending: false }),
     usePublishStrategy: () => ({ mutateAsync: publishMutateAsync, isPending: false }),
     useUnpublishStrategy: () => ({ mutateAsync: unpublishMutateAsync, isPending: false }),
+    useThemes: () => ({
+      isLoading: false,
+      data: [{ key: 'older_people', label: 'Older people', description: '' }],
+      error: null,
+    }),
   };
 });
 
@@ -83,7 +88,7 @@ describe('EditStrategyPage publish controls', () => {
     expect(screen.queryByRole('button', { name: /^publish$/i })).toBeNull();
   });
 
-  it('calls publishStrategy when Publish is clicked', () => {
+  it('calls publishStrategy when Publish is confirmed', () => {
     mockData = {
       org_id: 'GB-CHC-1',
       markdown: '---\nschema_version: open-org-strategy/v0.1\n---\n',
@@ -92,11 +97,12 @@ describe('EditStrategyPage publish controls', () => {
     renderAt('GB-CHC-1', '2025-2028');
 
     fireEvent.click(screen.getByRole('button', { name: /^publish$/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^publish$/i }).at(-1)!);
     expect(publishMutateAsync).toHaveBeenCalledTimes(1);
     expect(unpublishMutateAsync).not.toHaveBeenCalled();
   });
 
-  it('calls unpublishStrategy when Unpublish is clicked', () => {
+  it('calls unpublishStrategy when Unpublish is confirmed', () => {
     mockData = {
       org_id: 'GB-CHC-1',
       markdown: '---\nschema_version: open-org-strategy/v0.1\n---\n',
@@ -105,7 +111,19 @@ describe('EditStrategyPage publish controls', () => {
     renderAt('GB-CHC-1', '2025-2028');
 
     fireEvent.click(screen.getByRole('button', { name: /^unpublish$/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^unpublish$/i }).at(-1)!);
     expect(unpublishMutateAsync).toHaveBeenCalledTimes(1);
     expect(publishMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('renders the guided sidebar with strategy sections', () => {
+    window.localStorage.clear();
+    mockData = {
+      org_id: 'GB-CHC-1',
+      markdown: '---\nschema_version: open-org-strategy/v0.1\nid: my-strategy\n---\n',
+      published: false,
+    };
+    renderAt('GB-CHC-1', 'my-strategy');
+    expect(screen.getByRole('button', { name: /^priorities$/i })).toBeInTheDocument();
   });
 });

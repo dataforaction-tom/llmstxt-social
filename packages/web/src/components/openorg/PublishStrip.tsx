@@ -45,7 +45,7 @@ export default function PublishStrip({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
-        <PublishBadge published={published} />
+        <PublishBadge published={published} noun={noun.charAt(0).toUpperCase() + noun.slice(1)} />
         {confirming === null && !published && (
           <button
             type="button"
