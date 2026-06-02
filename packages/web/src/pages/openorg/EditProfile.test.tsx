@@ -107,4 +107,15 @@ describe('EditProfilePage publish controls', () => {
     expect(unpublishMutateAsync).toHaveBeenCalledTimes(1);
     expect(publishMutateAsync).not.toHaveBeenCalled();
   });
+
+  it('renders the guided sidebar by default when source has frontmatter', () => {
+    window.localStorage.clear();
+    mockProfileData = {
+      org_id: 'GB-CHC-1',
+      markdown: '---\nschema_version: open-org/v0.1\nidentity:\n  name: A\n---\n',
+      published: false,
+    };
+    renderAt('GB-CHC-1');
+    expect(screen.getByRole('button', { name: /^identity$/i })).toBeInTheDocument();
+  });
 });

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import MarkdownEditor from './MarkdownEditor';
 import GuidedEditor from './guided/GuidedEditor';
-import SurfaceSwitch, { useEditorSurface, type RecordKind } from './SurfaceSwitch';
+import SurfaceSwitch from './SurfaceSwitch';
+import { useEditorSurface, type RecordKind } from './useEditorSurface';
 import type { GuidedSection } from './guided/sections/profile';
 import type { PillOption } from './guided/fields/PillPicker';
 import type { ValidationFieldError } from '../../api/openorg';

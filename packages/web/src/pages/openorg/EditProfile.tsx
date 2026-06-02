@@ -19,8 +19,9 @@ import {
   type HistoryEntry,
   type ValidationFieldError,
 } from '../../api/openorg';
-import MarkdownEditor from '../../components/openorg/MarkdownEditor';
+import EditorShell from '../../components/openorg/EditorShell';
 import { PublishBadge, PublishControls } from '../../components/openorg/PublishToggle';
+import { PROFILE_SECTIONS } from '../../components/openorg/guided/sections/profile';
 
 export default function EditProfilePage() {
   const { orgId: rawOrgId } = useParams<{ orgId: string }>();
@@ -127,9 +128,12 @@ export default function EditProfilePage() {
           )}
         </header>
 
-        <MarkdownEditor
-          initialMarkdown={profile.data?.markdown ?? ''}
+        <EditorShell
+          kind="profile"
+          initialSource={profile.data?.markdown ?? ''}
+          sections={PROFILE_SECTIONS}
           onSave={handleSave}
+          vocabs={{}}
           saving={save.isPending}
           validationErrors={validationErrors}
           saveLabel="Save profile"

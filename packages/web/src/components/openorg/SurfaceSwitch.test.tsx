@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import SurfaceSwitch, { useEditorSurface } from './SurfaceSwitch';
+import SurfaceSwitch from './SurfaceSwitch';
+import { useEditorSurface } from './useEditorSurface';
 
 describe('useEditorSurface', () => {
   beforeEach(() => {
