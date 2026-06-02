@@ -13,11 +13,13 @@ import {
   useIdeaMarkdown,
   usePublishIdea,
   useSaveIdea,
+  useThemes,
   useUnpublishIdea,
   type ValidationFieldError,
 } from '../../api/openorg';
-import MarkdownEditor from '../../components/openorg/MarkdownEditor';
-import { PublishBadge, PublishControls } from '../../components/openorg/PublishToggle';
+import EditorShell from '../../components/openorg/EditorShell';
+import PublishStrip from '../../components/openorg/PublishStrip';
+import { IDEA_SECTIONS } from '../../components/openorg/guided/sections/idea';
 
 export default function EditIdeaPage() {
   const { orgId: rawOrgId, slug: rawSlug } = useParams<{ orgId: string; slug: string }>();
@@ -26,11 +28,13 @@ export default function EditIdeaPage() {
 
   const [validationErrors, setValidationErrors] = useState<ValidationFieldError[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [justPublishedAt, setJustPublishedAt] = useState<Date | undefined>();
 
   const idea = useIdeaMarkdown(orgId, slug);
   const save = useSaveIdea(orgId, slug);
   const publish = usePublishIdea(orgId, slug);
   const unpublish = useUnpublishIdea(orgId, slug);
+  const themes = useThemes();
 
   if (!orgId || !slug) {
     return <div className="p-6 text-red-700">Missing org_id or slug in URL.</div>;
@@ -64,6 +68,7 @@ export default function EditIdeaPage() {
     setPublishError(null);
     try {
       await publish.mutateAsync();
+      setJustPublishedAt(new Date());
     } catch (err) {
       if (err instanceof OpenOrgPublishError) {
         setPublishError(err.detail);
@@ -88,6 +93,7 @@ export default function EditIdeaPage() {
 
   const published = Boolean(idea.data?.published);
   const mutating = publish.isPending || unpublish.isPending;
+  const liveUrl = `https://openorg.good-ship.co.uk/openorg/${orgId}/ideas/${slug}`;
 
   return (
     <div className="surface-paper min-h-screen">
@@ -103,14 +109,16 @@ export default function EditIdeaPage() {
                 <code className="font-mono text-ink">{orgId}</code>
                 <span className="text-rule">·</span>
                 <span className="font-mono">{slug}</span>
-                <PublishBadge published={published} noun="Idea" />
               </p>
             </div>
-            <PublishControls
+            <PublishStrip
               published={published}
               busy={mutating}
               onPublish={handlePublish}
               onUnpublish={handleUnpublish}
+              liveUrl={liveUrl}
+              justPublishedAt={justPublishedAt}
+              noun="idea"
             />
           </div>
           {publishError && (
@@ -123,9 +131,14 @@ export default function EditIdeaPage() {
           )}
         </header>
 
-        <MarkdownEditor
-          initialMarkdown={idea.data?.markdown ?? ''}
+        <EditorShell
+          kind="idea"
+          initialSource={idea.data?.markdown ?? ''}
+          sections={IDEA_SECTIONS}
           onSave={handleSave}
+          vocabs={{
+            themes: (themes.data ?? []).map((t) => ({ key: t.key, label: t.label })),
+          }}
           saving={save.isPending}
           validationErrors={validationErrors}
           saveLabel="Save idea"
