@@ -20,6 +20,7 @@ import {
 import EditorShell from '../../components/openorg/EditorShell';
 import PublishStrip from '../../components/openorg/PublishStrip';
 import { STRATEGY_SECTIONS } from '../../components/openorg/guided/sections/strategy';
+import { STATIC_VOCABS } from '../../components/openorg/guided/vocabs';
 
 export default function EditStrategyPage() {
   const { orgId: rawOrgId, slug: rawSlug } = useParams<{ orgId: string; slug: string }>();
@@ -139,6 +140,7 @@ export default function EditStrategyPage() {
           sections={STRATEGY_SECTIONS}
           onSave={handleSave}
           vocabs={{
+            ...STATIC_VOCABS,
             themes: (themes.data ?? []).map((t) => ({ key: t.key, label: t.label })),
           }}
           saving={save.isPending}

@@ -22,6 +22,7 @@ import {
 import EditorShell from '../../components/openorg/EditorShell';
 import PublishStrip from '../../components/openorg/PublishStrip';
 import { PROFILE_SECTIONS } from '../../components/openorg/guided/sections/profile';
+import { STATIC_VOCABS } from '../../components/openorg/guided/vocabs';
 import { useThemes } from '../../api/openorg';
 
 export default function EditProfilePage() {
@@ -140,6 +141,7 @@ export default function EditProfilePage() {
           sections={PROFILE_SECTIONS}
           onSave={handleSave}
           vocabs={{
+            ...STATIC_VOCABS,
             themes: (themes.data ?? []).map((t) => ({ key: t.key, label: t.label })),
           }}
           saving={save.isPending}

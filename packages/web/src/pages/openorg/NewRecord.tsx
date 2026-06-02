@@ -25,6 +25,7 @@ import {
 import EditorShell from '../../components/openorg/EditorShell';
 import { STRATEGY_SECTIONS } from '../../components/openorg/guided/sections/strategy';
 import { IDEA_SECTIONS } from '../../components/openorg/guided/sections/idea';
+import { STATIC_VOCABS } from '../../components/openorg/guided/vocabs';
 import { templateFor, type TemplateKind } from '../../openorgTemplates';
 
 interface NewRecordPageProps {
@@ -131,6 +132,7 @@ export default function NewRecordPage({ kind }: NewRecordPageProps) {
           sections={sections}
           onSave={handleSave}
           vocabs={{
+            ...STATIC_VOCABS,
             themes: (themes.data ?? []).map((t) => ({ key: t.key, label: t.label })),
           }}
           saving={saving}

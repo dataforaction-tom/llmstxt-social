@@ -20,6 +20,7 @@ import {
 import EditorShell from '../../components/openorg/EditorShell';
 import PublishStrip from '../../components/openorg/PublishStrip';
 import { IDEA_SECTIONS } from '../../components/openorg/guided/sections/idea';
+import { STATIC_VOCABS } from '../../components/openorg/guided/vocabs';
 
 export default function EditIdeaPage() {
   const { orgId: rawOrgId, slug: rawSlug } = useParams<{ orgId: string; slug: string }>();
@@ -137,6 +138,7 @@ export default function EditIdeaPage() {
           sections={IDEA_SECTIONS}
           onSave={handleSave}
           vocabs={{
+            ...STATIC_VOCABS,
             themes: (themes.data ?? []).map((t) => ({ key: t.key, label: t.label })),
           }}
           saving={save.isPending}
