@@ -259,6 +259,7 @@ async def verify_magic_link(
             created_at=user.created_at,
         ),
         message="Login successful!",
+        claim_org_id=magic_token.org_id,
     )
 
 
