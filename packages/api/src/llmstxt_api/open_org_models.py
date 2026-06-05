@@ -57,6 +57,15 @@ class OrgProfile(Base):
     # values: pending, generating, ready, failed
     generation_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Fine-grained generation progress, populated only during the first
+    # 30-90s of an org's life. Powers the live-progress display on the
+    # Generate page; safe to leave NULL on existing rows.
+    generation_stage: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    generation_message: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    generation_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    generation_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    generation_finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     # Murmurations index state
     murmurations_node_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     murmurations_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
