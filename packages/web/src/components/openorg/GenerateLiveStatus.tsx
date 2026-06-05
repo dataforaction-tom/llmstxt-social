@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { GenerateStatusResponse } from '../../api/openorg';
+import { t } from '../../microcopy';
 
 interface GenerateLiveStatusProps {
   status: GenerateStatusResponse;
@@ -49,8 +50,7 @@ export default function GenerateLiveStatus({ status, onTimeout }: GenerateLiveSt
   if (timedOut) {
     return (
       <div className="border-l-2 border-rule bg-paper-2 px-4 py-3 text-sm text-ink">
-        Still working in the background — we'll email you when it's ready, feel
-        free to close this tab.
+        {t('generate.timeout')}
       </div>
     );
   }

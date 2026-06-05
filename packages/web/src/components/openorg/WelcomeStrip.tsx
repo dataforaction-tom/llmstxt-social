@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { t } from '../../microcopy';
 
 interface WelcomeStripProps {
   orgId: string;
@@ -24,17 +25,13 @@ export default function WelcomeStrip({ orgId }: WelcomeStripProps) {
   return (
     <div className="border-l-2 border-ink bg-paper-2 px-4 py-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="max-w-prose text-sm text-ink">
-          Here's your draft — pulled from public data. Have a look, edit anything
-          that's off, and click Publish when you're ready. We've highlighted the
-          first section we'd refine.
-        </p>
+        <p className="max-w-prose text-sm text-ink">{t('welcome.body')}</p>
         <button
           type="button"
           onClick={handleDismiss}
           className="border border-rule px-2 py-0.5 text-xs uppercase tracking-wider text-muted hover:text-ink"
         >
-          Dismiss
+          {t('welcome.dismiss')}
         </button>
       </div>
     </div>

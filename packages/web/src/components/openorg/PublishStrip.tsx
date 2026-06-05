@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PublishBadge } from './PublishToggle';
+import { t } from '../../microcopy';
 
 interface PublishStripProps {
   published: boolean;
@@ -70,10 +71,7 @@ export default function PublishStrip({
 
       {confirming === 'publish' && (
         <div role="region" aria-live="polite" className="border-l-2 border-ink bg-paper-2 px-4 py-3 text-sm">
-          <p>
-            Publish this {noun} to the federated network? Anyone will be able to see it at{' '}
-            <code className="font-mono">{liveUrl}</code>.
-          </p>
+          <p>{t('publish.confirm.prompt', { noun, url: liveUrl })}</p>
           <div className="mt-2 flex gap-2">
             <button
               type="button"
@@ -84,14 +82,14 @@ export default function PublishStrip({
               disabled={busy}
               className="bg-ink px-3 py-1 text-xs uppercase tracking-wider text-paper disabled:opacity-40"
             >
-              Publish
+              {t('publish.confirm.publish')}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(null)}
               className="border border-rule px-3 py-1 text-xs uppercase tracking-wider text-muted hover:text-ink"
             >
-              Not yet
+              {t('publish.confirm.notyet')}
             </button>
           </div>
         </div>
@@ -137,9 +135,11 @@ export default function PublishStrip({
               onClick={handleCopy}
               className="underline decoration-rule underline-offset-2 hover:text-primary-700"
             >
-              Share this profile ↗
+              {t('publish.celebrate.share')}
             </button>
-            {copied && <span className="ml-2 text-xs text-emerald-700">Copied</span>}
+            {copied && (
+              <span className="ml-2 text-xs text-emerald-700">{t('publish.celebrate.copied')}</span>
+            )}
           </p>
         </div>
       )}

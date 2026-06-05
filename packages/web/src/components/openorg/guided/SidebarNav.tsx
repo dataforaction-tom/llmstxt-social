@@ -1,3 +1,5 @@
+import { t } from '../../../microcopy';
+
 export type Tick = '✓' | '●' | '○';
 
 export interface SidebarSectionState {
@@ -54,7 +56,7 @@ export default function SidebarNav({
                 </span>
                 {startHereId === s.id && (
                   <span className="border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted">
-                    Start here
+                    {t('sidebar.starthere')}
                   </span>
                 )}
               </button>
@@ -67,7 +69,7 @@ export default function SidebarNav({
         <div className="kicker">{pct}% done</div>
         {missing.length > 0 && (
           <div className="mt-3">
-            <div className="kicker mb-2">Missing</div>
+            <div className="kicker mb-2">{t('sidebar.missing.heading')}</div>
             <ul className="flex flex-col gap-1">
               {missing.map((s) =>
                 s.missing.map((m) => (

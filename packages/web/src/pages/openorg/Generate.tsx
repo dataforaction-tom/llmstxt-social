@@ -18,6 +18,7 @@ import {
   OpenOrgGenerateError,
 } from '../../api/openorg';
 import GenerateLiveStatus from '../../components/openorg/GenerateLiveStatus';
+import { t } from '../../microcopy';
 
 const CHARITY_NUMBER_RE = /^[0-9]{6,8}$/;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -183,9 +184,7 @@ export default function GeneratePage() {
             </div>
           )}
 
-          <p className="text-xs italic text-muted">
-            We won't publish anything without your say-so.
-          </p>
+          <p className="text-xs italic text-muted">{t('generate.trust')}</p>
 
           <div>
             <button
