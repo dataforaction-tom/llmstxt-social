@@ -184,10 +184,18 @@ class LookupResponse(BaseModel):
 def _format_address(contact: dict | None) -> str | None:
     if not contact:
         return None
-    addr = contact.get("address") or {}
-    parts = [addr.get(k) for k in ("line1", "line2", "line3", "city", "postcode")]
-    cleaned = [p for p in parts if p]
-    return ", ".join(cleaned) if cleaned else None
+    addr = contact.get("address")
+    if not addr:
+        return None
+    # The real CC enricher pre-joins the address into a single string; some
+    # callers/tests pass a component dict. Handle both.
+    if isinstance(addr, str):
+        return addr.strip() or None
+    if isinstance(addr, dict):
+        parts = [addr.get(k) for k in ("line1", "line2", "line3", "city", "postcode")]
+        cleaned = [p for p in parts if p]
+        return ", ".join(cleaned) if cleaned else None
+    return None
 
 
 @router.get(
