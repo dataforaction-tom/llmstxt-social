@@ -3,8 +3,12 @@ import { renderHook, act } from '@testing-library/react';
 import { useAutosave } from './useAutosave';
 
 describe('useAutosave', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('debounces saves by 600ms', async () => {
     const save = vi.fn(async () => undefined);

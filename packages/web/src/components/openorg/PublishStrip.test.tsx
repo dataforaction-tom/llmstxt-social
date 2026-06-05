@@ -37,8 +37,12 @@ describe('PublishStrip (unpublished)', () => {
 });
 
 describe('PublishStrip (celebration)', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('shows the celebration row when justPublishedAt is recent', () => {
     render(

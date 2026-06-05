@@ -3,8 +3,12 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import SaveIndicator from './SaveIndicator';
 
 describe('SaveIndicator', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('renders Saving while in flight', () => {
     render(<SaveIndicator state="saving" />);

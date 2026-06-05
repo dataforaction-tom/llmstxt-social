@@ -32,7 +32,7 @@ describe('EditorShell', () => {
 
   it('autosaves the guided surface after a debounce window', async () => {
     vi.useFakeTimers();
-    const onSave = vi.fn(async () => undefined);
+    const onSave = vi.fn<[string], Promise<unknown>>(async () => undefined);
     render(
       <EditorShell
         kind="profile"

@@ -91,7 +91,7 @@ function renderField(
     );
   }
   if (field.kind === 'pills') {
-    const options = (field.vocab && vocabs[field.vocab]) ?? [];
+    const options = (field.vocab ? vocabs[field.vocab] : undefined) ?? [];
     const arr: string[] = Array.isArray(value)
       ? (value as string[])
       : typeof value === 'string' && value
