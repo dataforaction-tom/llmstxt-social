@@ -1,3 +1,128 @@
+# Handoff — Editor-polish PR 5 + PR 6 complete; PR 7 is all that remains
+
+> Session ended: 2026-06-05
+> Branch: `editor-polish-pr5-generate` (name is historical — it now carries **PR 1 through PR 6**, all stacked)
+> Picks up from: the editor-polish plan (`docs/superpowers/plans/2026-05-19-openorg-editor-polish.md`)
+> Resumes at: **PR 7 — Keyboard + motion polish (tasks 7.1–7.2)**, the final PR; or push/PR the stack
+
+## TL;DR
+
+This session resumed mid-PR-5 (task 5.4 was already committed). Completed the rest of **PR 5** (live Generate progress) and all of **PR 6** (claim redirect + WelcomeStrip + microcopy). Both PRs are green. Along the way, fixed two pre-existing breakages the earlier PRs had left on the branch.
+
+- **PR 5 (5.5–5.8)** — `lookupCharity` + `useGenerateStatus` client hooks; `GenerateLiveStatus` component; `Generate.tsx` wired to inline charity-name lookup + live status polling; PR gate green.
+- **PR 6 (6.1–6.5)** — `claim_org_id` on `AuthResponse` + verify endpoint; post-claim verify redirects to `/openorg/edit/{orgId}/profile` and sets the `openorg.welcomeStrip.{orgId}=pending` flag; `WelcomeStrip` one-time strip; WelcomeStrip + "Start here" wired into `EditProfile`; `microcopy.ts` central string module with a sweep across 6 components.
+
+## Two pre-existing fixes made to unblock the PR-5 gate
+
+1. **`fix(web): restore green tsc build` (`6d27286`)** — PRs 2–4 left `tsc`/`npm run build` RED (it had gone unnoticed because backend-only tasks 5.1–5.4 never re-ran the JS gate). Causes: `tsconfig` targeted ES2020 but tests use `Array.at()` (→ bumped target+lib to **ES2022**, user-approved); `beforeEach(() => vi.useFakeTimers())` arrows leaked vi's return type (→ block bodies); `Section.tsx` pill `options` leaked an empty-string case past `?? []`; an untyped `vi.fn()` mock in `EditorShell.test.tsx`.
+2. **`test(openorg): cover new generation status columns` (`f94d1ca`)** — task 5.1 added 5 columns to `OrgProfile` (`generation_stage/message/payload/started_at/finished_at`) but didn't update the structural test `test_org_profile_columns`.
+
+## Microcopy sweep — one intentional trade-off to know about
+
+The 6.5 sweep flattens two micro-details into plain strings (the plan specifies `t(...)` calls for both): the publish-confirm URL is no longer wrapped in `<code>`, and `⌘S` in the "Unsaved" hint is no longer in a mono `<span>`. Tests stay green and visible text is unchanged. Restore the styling later if desired (keep the JSX structure, source only the words from microcopy).
+
+## State at handoff
+
+- Branch `editor-polish-pr5-generate` is **45 commits ahead of `master`** — all of PR 1–6 stacked on one branch (the per-PR-branch plan was never followed; the original git-auth block meant nothing was ever pushed/merged).
+- **`gh` auth now WORKS** (`dataforaction-tom`) — the earlier block is cleared. Nothing pushed yet **by user choice** this session.
+- All gates green: web `tsc` clean · `npm run lint` exit 0 · **119 vitest pass (31 files)** · `npm run build` exit 0. Backend: **281 core + 179 api = 460 pass** (run via `/Users/tomcwxyz/llmstxt-local/.venv` — Python 3.11, both packages installed).
+- Working tree: this HANDOFF.md edit + `.superpowers/` (untracked) are the only non-committed items.
+
+## How to resume
+
+Option A — **finish the plan (PR 7)**: tasks 7.1 (Cmd/Ctrl+S save on both surfaces; `j`/`k` section nav + Enter-to-focus in `GuidedEditor`) and 7.2 (`motion.ts` timing constants + `prefers-reduced-motion` audit). Plan has exact tests + code at lines ~5817–6076. Note 7.2 Step 4 is a **manual browser reduced-motion smoke check** — can't run headlessly.
+
+Option B — **push the stack**: `git push -u origin editor-polish-pr5-generate`, open ONE PR to `master` bundling PR 1–6 (call out the bundling + the two fix commits `6d27286`/`f94d1ca` in the body). Then optionally do PR 7 as a follow-up off the updated master.
+
+## Verification commands
+
+```bash
+cd packages/web && npx tsc --noEmit && npx vitest run && npm run lint && npm run build
+# backend (Python 3.11 venv already set up):
+cd packages/api  && /Users/tomcwxyz/llmstxt-local/.venv/bin/python -m pytest tests/ -q   # 179
+cd packages/core && /Users/tomcwxyz/llmstxt-local/.venv/bin/python -m pytest tests/ -q   # 281
+```
+
+(The `npm run build` tail line "build was canceled / Vite server closed" is a cosmetic prerender-server shutdown artifact — exit code is 0; the sitemap step runs after it and succeeds.)
+
+---
+
+> NOTE: everything below is the PRIOR PR-1 handoff (2026-06-01) and the Phase-1 handoff (2026-05-12). Kept for historical context.
+
+---
+
+# Handoff — Editor-polish PR 1 verified + lint debt cleared; BLOCKED on git auth
+
+> Session ended: 2026-06-01
+> Branch: `editor-polish-pr1-bridge` (off `master`)
+> Picks up from: the editor-polish plan (`docs/superpowers/plans/2026-05-19-openorg-editor-polish.md`) — PR 1 of 7
+> Resumes at: push + open PR + merge PR 1 (blocked on auth), then PR 2 (Field components)
+
+## TL;DR
+
+PR 1 of the 7-PR editor-polish plan (a dual-surface Guided + Markdown editor for the four Open Org flows) was already implemented on `editor-polish-pr1-bridge` before this session (commits `8edeb2c`..`dc778c8`): `bridge.ts` (per-section markdown splicer) + three section-spec files (`profile.ts`/`strategy.ts`/`idea.ts`) + `js-yaml` dep. No UI yet — this is the contract the Guided editor (PRs 2–4) is built on.
+
+This session:
+1. **Verified PR 1 green** — `tsc` clean, 22 guided tests (53 total) pass, `npm run build` exits 0.
+2. **Cleared pre-existing lint debt** so `npm run lint` (which runs `--max-warnings 0`) passes — it was red from 17 errors + 10 warnings predating this branch, which would block any CI keyed on the lint gate. Commit **`1fee161`** `fix(web): clear pre-existing eslint failures across web package`.
+
+## State at handoff
+
+- Branch `editor-polish-pr1-bridge` = PR 1 feature work + commit `1fee161` (lint cleanup) on top.
+- All gates green: `tsc` clean · 53/53 vitest · `npm run lint` exit 0 · `npm run build` exit 0.
+- **Nothing pushed. No PR. Not merged.** Both auth paths are down:
+  - SSH push → `Permission denied (publickey)`
+  - `gh` → token invalid (`gh auth status` fails)
+- **No backend changes this branch** (`api`/`core`/`cli` untouched) → no migration/deploy risk.
+- New `guided/` modules + `js-yaml` are imported by **nothing in the app** → tree-shaken out of the production bundle → zero runtime impact on either host. llmstxt-social renders identically.
+
+## On commit `1fee161` (the lint cleanup) — call this out in the PR description
+
+It touches 9 existing files, 6 of which are on the **shared llmstxt-social path**: `App.tsx`, `AuthContext.tsx`, `PaymentFlow.tsx`, `SubscriptionFlow.tsx`, `pages/Generate.tsx`, `SchemaScript.tsx` (the other 3 are openorg-only: `openorg.ts`, `MarkdownEditor.tsx`, `Create.tsx`). All changes are **behavior-preserving**:
+- `Create.tsx` — real `react-hooks/rules-of-hooks` bug fixed: 9 `useState` + `useRef` + `useEffect` were running *after* an early return; hoisted all hooks above the URL guard.
+- `AuthContext`/`openorg.ts`/`MarkdownEditor` — `any` → `unknown`/precise types.
+- `openorg.ts` — `while (true)` SSE reader → flagged loop.
+- `SubscriptionFlow` — static caption was a `<label>` with no control → `<div>`.
+- `Generate.tsx` — radiogroup made focusable (`tabIndex`).
+- `PaymentFlow` — depend on the stable `mutate` ref (avoids the render loop that adding the whole mutation object would cause).
+- `App`/`SchemaScript`/`AuthContext` — targeted `eslint-disable` for the HMR-only `react-refresh/only-export-components` rule on idiomatic co-located exports (user chose suppress over file-split).
+
+User decided: **keep the lint cleanup bundled in PR 1 and just call it out in the PR description** (do NOT split into a separate PR). Reviewer should focus on `1fee161`, not the inert feature code.
+
+## How to resume (BLOCKED — do this first)
+
+Git auth is broken. Have the user restore it, e.g.:
+```
+! gh auth login        # GitHub.com → HTTPS → browser; yes to "authenticate Git"
+```
+(or `! gh auth refresh`, or fix SSH via `! ssh-add ~/.ssh/id_ed25519`).
+
+Then, once push access is back:
+1. `git push -u origin editor-polish-pr1-bridge`
+2. Open the PR against `master`. Title e.g. `feat(openorg): guided-editor bridge + section specs (PR 1)`. **Body must call out** that it also carries a behavior-preserving lint cleanup of shared llmstxt-social files (see commit `1fee161` above), verified by `tsc` + 53 tests + build.
+3. Merge into `master`.
+4. Branch `editor-polish-pr2-fields` off the updated `master` and start **PR 2 — Field components (T2.1–T2.5)** per the plan.
+
+## Verification commands (web)
+
+```bash
+cd packages/web
+npx tsc --noEmit          # clean
+npx vitest run            # 53/53
+npm run lint              # exit 0 (was 17 errors + 10 warnings before 1fee161)
+npm run build             # exit 0 ("build was canceled / Vite server closed" tail line is a cosmetic prerender-server shutdown artifact — exit code is 0)
+```
+
+## How to test the Open Org generator locally (existing feature, unaffected)
+
+Domain: **`openorg.good-ship.co.uk`** (prod, may not be live yet — prod rebuild is still an open action item below). Local: `localhost:5173/openorg/generate`. Single Vite build + single FastAPI process serve both this and `llmstxt.social`, route tree chosen by `window.location.hostname`. Full click-through in `LOCAL.md` (needs `.env` with `ANTHROPIC_API_KEY` + `CHARITY_COMMISSION_API_KEY`; magic-link/claim emails print to API/worker stdout in dev).
+
+---
+
+> NOTE: everything below is the PRIOR Phase-1 handoff (2026-05-12). Kept for historical context — its action items (prod rebuild, DNS, env vars, key rotation, Murmurations upstream PR) are still open.
+
+---
+
 # Handoff — Phase 1 spec-complete; security blockers patched; ready for production rebuild
 
 > Session ended: 2026-05-12
