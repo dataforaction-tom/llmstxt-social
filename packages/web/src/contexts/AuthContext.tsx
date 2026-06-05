@@ -13,7 +13,12 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
-  verifyToken: (token: string) => Promise<{ success: boolean; user?: User; message: string }>;
+  verifyToken: (token: string) => Promise<{
+    success: boolean;
+    user?: User;
+    message: string;
+    claimOrgId?: string | null;
+  }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,13 +54,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const verifyToken = async (token: string): Promise<{ success: boolean; user?: User; message: string }> => {
+  const verifyToken = async (token: string): Promise<{
+    success: boolean;
+    user?: User;
+    message: string;
+    claimOrgId?: string | null;
+  }> => {
     setVerifying(true);
     try {
       const response = await apiClient.verifyMagicLink(token);
       // Refetch auth status after successful verification
       await refetch();
-      return { success: true, user: response.user, message: response.message };
+      return {
+        success: true,
+        user: response.user,
+        message: response.message,
+        claimOrgId: response.claim_org_id ?? null,
+      };
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { detail?: string } } }).response?.data?.detail ||

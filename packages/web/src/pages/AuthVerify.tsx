@@ -12,6 +12,7 @@ export default function AuthVerifyPage() {
   const { verifyToken, isAuthenticated } = useAuth();
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [errorMessage, setErrorMessage] = useState('');
+  const [redirectTo, setRedirectTo] = useState<string>('/dashboard');
 
   const token = searchParams.get('token');
 
@@ -25,6 +26,13 @@ export default function AuthVerifyPage() {
 
       const result = await verifyToken(token);
       if (result.success) {
+        if (result.claimOrgId) {
+          window.localStorage.setItem(
+            `openorg.welcomeStrip.${result.claimOrgId}`,
+            'pending',
+          );
+          setRedirectTo(`/openorg/edit/${result.claimOrgId}/profile`);
+        }
         setStatus('success');
       } else {
         setStatus('error');
@@ -35,9 +43,10 @@ export default function AuthVerifyPage() {
     verify();
   }, [token, verifyToken]);
 
-  // Redirect to dashboard after successful login
+  // Redirect after successful login — to the org editor for claim links,
+  // otherwise to the dashboard.
   if (status === 'success' || isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   return (

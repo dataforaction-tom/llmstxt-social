@@ -159,6 +159,9 @@ export interface User {
 export interface AuthResponse {
   user: User;
   message: string;
+  // Set when the magic-link token was a claim token; drives the post-claim
+  // redirect into the org's editor.
+  claim_org_id?: string | null;
 }
 
 export interface AuthCheckResponse {
