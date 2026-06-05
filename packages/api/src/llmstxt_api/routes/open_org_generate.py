@@ -17,10 +17,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import re as _re
+
+from llmstxt_api.config import settings
 from llmstxt_api.database import get_db
 from llmstxt_api.open_org_models import OrgProfile
 from llmstxt_api.services.llm_usage import is_within_daily_budget
 from llmstxt_api.tasks.open_org_generate import generate_open_org_profile_task
+from llmstxt_core.enrichers.charity_commission import fetch_charity_data
 
 
 router = APIRouter(prefix="/api/open-org", tags=["open-org"])
@@ -168,11 +172,60 @@ async def generate_status(
     )
 
 
+_NUMBER_RE = _re.compile(r"^[0-9]{6,8}$")
+
+
+class LookupResponse(BaseModel):
+    number: str
+    name: str
+    registered_address: str | None
+
+
+def _format_address(contact: dict | None) -> str | None:
+    if not contact:
+        return None
+    addr = contact.get("address") or {}
+    parts = [addr.get(k) for k in ("line1", "line2", "line3", "city", "postcode")]
+    cleaned = [p for p in parts if p]
+    return ", ".join(cleaned) if cleaned else None
+
+
+@router.get(
+    "/lookup/{number}",
+    response_model=LookupResponse,
+)
+async def lookup_charity(number: str) -> LookupResponse:
+    """Look up a UK charity by registration number.
+
+    Powers the inline "Match: <name>" reassurance line on the Generate page.
+    Cached weakly upstream by the CC enricher; this endpoint adds no extra
+    caching beyond what the enricher already provides.
+    """
+    if not _NUMBER_RE.match(number):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="number must be 6-8 digits",
+        )
+    cd = await fetch_charity_data(number, api_key=settings.charity_commission_api_key)
+    if cd is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="charity not found",
+        )
+    return LookupResponse(
+        number=cd.number,
+        name=cd.name,
+        registered_address=_format_address(cd.contact),
+    )
+
+
 __all__ = [
     "GenerateRequest",
     "GenerateResponse",
     "GenerateStatusResponse",
+    "LookupResponse",
     "generate_profile",
     "generate_status",
+    "lookup_charity",
     "router",
 ]
