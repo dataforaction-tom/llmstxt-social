@@ -120,4 +120,59 @@ async def generate_profile(
     )
 
 
-__all__ = ["GenerateRequest", "GenerateResponse", "generate_profile", "router"]
+class GenerateStatusResponse(BaseModel):
+    org_id: str
+    status: str
+    stage: str | None
+    message: str | None
+    payload: dict | None
+    elapsed_ms: int
+
+
+@router.get(
+    "/generate/{org_id}/status",
+    response_model=GenerateStatusResponse,
+)
+async def generate_status(
+    org_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> GenerateStatusResponse:
+    """Live polling endpoint for the Generate.tsx live progress display.
+
+    Unauthenticated — see spec section 1. The page polls every 2s during
+    the 30-90s generation window.
+    """
+    result = await db.execute(select(OrgProfile).where(OrgProfile.org_id == org_id))
+    row = result.scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="org not found")
+
+    started = row.generation_started_at
+    finished = row.generation_finished_at
+    from datetime import datetime as _dt
+
+    if finished is not None and started is not None:
+        elapsed = int((finished - started).total_seconds() * 1000)
+    elif started is not None:
+        elapsed = int((_dt.utcnow() - started).total_seconds() * 1000)
+    else:
+        elapsed = 0
+
+    return GenerateStatusResponse(
+        org_id=row.org_id,
+        status=row.generation_status,
+        stage=row.generation_stage,
+        message=row.generation_message,
+        payload=row.generation_payload,
+        elapsed_ms=elapsed,
+    )
+
+
+__all__ = [
+    "GenerateRequest",
+    "GenerateResponse",
+    "GenerateStatusResponse",
+    "generate_profile",
+    "generate_status",
+    "router",
+]
