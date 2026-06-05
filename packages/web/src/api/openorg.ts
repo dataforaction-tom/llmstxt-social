@@ -740,3 +740,43 @@ function parseSseFrame(frame: string): { name: string; data: Record<string, unkn
     return null;
   }
 }
+
+export interface LookupResponse {
+  number: string;
+  name: string;
+  registered_address: string | null;
+}
+
+export async function lookupCharity(number: string): Promise<LookupResponse> {
+  const { data } = await api.get(`/api/open-org/lookup/${number}`);
+  return data;
+}
+
+export interface GenerateStatusResponse {
+  org_id: string;
+  status: 'pending' | 'generating' | 'ready' | 'failed';
+  stage: string | null;
+  message: string | null;
+  payload: { themes_count?: number; programmes_count?: number; has_summary?: boolean } | null;
+  elapsed_ms: number;
+}
+
+export async function getGenerateStatus(orgId: string): Promise<GenerateStatusResponse> {
+  const { data } = await api.get(`/api/open-org/generate/${orgId}/status`);
+  return data;
+}
+
+export function useGenerateStatus(orgId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['openorg', 'generate-status', orgId],
+    queryFn: () => getGenerateStatus(orgId),
+    enabled: enabled && Boolean(orgId),
+    refetchInterval: (q) => {
+      const data = q.state.data;
+      if (!data) return 2_000;
+      if (data.status === 'ready' || data.status === 'failed') return false;
+      return 2_000;
+    },
+    retry: false,
+  });
+}
