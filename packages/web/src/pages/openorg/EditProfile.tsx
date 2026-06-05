@@ -21,6 +21,8 @@ import {
 } from '../../api/openorg';
 import EditorShell from '../../components/openorg/EditorShell';
 import PublishStrip from '../../components/openorg/PublishStrip';
+import WelcomeStrip from '../../components/openorg/WelcomeStrip';
+import { computeTickStates } from '../../components/openorg/guided/tickState';
 import { PROFILE_SECTIONS } from '../../components/openorg/guided/sections/profile';
 import { STATIC_VOCABS } from '../../components/openorg/guided/vocabs';
 import { useThemes } from '../../api/openorg';
@@ -102,6 +104,18 @@ export default function EditProfilePage() {
   const mutating = publish.isPending || unpublish.isPending;
   const liveUrl = `https://openorg.good-ship.co.uk/openorg/${orgId}`;
 
+  // "Start here" badge: while the welcome strip is pending, point the freshly
+  // claimed owner at the first partially-filled section (●), else the first
+  // empty one (○). Computed only when relevant so we don't badge every visit.
+  const source = profile.data?.markdown ?? '';
+  const welcomePending =
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem(`openorg.welcomeStrip.${orgId}`) === 'pending';
+  const startHereId = welcomePending
+    ? computeTickStates(source, PROFILE_SECTIONS).find((s) => s.tick === '●')?.id ??
+      computeTickStates(source, PROFILE_SECTIONS).find((s) => s.tick === '○')?.id
+    : undefined;
+
   return (
     <div className="surface-paper min-h-screen">
       <div className="mx-auto max-w-6xl px-6 py-10">
@@ -135,9 +149,10 @@ export default function EditProfilePage() {
           )}
         </header>
 
+        <WelcomeStrip orgId={orgId} />
         <EditorShell
           kind="profile"
-          initialSource={profile.data?.markdown ?? ''}
+          initialSource={source}
           sections={PROFILE_SECTIONS}
           onSave={handleSave}
           vocabs={{
@@ -147,6 +162,7 @@ export default function EditProfilePage() {
           saving={save.isPending}
           validationErrors={validationErrors}
           saveLabel="Save profile"
+          startHereId={startHereId}
         />
 
         <HistoryPanel
