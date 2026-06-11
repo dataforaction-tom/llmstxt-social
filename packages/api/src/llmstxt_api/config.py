@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str
     stripe_monitoring_price_id: str | None = None
 
+    # One-time payments kill switch. When False (the default) the free
+    # endpoint runs the full pipeline (enrichment + assessment) and the
+    # one-time payment endpoints return 403. Monitoring subscriptions are
+    # NOT affected — they stay paid via Stripe regardless of this flag.
+    payments_enabled: bool = False
+
     # Resend
     resend_api_key: str
     from_email: str = "llmstxt <onboarding@resend.dev>"

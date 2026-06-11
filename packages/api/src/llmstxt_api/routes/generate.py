@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from llmstxt_api.config import settings
 from llmstxt_api.database import get_db
 from llmstxt_api.models import GenerationJob, User
 from llmstxt_api.schemas import (
@@ -42,12 +43,13 @@ async def generate_free(
     Generate llms.txt (free tier).
 
     - Rate limited to 10 requests per day per IP
-    - No enrichment data
-    - No quality assessment
     - Result expires after 7 days
+    - When PAYMENTS_ENABLED is false (default), runs the full pipeline
+      (enrichment + quality assessment); otherwise basic generation only
     """
-    # TODO: Check rate limit based on IP
-    client_ip = http_request.client.host
+    # Per-IP daily rate limiting is enforced by RateLimitMiddleware (see
+    # llmstxt_api.middleware.rate_limit) — important cost control now that
+    # this endpoint can trigger the LLM-backed full pipeline.
 
     # Apply defaults for sector and goal
     sector = request.sector or DEFAULT_SECTOR
@@ -69,8 +71,14 @@ async def generate_free(
     await db.commit()
     await db.refresh(job)
 
-    # Queue background task
-    generate_free_task.delay(str(job.id), str(request.url), request.template, sector, goal)
+    # Queue background task. With one-time payments disabled, the free tier
+    # gets the full pipeline (enrichment + assessment) — same rate limit and
+    # 7-day expiry, just no gate. generate_paid_task only needs the job id
+    # and generation params; it never reads payment fields.
+    if settings.payments_enabled:
+        generate_free_task.delay(str(job.id), str(request.url), request.template, sector, goal)
+    else:
+        generate_paid_task.delay(str(job.id), str(request.url), request.template, sector, goal)
 
     return JobResponse.model_validate(job)
 
@@ -90,6 +98,13 @@ async def generate_paid(
     - Result valid for 30 days
     - Links to user account if authenticated (viewable in dashboard)
     """
+    # Kill switch: refuse before touching the DB or Stripe. The free
+    # endpoint already provides the full pipeline while this is off.
+    if not settings.payments_enabled:
+        raise HTTPException(
+            status_code=403, detail="One-time payments are currently disabled"
+        )
+
     # Check for duplicate job with same payment_intent_id
     existing_job = await db.execute(
         select(GenerationJob).where(
@@ -186,10 +201,11 @@ async def list_user_assessments(
     user: User = Depends(require_auth),
 ):
     """
-    List paid assessments for the authenticated user.
+    List assessments for the authenticated user.
 
-    Returns completed paid-tier generation jobs that haven't expired.
-    These are the one-off £9 assessments stored for 30 days.
+    Returns completed generation jobs with an assessment that haven't
+    expired — any tier, since the full pipeline is free while one-time
+    payments are disabled.
     """
     now = datetime.utcnow()
 
@@ -197,7 +213,7 @@ async def list_user_assessments(
         select(GenerationJob)
         .where(
             GenerationJob.user_id == user.id,
-            GenerationJob.tier == "paid",
+            GenerationJob.assessment_json.is_not(None),
             GenerationJob.status == "completed",
             GenerationJob.expires_at > now,
         )

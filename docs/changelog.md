@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **Full generation is now free** — every generation includes data enrichment (Charity Commission, 360Giving) and the AI-powered quality assessment, at no cost. The limit of 10 generations per day still applies, and results are stored for 7 days.
+- **The £9 one-time tier has been withdrawn** — there's no longer anything to pay for on a one-off generation, so the tier selector and payment step are gone. Monitoring subscriptions (£9/month) are unchanged.
+- **Your dashboard now lists every assessed generation** — previously only paid generations appeared; now any generation with a quality assessment linked to your account shows up.
 - **Streamlined deployment configuration** — removed outdated settings from the deployment files for a cleaner setup
 
 ## 2024-12 — SEO and AI visibility improvements

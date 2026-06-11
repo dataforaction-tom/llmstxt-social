@@ -42,6 +42,7 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
       STRIPE_MONITORING_PRICE_ID: ${STRIPE_MONITORING_PRICE_ID:-price_dummy}
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
       RESEND_API_KEY: ${RESEND_API_KEY:-re_dummy}
       SECRET_KEY: dev-secret-key-change-in-production
       ENVIRONMENT: development
@@ -76,6 +77,7 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
       STRIPE_MONITORING_PRICE_ID: ${STRIPE_MONITORING_PRICE_ID:-price_dummy}
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
       RESEND_API_KEY: ${RESEND_API_KEY:-re_dummy}
       SECRET_KEY: dev-secret-key-change-in-production
       ENVIRONMENT: development
@@ -102,6 +104,7 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_dummy}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
       STRIPE_MONITORING_PRICE_ID: ${STRIPE_MONITORING_PRICE_ID:-price_dummy}
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
       RESEND_API_KEY: ${RESEND_API_KEY:-re_dummy}
       SECRET_KEY: dev-secret-key-change-in-production
       ENVIRONMENT: development
@@ -121,6 +124,7 @@ services:
     environment:
       VITE_API_URL: http://localhost:8000
       VITE_STRIPE_PUBLIC_KEY: ${VITE_STRIPE_PUBLIC_KEY:-pk_test_dummy}
+      VITE_PAYMENTS_ENABLED: ${VITE_PAYMENTS_ENABLED:-false}
     volumes:
       - ./packages/web:/app
       - /app/node_modules

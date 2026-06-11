@@ -4,44 +4,32 @@ This guide covers everything you need to know about using llmstxt-social to gene
 
 ## Generating your llms.txt file
 
-### Free generation
-
-You can generate a basic llms.txt file at no cost:
+Generation is free, and every generation includes the full treatment — data enrichment from official sources and an AI-powered quality assessment:
 
 1. Go to the **Generate** page
 2. Enter your organisation's website URL
 3. Choose your **organisation type** — charity, funder, public sector, or startup
 4. Select the **sector** and **primary goal** that best describe your work
-5. Click **Generate Free**
+5. Click **Generate**
 
 You'll see real-time progress as the system crawls your website, extracts content, and generates your file. Once complete, you can preview the result and download it.
 
-Free generation is limited to 10 per day and does not include data enrichment or quality assessment.
-
-### Paid generation
-
-For a one-off payment of £9, you get a more thorough result:
-
-1. Follow the same steps as above, but select the **Paid** tier
-2. Click **Generate (Proceed to Payment)**
-3. Enter your card details in the secure payment form (powered by Stripe)
-4. Once payment is confirmed, generation begins automatically
-
-Paid generation includes everything in the free tier, plus:
+Every generation includes:
 
 - **Enrichment data** from official sources (see below)
 - **Quality assessment** with scores, grades, and recommendations
 - **Website gap analysis** highlighting missing information
-- Results are available for 30 days, during which you can revisit them
+
+Generation is limited to 10 per day, and results are available for 7 days — download your file once you're happy with it.
 
 ### Understanding your results
 
 After generation completes, you'll see:
 
 - **Your llms.txt file** — ready to download and upload to your website's root directory
-- **Quality scores** (paid tier) — an overall score out of 100, plus separate completeness and quality grades from A to F
-- **Recommendations** (paid tier) — specific, actionable suggestions for improving your AI visibility
-- **Enrichment data** (paid tier) — official information cross-referenced from external sources
+- **Quality scores** — an overall score out of 100, plus separate completeness and quality grades from A to F
+- **Recommendations** — specific, actionable suggestions for improving your AI visibility
+- **Enrichment data** — official information cross-referenced from external sources
 
 ## Organisation types and templates
 
@@ -49,11 +37,11 @@ llmstxt-social uses specialised templates for different types of organisation. E
 
 ### Charity
 
-Designed for UK charities and voluntary, community, and social enterprise (VCSE) organisations. The template focuses on your charitable objects, services, beneficiaries, and impact. If your charity is registered with the Charity Commission, paid generation will automatically pull in official data including registration details, financial information, and trustee names.
+Designed for UK charities and voluntary, community, and social enterprise (VCSE) organisations. The template focuses on your charitable objects, services, beneficiaries, and impact. If your charity is registered with the Charity Commission, generation will automatically pull in official data including registration details, financial information, and trustee names.
 
 ### Funder
 
-Built for foundations, trusts, and grant-making bodies. The template highlights your funding programmes, eligibility criteria, application processes, and grant-making priorities. Paid generation enriches your profile with data from 360Giving, including grant amounts, geographic distribution, and funding trends.
+Built for foundations, trusts, and grant-making bodies. The template highlights your funding programmes, eligibility criteria, application processes, and grant-making priorities. Generation enriches your profile with data from 360Giving, including grant amounts, geographic distribution, and funding trends.
 
 ### Public sector
 
@@ -69,7 +57,7 @@ Within each organisation type, you can select a more specific **sector** (such a
 
 ## Data enrichment
 
-Paid generation automatically enriches your llms.txt with data from trusted external sources:
+Every generation automatically enriches your llms.txt with data from trusted external sources:
 
 ### Charity Commission (for charities)
 
@@ -96,7 +84,7 @@ This gives AI systems a richer picture of your grant-making activity.
 
 ## Quality assessment
 
-Every paid generation includes a detailed quality assessment. This tells you how well your llms.txt represents your organisation and where there's room to improve.
+Every generation includes a detailed quality assessment. This tells you how well your llms.txt represents your organisation and where there's room to improve.
 
 ### Scores and grades
 
@@ -120,13 +108,13 @@ llmstxt-social uses passwordless sign-in:
 2. Check your inbox for a magic link
 3. Click the link to sign in — no password needed
 
-Once signed in, your paid generations and subscriptions are linked to your account, and you can access them from the dashboard.
+Once signed in, your subscriptions and assessed generations are linked to your account, and you can access them from the dashboard.
 
 ## Dashboard
 
 After signing in, the dashboard shows:
 
-- **Your generations** — all paid generations linked to your account, with their status and results
+- **Your generations** — all assessed generations linked to your account, with their status and results
 - **Active subscriptions** — any URLs you're monitoring with a subscription
 - **Monitoring history** — a record of changes detected on your monitored sites
 

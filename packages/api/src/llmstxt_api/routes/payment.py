@@ -31,6 +31,13 @@ async def create_payment_intent(request: CreatePaymentIntentRequest):
 
     Returns client_secret for frontend to complete payment.
     """
+    # Kill switch for one-time payments. The webhook below stays live —
+    # monitoring subscriptions depend on it and are not gated by this flag.
+    if not settings.payments_enabled:
+        raise HTTPException(
+            status_code=403, detail="One-time payments are currently disabled"
+        )
+
     try:
         # Calculate amount (could vary by template in future)
         amount = 900  # £9.00 in pence for one-time assessment
