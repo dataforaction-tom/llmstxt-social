@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import SEOHead from '../components/SEOHead';
 import SchemaScript, { generateFAQSchema, generateProductSchema } from '../components/SchemaScript';
+import { paymentsEnabled } from '../config/payments';
 
-const pricingFAQs = [
+const paidModeFAQs = [
   {
     question: "What's included in the free tier?",
     answer: "The free tier gives you basic llms.txt generation for any UK social sector organisation. You can generate up to 10 files per day, but they won't include quality assessment or enrichment data from external sources."
@@ -30,15 +31,49 @@ const pricingFAQs = [
   },
 ];
 
+const freeModeFAQs = [
+  {
+    question: "What's included in the free tier?",
+    answer: "Everything: full llms.txt generation with AI-powered quality assessment and enrichment data from external sources. You can generate up to 10 files per day and results are stored for 7 days.",
+  },
+  {
+    question: "What is enrichment data?",
+    answer: "Enrichment data includes official information from the Charity Commission (for charities) and 360Giving (for funders). This adds verified details about registration numbers, financial data, and grant history to your llms.txt file.",
+  },
+  {
+    question: "How does the quality assessment work?",
+    answer: "Our AI-powered assessment analyzes your llms.txt file for completeness, clarity, and compliance with the specification. You'll receive a detailed report with scores, findings, and actionable recommendations to improve your file.",
+  },
+  {
+    question: "What does the subscription add?",
+    answer: "The subscription (£9/month) includes automatic monitoring — we'll regenerate your llms.txt whenever your website changes, notify you of updates, and keep a change history in your dashboard.",
+  },
+  {
+    question: "Can I use this for multiple organisations?",
+    answer: "Yes! Each generation is per URL, so you can generate llms.txt files for as many organisations as you need, within the daily limit.",
+  },
+  {
+    question: "Do you support organisations outside the UK?",
+    answer: "Currently, we specialize in UK social sector organisations (charities, funders, public sector). Our enrichment integrations are UK-specific (Charity Commission, 360Giving). However, the basic generation works for any organisation worldwide.",
+  },
+];
+
 export default function PricingPage() {
+  const payments = paymentsEnabled();
+  const faqs = payments ? paidModeFAQs : freeModeFAQs;
+
   return (
     <>
       <SEOHead
         title="Pricing"
         canonicalPath="/pricing"
-        description="Simple, transparent pricing for llms.txt generation. Free tier for basic generation, £9 one-time for full assessment, or £9/month for automated monitoring."
+        description={
+          payments
+            ? 'Simple, transparent pricing for llms.txt generation. Free tier for basic generation, £9 one-time for full assessment, or £9/month for automated monitoring.'
+            : 'llms.txt generation with full AI assessment is free. Add automated monitoring for £9/month.'
+        }
       />
-      <SchemaScript schema={generateFAQSchema(pricingFAQs)} />
+      <SchemaScript schema={generateFAQSchema(faqs)} />
       <SchemaScript schema={generateProductSchema()} />
       <div className="bg-gray-50 py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -47,59 +82,89 @@ export default function PricingPage() {
             Simple, Transparent Pricing
           </h1>
           <p className="text-xl text-gray-600">
-            Choose the tier that works for your organization
+            {payments
+              ? 'Choose the tier that works for your organization'
+              : 'Generation with full assessment is free — add monitoring if you want it'}
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto" role="list" aria-label="Pricing tiers">
-          {/* Free Tier */}
-          <PricingCard
-            name="Free"
-            price="£0"
-            period=""
-            description="Try it out with basic generation"
-            features={[
-              '10 generations per day',
-              'All 4 templates',
-              'Basic llms.txt generation',
-              'No enrichment data',
-              'No quality assessment',
-              'Results expire after 7 days',
-            ]}
-            cta="Get Started Free"
-            ctaLink="/generate"
-            highlighted={false}
-          />
+        <div
+          className={`grid gap-8 mx-auto ${payments ? 'md:grid-cols-3 max-w-6xl' : 'md:grid-cols-2 max-w-4xl'}`}
+          role="list"
+          aria-label="Pricing tiers"
+        >
+          {payments ? (
+            <>
+              {/* Free Tier */}
+              <PricingCard
+                name="Free"
+                price="£0"
+                period=""
+                description="Try it out with basic generation"
+                features={[
+                  '10 generations per day',
+                  'All 4 templates',
+                  'Basic llms.txt generation',
+                  'No enrichment data',
+                  'No quality assessment',
+                  'Results expire after 7 days',
+                ]}
+                cta="Get Started Free"
+                ctaLink="/generate"
+                highlighted={false}
+              />
 
-          {/* Paid Tier */}
-          <PricingCard
-            name="Paid"
-            price="£9"
-            period="one-time"
-            description="Full generation with assessment"
-            features={[
-              'All 4 templates',
-              'Charity Commission enrichment',
-              '360Giving data for funders',
-              'Full quality assessment',
-              'AI-powered analysis',
-              'Website gap detection',
-              'JSON + Markdown reports',
-              'Valid for 30 days',
-            ]}
-            cta="Generate with Assessment"
-            ctaLink="/generate"
-            highlighted={true}
-          />
+              {/* Paid Tier */}
+              <PricingCard
+                name="Paid"
+                price="£9"
+                period="one-time"
+                description="Full generation with assessment"
+                features={[
+                  'All 4 templates',
+                  'Charity Commission enrichment',
+                  '360Giving data for funders',
+                  'Full quality assessment',
+                  'AI-powered analysis',
+                  'Website gap detection',
+                  'JSON + Markdown reports',
+                  'Valid for 30 days',
+                ]}
+                cta="Generate with Assessment"
+                ctaLink="/generate"
+                highlighted={true}
+              />
+            </>
+          ) : (
+            <PricingCard
+              name="Free"
+              price="£0"
+              period=""
+              description="Full generation with assessment — free"
+              features={[
+                '10 generations per day',
+                'All 4 templates',
+                'Charity Commission enrichment',
+                '360Giving data for funders',
+                'Full quality assessment',
+                'AI-powered analysis',
+                'Website gap detection',
+                'Results expire after 7 days',
+              ]}
+              cta="Get Started Free"
+              ctaLink="/generate"
+              highlighted={true}
+            />
+          )}
 
-          {/* Subscription Tier */}
+          {/* Subscription Tier (always shown — monitoring stays paid) */}
           <PricingCard
             name="Subscription"
             price="£9"
             period="per month"
             description="Automated monitoring and updates"
             features={[
-              'All paid tier features',
+              payments ? 'All paid tier features' : 'Everything in Free',
               'Monthly monitoring',
               'Auto-regeneration on changes',
               'Email notifications',
@@ -120,30 +185,9 @@ export default function PricingPage() {
             Frequently Asked Questions
           </h2>
           <div className="space-y-6">
-            <FAQItem
-              question="What's included in the free tier?"
-              answer="The free tier gives you basic llms.txt generation for any UK social sector organisation. You can generate up to 10 files per day, but they won't include quality assessment or enrichment data from external sources."
-            />
-            <FAQItem
-              question="What is enrichment data?"
-              answer="Enrichment data includes official information from the Charity Commission (for charities) and 360Giving (for funders). This adds verified details about registration numbers, financial data, and grant history to your llms.txt file."
-            />
-            <FAQItem
-              question="How does the quality assessment work?"
-              answer="Our AI-powered assessment analyzes your llms.txt file for completeness, clarity, and compliance with the specification. You'll receive a detailed report with scores, findings, and actionable recommendations to improve your file."
-            />
-            <FAQItem
-              question="What's the difference between paid and subscription?"
-              answer="The paid tier (£9) is a one-time payment for a single generation with full assessment. The subscription tier (£9/month) includes automatic monitoring - we'll regenerate your llms.txt whenever your website changes and notify you of updates."
-            />
-            <FAQItem
-              question="Can I use this for multiple organisations?"
-              answer="Yes! Each generation is per URL, so you can generate llms.txt files for as many organisations as you need. The free tier has a daily limit, while paid and subscription tiers are unlimited."
-            />
-            <FAQItem
-              question="Do you support organisations outside the UK?"
-              answer="Currently, we specialize in UK social sector organisations (charities, funders, public sector). Our enrichment integrations are UK-specific (Charity Commission, 360Giving). However, the basic generation works for any organisation worldwide."
-            />
+            {faqs.map((faq) => (
+              <FAQItem key={faq.question} question={faq.question} answer={faq.answer} />
+            ))}
           </div>
         </div>
       </div>
