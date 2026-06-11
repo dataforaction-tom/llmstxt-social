@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from llmstxt_api.config import settings
 from llmstxt_api.database import get_db
 from llmstxt_api.models import GenerationJob, User
 from llmstxt_api.schemas import (
@@ -42,9 +43,9 @@ async def generate_free(
     Generate llms.txt (free tier).
 
     - Rate limited to 10 requests per day per IP
-    - No enrichment data
-    - No quality assessment
     - Result expires after 7 days
+    - When PAYMENTS_ENABLED is false (default), runs the full pipeline
+      (enrichment + quality assessment); otherwise basic generation only
     """
     # TODO: Check rate limit based on IP
     client_ip = http_request.client.host
@@ -69,8 +70,14 @@ async def generate_free(
     await db.commit()
     await db.refresh(job)
 
-    # Queue background task
-    generate_free_task.delay(str(job.id), str(request.url), request.template, sector, goal)
+    # Queue background task. With one-time payments disabled, the free tier
+    # gets the full pipeline (enrichment + assessment) — same rate limit and
+    # 7-day expiry, just no gate. generate_paid_task only needs the job id
+    # and generation params; it never reads payment fields.
+    if settings.payments_enabled:
+        generate_free_task.delay(str(job.id), str(request.url), request.template, sector, goal)
+    else:
+        generate_paid_task.delay(str(job.id), str(request.url), request.template, sector, goal)
 
     return JobResponse.model_validate(job)
 
