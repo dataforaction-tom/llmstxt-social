@@ -152,3 +152,54 @@ async def test_paid_endpoint_still_works_when_payments_enabled():
     verify.assert_awaited_once_with("pi_123")
     paid_task.delay.assert_called_once()
     assert response.tier == "paid"
+
+
+# --- /api/payment/create-intent ---------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_intent_403_when_payments_disabled():
+    from fastapi import HTTPException
+
+    from llmstxt_api.config import settings
+    from llmstxt_api.routes.payment import create_payment_intent
+    from llmstxt_api.schemas import CreatePaymentIntentRequest
+
+    request = CreatePaymentIntentRequest(url="https://example.org", template="charity")
+
+    stripe_create = mock.MagicMock()
+    with mock.patch.object(settings, "payments_enabled", False), mock.patch(
+        "stripe.PaymentIntent.create", stripe_create
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await create_payment_intent(request)
+
+    assert exc.value.status_code == 403
+    assert "disabled" in exc.value.detail.lower()
+    stripe_create.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_webhook_still_processes_subscription_events_when_payments_disabled():
+    """Monitoring stays paid: the webhook must keep working with the flag off."""
+    from llmstxt_api.config import settings
+    from llmstxt_api.routes.payment import stripe_webhook
+
+    db = mock.AsyncMock()
+    request = mock.AsyncMock()
+    request.body.return_value = b"{}"
+
+    # The route reads event.type / event.data.object as attributes.
+    event = mock.MagicMock()
+    event.type = "customer.subscription.updated"
+
+    handler = mock.AsyncMock()
+    with mock.patch.object(settings, "payments_enabled", False), mock.patch(
+        "stripe.Webhook.construct_event", return_value=event
+    ), mock.patch(
+        "llmstxt_api.routes.payment.handle_subscription_updated", handler
+    ):
+        response = await stripe_webhook(request, "sig_test", db)
+
+    handler.assert_awaited_once_with(event.data.object, db)
+    assert response == {"status": "success"}
