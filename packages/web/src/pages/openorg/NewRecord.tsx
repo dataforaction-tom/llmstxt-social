@@ -19,9 +19,13 @@ import {
   OpenOrgValidationError,
   saveIdeaMarkdown,
   saveStrategyMarkdown,
+  useThemes,
   type ValidationFieldError,
 } from '../../api/openorg';
-import MarkdownEditor from '../../components/openorg/MarkdownEditor';
+import EditorShell from '../../components/openorg/EditorShell';
+import { STRATEGY_SECTIONS } from '../../components/openorg/guided/sections/strategy';
+import { IDEA_SECTIONS } from '../../components/openorg/guided/sections/idea';
+import { STATIC_VOCABS } from '../../components/openorg/guided/vocabs';
 import { templateFor, type TemplateKind } from '../../openorgTemplates';
 
 interface NewRecordPageProps {
@@ -52,6 +56,7 @@ export default function NewRecordPage({ kind }: NewRecordPageProps) {
   const [validationErrors, setValidationErrors] = useState<ValidationFieldError[]>([]);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const themes = useThemes();
 
   if (!orgId) {
     return <div className="p-6 text-red-700">Missing org_id in URL.</div>;
@@ -60,6 +65,7 @@ export default function NewRecordPage({ kind }: NewRecordPageProps) {
   const template = templateFor(kind);
   const noun = kind === 'strategy' ? 'strategy' : 'idea';
   const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
+  const sections = kind === 'strategy' ? STRATEGY_SECTIONS : IDEA_SECTIONS;
 
   const handleSave = async (markdown: string) => {
     setValidationErrors([]);
@@ -120,9 +126,15 @@ export default function NewRecordPage({ kind }: NewRecordPageProps) {
           </div>
         )}
 
-        <MarkdownEditor
-          initialMarkdown={template}
+        <EditorShell
+          kind={kind}
+          initialSource={template}
+          sections={sections}
           onSave={handleSave}
+          vocabs={{
+            ...STATIC_VOCABS,
+            themes: (themes.data ?? []).map((t) => ({ key: t.key, label: t.label })),
+          }}
           saving={saving}
           validationErrors={validationErrors}
           saveLabel={`Save ${noun}`}

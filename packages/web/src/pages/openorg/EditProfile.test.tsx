@@ -36,6 +36,11 @@ vi.mock('../../api/openorg', async () => {
     useUnpublishProfile: () => ({ mutateAsync: unpublishMutateAsync, isPending: false }),
     useHistory: () => ({ isLoading: false, isError: false, data: [], error: null }),
     useRestoreVersion: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useThemes: () => ({
+      isLoading: false,
+      data: [{ key: 'older_people', label: 'Older people', description: '' }],
+      error: null,
+    }),
   };
 });
 
@@ -82,7 +87,7 @@ describe('EditProfilePage publish controls', () => {
     expect(screen.queryByRole('button', { name: /^publish$/i })).toBeNull();
   });
 
-  it('calls the publish mutation when the Publish button is clicked', async () => {
+  it('calls the publish mutation when the Publish button is confirmed', async () => {
     mockProfileData = {
       org_id: 'GB-CHC-1',
       markdown: '---\nschema_version: open-org/v0.1\n---\n',
@@ -90,12 +95,15 @@ describe('EditProfilePage publish controls', () => {
     };
     renderAt('GB-CHC-1');
 
+    // First click opens the inline confirm strip; second click on the strip's
+    // confirm button fires the mutation.
     fireEvent.click(screen.getByRole('button', { name: /^publish$/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^publish$/i }).at(-1)!);
     expect(publishMutateAsync).toHaveBeenCalledTimes(1);
     expect(unpublishMutateAsync).not.toHaveBeenCalled();
   });
 
-  it('calls the unpublish mutation when the Unpublish button is clicked', async () => {
+  it('calls the unpublish mutation when the Unpublish button is confirmed', async () => {
     mockProfileData = {
       org_id: 'GB-CHC-1',
       markdown: '---\nschema_version: open-org/v0.1\n---\n',
@@ -104,7 +112,30 @@ describe('EditProfilePage publish controls', () => {
     renderAt('GB-CHC-1');
 
     fireEvent.click(screen.getByRole('button', { name: /^unpublish$/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^unpublish$/i }).at(-1)!);
     expect(unpublishMutateAsync).toHaveBeenCalledTimes(1);
     expect(publishMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('renders the guided sidebar by default when source has frontmatter', () => {
+    window.localStorage.clear();
+    mockProfileData = {
+      org_id: 'GB-CHC-1',
+      markdown: '---\nschema_version: open-org/v0.1\nidentity:\n  name: A\n---\n',
+      published: false,
+    };
+    renderAt('GB-CHC-1');
+    expect(screen.getByRole('button', { name: /^identity$/i })).toBeInTheDocument();
+  });
+
+  it('renders the inline publish confirm strip on click', () => {
+    mockProfileData = {
+      org_id: 'GB-CHC-1',
+      markdown: '---\nschema_version: open-org/v0.1\n---\n',
+      published: false,
+    };
+    renderAt('GB-CHC-1');
+    fireEvent.click(screen.getByRole('button', { name: /^publish$/i }));
+    expect(screen.getByText(/publish this profile to the federated network/i)).toBeInTheDocument();
   });
 });

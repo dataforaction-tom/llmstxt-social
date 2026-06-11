@@ -36,6 +36,9 @@ ENV/
 .env
 .env.local
 
+# Docker compose local overrides (host port mappings, dev settings)
+docker-compose.override.yml
+
 # Testing
 .pytest_cache/
 .coverage

@@ -41,6 +41,7 @@ function HostRoot() {
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
+// eslint-disable-next-line react-refresh/only-export-components -- factory helper co-located with App; HMR-only rule
 export function createQueryClient() {
   return new QueryClient({
     defaultOptions: {

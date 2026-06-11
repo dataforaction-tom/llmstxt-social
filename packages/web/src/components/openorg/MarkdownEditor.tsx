@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { yaml } from '@codemirror/lang-yaml';
+import type { LanguageDescription } from '@codemirror/language';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ValidationFieldError } from '../../api/openorg';
@@ -67,7 +68,7 @@ export default function MarkdownEditor({
             alias: ['yaml'],
             extensions: ['yml', 'yaml'],
             support: yaml(),
-          } as any,
+          } as unknown as LanguageDescription,
         ],
       }),
     ],

@@ -19,8 +19,13 @@ import {
   type HistoryEntry,
   type ValidationFieldError,
 } from '../../api/openorg';
-import MarkdownEditor from '../../components/openorg/MarkdownEditor';
-import { PublishBadge, PublishControls } from '../../components/openorg/PublishToggle';
+import EditorShell from '../../components/openorg/EditorShell';
+import PublishStrip from '../../components/openorg/PublishStrip';
+import WelcomeStrip from '../../components/openorg/WelcomeStrip';
+import { computeTickStates } from '../../components/openorg/guided/tickState';
+import { PROFILE_SECTIONS } from '../../components/openorg/guided/sections/profile';
+import { STATIC_VOCABS } from '../../components/openorg/guided/vocabs';
+import { useThemes } from '../../api/openorg';
 
 export default function EditProfilePage() {
   const { orgId: rawOrgId } = useParams<{ orgId: string }>();
@@ -30,8 +35,10 @@ export default function EditProfilePage() {
 
   const [validationErrors, setValidationErrors] = useState<ValidationFieldError[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [justPublishedAt, setJustPublishedAt] = useState<Date | undefined>();
 
   const profile = useProfileMarkdown(orgId);
+  const themes = useThemes();
   const save = useSaveProfile(orgId);
   const publish = usePublishProfile(orgId);
   const unpublish = useUnpublishProfile(orgId);
@@ -70,6 +77,7 @@ export default function EditProfilePage() {
     setPublishError(null);
     try {
       await publish.mutateAsync();
+      setJustPublishedAt(new Date());
     } catch (err) {
       if (err instanceof OpenOrgPublishError) {
         setPublishError(err.detail);
@@ -94,6 +102,19 @@ export default function EditProfilePage() {
 
   const published = Boolean(profile.data?.published);
   const mutating = publish.isPending || unpublish.isPending;
+  const liveUrl = `https://openorg.good-ship.co.uk/openorg/${orgId}`;
+
+  // "Start here" badge: while the welcome strip is pending, point the freshly
+  // claimed owner at the first partially-filled section (●), else the first
+  // empty one (○). Computed only when relevant so we don't badge every visit.
+  const source = profile.data?.markdown ?? '';
+  const welcomePending =
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem(`openorg.welcomeStrip.${orgId}`) === 'pending';
+  const startHereId = welcomePending
+    ? computeTickStates(source, PROFILE_SECTIONS).find((s) => s.tick === '●')?.id ??
+      computeTickStates(source, PROFILE_SECTIONS).find((s) => s.tick === '○')?.id
+    : undefined;
 
   return (
     <div className="surface-paper min-h-screen">
@@ -107,14 +128,15 @@ export default function EditProfilePage() {
               </h1>
               <p className="mt-2 flex items-center gap-3 text-sm text-muted">
                 <code className="font-mono text-ink">{orgId}</code>
-                <PublishBadge published={published} />
               </p>
             </div>
-            <PublishControls
+            <PublishStrip
               published={published}
               busy={mutating}
               onPublish={handlePublish}
               onUnpublish={handleUnpublish}
+              liveUrl={liveUrl}
+              justPublishedAt={justPublishedAt}
             />
           </div>
           {publishError && (
@@ -127,12 +149,20 @@ export default function EditProfilePage() {
           )}
         </header>
 
-        <MarkdownEditor
-          initialMarkdown={profile.data?.markdown ?? ''}
+        <WelcomeStrip orgId={orgId} />
+        <EditorShell
+          kind="profile"
+          initialSource={source}
+          sections={PROFILE_SECTIONS}
           onSave={handleSave}
+          vocabs={{
+            ...STATIC_VOCABS,
+            themes: (themes.data ?? []).map((t) => ({ key: t.key, label: t.label })),
+          }}
           saving={save.isPending}
           validationErrors={validationErrors}
           saveLabel="Save profile"
+          startHereId={startHereId}
         />
 
         <HistoryPanel

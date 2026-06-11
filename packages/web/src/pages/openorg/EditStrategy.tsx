@@ -13,11 +13,14 @@ import {
   usePublishStrategy,
   useSaveStrategy,
   useStrategyMarkdown,
+  useThemes,
   useUnpublishStrategy,
   type ValidationFieldError,
 } from '../../api/openorg';
-import MarkdownEditor from '../../components/openorg/MarkdownEditor';
-import { PublishBadge, PublishControls } from '../../components/openorg/PublishToggle';
+import EditorShell from '../../components/openorg/EditorShell';
+import PublishStrip from '../../components/openorg/PublishStrip';
+import { STRATEGY_SECTIONS } from '../../components/openorg/guided/sections/strategy';
+import { STATIC_VOCABS } from '../../components/openorg/guided/vocabs';
 
 export default function EditStrategyPage() {
   const { orgId: rawOrgId, slug: rawSlug } = useParams<{ orgId: string; slug: string }>();
@@ -28,11 +31,13 @@ export default function EditStrategyPage() {
 
   const [validationErrors, setValidationErrors] = useState<ValidationFieldError[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [justPublishedAt, setJustPublishedAt] = useState<Date | undefined>();
 
   const strategy = useStrategyMarkdown(orgId, slug);
   const save = useSaveStrategy(orgId, slug);
   const publish = usePublishStrategy(orgId, slug);
   const unpublish = useUnpublishStrategy(orgId, slug);
+  const themes = useThemes();
 
   if (!orgId || !slug) {
     return <div className="p-6 text-red-700">Missing org_id or slug in URL.</div>;
@@ -66,6 +71,7 @@ export default function EditStrategyPage() {
     setPublishError(null);
     try {
       await publish.mutateAsync();
+      setJustPublishedAt(new Date());
     } catch (err) {
       if (err instanceof OpenOrgPublishError) {
         setPublishError(err.detail);
@@ -90,6 +96,7 @@ export default function EditStrategyPage() {
 
   const published = Boolean(strategy.data?.published);
   const mutating = publish.isPending || unpublish.isPending;
+  const liveUrl = `https://openorg.good-ship.co.uk/openorg/${orgId}/strategies/${slug}`;
 
   return (
     <div className="surface-paper min-h-screen">
@@ -105,14 +112,16 @@ export default function EditStrategyPage() {
                 <code className="font-mono text-ink">{orgId}</code>
                 <span className="text-rule">·</span>
                 <span className="font-mono">{slug}</span>
-                <PublishBadge published={published} noun="Strategy" />
               </p>
             </div>
-            <PublishControls
+            <PublishStrip
               published={published}
               busy={mutating}
               onPublish={handlePublish}
               onUnpublish={handleUnpublish}
+              liveUrl={liveUrl}
+              justPublishedAt={justPublishedAt}
+              noun="strategy"
             />
           </div>
           {publishError && (
@@ -125,9 +134,15 @@ export default function EditStrategyPage() {
           )}
         </header>
 
-        <MarkdownEditor
-          initialMarkdown={strategy.data?.markdown ?? ''}
+        <EditorShell
+          kind="strategy"
+          initialSource={strategy.data?.markdown ?? ''}
+          sections={STRATEGY_SECTIONS}
           onSave={handleSave}
+          vocabs={{
+            ...STATIC_VOCABS,
+            themes: (themes.data ?? []).map((t) => ({ key: t.key, label: t.label })),
+          }}
           saving={save.isPending}
           validationErrors={validationErrors}
           saveLabel="Save strategy"

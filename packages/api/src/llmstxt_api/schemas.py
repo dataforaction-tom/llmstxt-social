@@ -206,6 +206,9 @@ class AuthResponse(BaseModel):
 
     user: UserResponse
     message: str
+    # Set when the magic-link token was a claim token (carried org_id).
+    # The frontend uses this to redirect into the org's editor after verify.
+    claim_org_id: str | None = None
 
 
 # === Subscription Schemas (Phase 2) ===

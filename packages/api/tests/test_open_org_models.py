@@ -49,6 +49,8 @@ def test_org_profile_columns():
     assert cols == {
         "id", "org_id", "markdown_source", "profile_json",
         "published", "generation_status", "generation_error",
+        "generation_stage", "generation_message", "generation_payload",
+        "generation_started_at", "generation_finished_at",
         "murmurations_node_id", "murmurations_status",
         "created_at", "updated_at",
     }

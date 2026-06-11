@@ -43,21 +43,6 @@ export default function CreatePage() {
   const { orgId, kind } = useParams<{ orgId: string; kind: string }>();
   const navigate = useNavigate();
 
-  if (!orgId || !kind || (kind !== 'strategy' && kind !== 'idea')) {
-    return (
-      <div className="surface-paper min-h-screen">
-        <div className="mx-auto max-w-2xl px-6 py-12 text-red-800">
-          Bad URL. Expected{' '}
-          <code className="font-mono">
-            /openorg/&lt;org_id&gt;/create/&lt;strategy|idea&gt;
-          </code>
-          .
-        </div>
-      </div>
-    );
-  }
-  const typedKind = kind as CreatorKind;
-
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
@@ -74,6 +59,23 @@ export default function CreatePage() {
       transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
     }
   }, [turns]);
+
+  // Hooks must run unconditionally, so validate the URL only after they're
+  // all declared.
+  if (!orgId || !kind || (kind !== 'strategy' && kind !== 'idea')) {
+    return (
+      <div className="surface-paper min-h-screen">
+        <div className="mx-auto max-w-2xl px-6 py-12 text-red-800">
+          Bad URL. Expected{' '}
+          <code className="font-mono">
+            /openorg/&lt;org_id&gt;/create/&lt;strategy|idea&gt;
+          </code>
+          .
+        </div>
+      </div>
+    );
+  }
+  const typedKind = kind as CreatorKind;
 
   const start = async () => {
     setStarting(true);

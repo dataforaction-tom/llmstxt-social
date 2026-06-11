@@ -9,10 +9,16 @@
  * Route: /openorg/generate (public)
  */
 
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 
-import { generateProfile, OpenOrgGenerateError } from '../../api/openorg';
+import {
+  generateProfile,
+  lookupCharity,
+  useGenerateStatus,
+  OpenOrgGenerateError,
+} from '../../api/openorg';
+import GenerateLiveStatus from '../../components/openorg/GenerateLiveStatus';
+import { t } from '../../microcopy';
 
 const CHARITY_NUMBER_RE = /^[0-9]{6,8}$/;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -29,6 +35,31 @@ export default function GeneratePage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<Submitted | null>(null);
+  const [lookupName, setLookupName] = useState<string | null>(null);
+  const lookupTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    const value = charityNumber.trim();
+    if (lookupTimer.current !== null) {
+      window.clearTimeout(lookupTimer.current);
+      lookupTimer.current = null;
+    }
+    if (!CHARITY_NUMBER_RE.test(value)) {
+      setLookupName(null);
+      return undefined;
+    }
+    lookupTimer.current = window.setTimeout(() => {
+      lookupCharity(value)
+        .then((r) => setLookupName(r.name))
+        .catch(() => setLookupName(null));
+    }, 400);
+    return () => {
+      if (lookupTimer.current !== null) {
+        window.clearTimeout(lookupTimer.current);
+        lookupTimer.current = null;
+      }
+    };
+  }, [charityNumber]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,42 +91,24 @@ export default function GeneratePage() {
     }
   };
 
+  const statusQuery = useGenerateStatus(submitted?.orgId ?? '', Boolean(submitted));
+
   if (submitted) {
     return (
       <div className="surface-paper min-h-screen">
         <div className="mx-auto max-w-2xl px-6 py-16">
           <div className="kicker num">Generation kicked off</div>
           <h1 className="display-head mt-2 text-3xl font-medium leading-tight sm:text-4xl">
-            Check your inbox
+            Drafting your profile
           </h1>
-          <p className="mt-4 max-w-prose text-lg text-ink">
-            We're pulling the Charity Commission record for{' '}
-            <code className="font-mono">{submitted.charityNumber}</code>, crawling
-            the charity's website, and drafting a profile.
+          <p className="mt-4 max-w-prose text-sm text-muted">
+            We're emailing <strong>{submitted.email}</strong> a one-time link
+            you can use to claim and edit the draft.
           </p>
-          <p className="mt-3 max-w-prose text-base text-ink">
-            When it's ready (usually 30–90 seconds) we'll email{' '}
-            <strong>{submitted.email}</strong> a one-time link that lets you
-            review, edit, and publish the profile.
-          </p>
-          <p className="mt-3 max-w-prose text-sm text-muted">
-            The profile will live at{' '}
-            <code className="font-mono">{`/openorg/${submitted.orgId}`}</code> once
-            you've claimed it and clicked Publish.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3 text-sm">
-            <Link
-              to="/openorg/discover"
-              className="border border-rule px-4 py-2 hover:bg-paper-2"
-            >
-              Browse the network
-            </Link>
-            <Link
-              to="/openorg/about"
-              className="border border-rule px-4 py-2 hover:bg-paper-2"
-            >
-              What is Open Org?
-            </Link>
+          <div className="mt-6">
+            {statusQuery.data && (
+              <GenerateLiveStatus status={statusQuery.data} onTimeout={() => undefined} />
+            )}
           </div>
         </div>
       </div>
@@ -139,6 +152,9 @@ export default function GeneratePage() {
             <span className="mt-1 text-xs text-muted">
               6 to 8 digits. England &amp; Wales registrations only for now.
             </span>
+            {lookupName && (
+              <span className="mt-1 text-xs text-emerald-700">Match: {lookupName}</span>
+            )}
           </label>
 
           <label className="flex flex-col text-sm">
@@ -167,6 +183,8 @@ export default function GeneratePage() {
               {error}
             </div>
           )}
+
+          <p className="text-xs italic text-muted">{t('generate.trust')}</p>
 
           <div>
             <button

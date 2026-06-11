@@ -2,7 +2,7 @@
  * Smoke test for the public Generate Profile page.
  *
  * Validates the form's gate logic (charity number + email shape) and that a
- * successful submit transitions to the confirmation state.
+ * successful submit transitions to the live-progress state.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -10,8 +10,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import OpenOrgGeneratePage from './Generate';
+import type { GenerateStatusResponse } from '../../api/openorg';
 
 const generateProfile = vi.fn<[string, string], Promise<unknown>>();
+const lookupCharity = vi.fn<[string], Promise<unknown>>();
+let statusData: GenerateStatusResponse | undefined;
 
 vi.mock('../../api/openorg', async () => {
   const actual = await vi.importActual<typeof import('../../api/openorg')>(
@@ -20,6 +23,8 @@ vi.mock('../../api/openorg', async () => {
   return {
     ...actual,
     generateProfile: (n: string, e: string) => generateProfile(n, e),
+    lookupCharity: (n: string) => lookupCharity(n),
+    useGenerateStatus: () => ({ data: statusData }),
   };
 });
 
@@ -36,6 +41,10 @@ function renderPage() {
 describe('OpenOrgGeneratePage', () => {
   beforeEach(() => {
     generateProfile.mockReset();
+    lookupCharity.mockReset();
+    // Default: no match line — failures are silent on the form.
+    lookupCharity.mockRejectedValue(new Error('not found'));
+    statusData = undefined;
   });
 
   it('rejects an invalid charity number client-side', async () => {
@@ -72,13 +81,21 @@ describe('OpenOrgGeneratePage', () => {
     expect(generateProfile).not.toHaveBeenCalled();
   });
 
-  it('shows a check-your-inbox screen after a successful submit', async () => {
+  it('shows the live status panel after a successful submit', async () => {
     generateProfile.mockResolvedValue({
       org_id: 'GB-CHC-1234567',
       profile_id: 'abc',
       generation_status: 'pending',
       task_id: 't1',
     });
+    statusData = {
+      org_id: 'GB-CHC-1234567',
+      status: 'generating',
+      stage: 'drafting',
+      message: 'Drafting your profile…',
+      payload: null,
+      elapsed_ms: 5000,
+    };
     renderPage();
     fireEvent.change(screen.getByLabelText(/charity number/i), {
       target: { value: '1234567' },
@@ -89,10 +106,13 @@ describe('OpenOrgGeneratePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /generate profile/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/check your inbox/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: /drafting your profile/i }),
+      ).toBeInTheDocument();
     });
     expect(generateProfile).toHaveBeenCalledWith('1234567', 'tom@example.com');
     expect(screen.getByText(/tom@example.com/)).toBeInTheDocument();
-    expect(screen.getByText(/GB-CHC-1234567/)).toBeInTheDocument();
+    // The live-status panel renders the current stage message.
+    expect(screen.getByText('Drafting your profile…')).toBeInTheDocument();
   });
 });

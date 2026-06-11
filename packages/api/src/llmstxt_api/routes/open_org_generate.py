@@ -17,10 +17,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import re as _re
+
+from llmstxt_api.config import settings
 from llmstxt_api.database import get_db
 from llmstxt_api.open_org_models import OrgProfile
 from llmstxt_api.services.llm_usage import is_within_daily_budget
 from llmstxt_api.tasks.open_org_generate import generate_open_org_profile_task
+from llmstxt_core.enrichers.charity_commission import fetch_charity_data
 
 
 router = APIRouter(prefix="/api/open-org", tags=["open-org"])
@@ -120,4 +124,116 @@ async def generate_profile(
     )
 
 
-__all__ = ["GenerateRequest", "GenerateResponse", "generate_profile", "router"]
+class GenerateStatusResponse(BaseModel):
+    org_id: str
+    status: str
+    stage: str | None
+    message: str | None
+    payload: dict | None
+    elapsed_ms: int
+
+
+@router.get(
+    "/generate/{org_id}/status",
+    response_model=GenerateStatusResponse,
+)
+async def generate_status(
+    org_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> GenerateStatusResponse:
+    """Live polling endpoint for the Generate.tsx live progress display.
+
+    Unauthenticated — see spec section 1. The page polls every 2s during
+    the 30-90s generation window.
+    """
+    result = await db.execute(select(OrgProfile).where(OrgProfile.org_id == org_id))
+    row = result.scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="org not found")
+
+    started = row.generation_started_at
+    finished = row.generation_finished_at
+    from datetime import datetime as _dt
+
+    if finished is not None and started is not None:
+        elapsed = int((finished - started).total_seconds() * 1000)
+    elif started is not None:
+        elapsed = int((_dt.utcnow() - started).total_seconds() * 1000)
+    else:
+        elapsed = 0
+
+    return GenerateStatusResponse(
+        org_id=row.org_id,
+        status=row.generation_status,
+        stage=row.generation_stage,
+        message=row.generation_message,
+        payload=row.generation_payload,
+        elapsed_ms=elapsed,
+    )
+
+
+_NUMBER_RE = _re.compile(r"^[0-9]{6,8}$")
+
+
+class LookupResponse(BaseModel):
+    number: str
+    name: str
+    registered_address: str | None
+
+
+def _format_address(contact: dict | None) -> str | None:
+    if not contact:
+        return None
+    addr = contact.get("address")
+    if not addr:
+        return None
+    # The real CC enricher pre-joins the address into a single string; some
+    # callers/tests pass a component dict. Handle both.
+    if isinstance(addr, str):
+        return addr.strip() or None
+    if isinstance(addr, dict):
+        parts = [addr.get(k) for k in ("line1", "line2", "line3", "city", "postcode")]
+        cleaned = [p for p in parts if p]
+        return ", ".join(cleaned) if cleaned else None
+    return None
+
+
+@router.get(
+    "/lookup/{number}",
+    response_model=LookupResponse,
+)
+async def lookup_charity(number: str) -> LookupResponse:
+    """Look up a UK charity by registration number.
+
+    Powers the inline "Match: <name>" reassurance line on the Generate page.
+    Cached weakly upstream by the CC enricher; this endpoint adds no extra
+    caching beyond what the enricher already provides.
+    """
+    if not _NUMBER_RE.match(number):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="number must be 6-8 digits",
+        )
+    cd = await fetch_charity_data(number, api_key=settings.charity_commission_api_key)
+    if cd is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="charity not found",
+        )
+    return LookupResponse(
+        number=cd.number,
+        name=cd.name,
+        registered_address=_format_address(cd.contact),
+    )
+
+
+__all__ = [
+    "GenerateRequest",
+    "GenerateResponse",
+    "GenerateStatusResponse",
+    "LookupResponse",
+    "generate_profile",
+    "generate_status",
+    "lookup_charity",
+    "router",
+]

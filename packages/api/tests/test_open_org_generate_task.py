@@ -194,3 +194,87 @@ async def test_run_generation_logs_llm_usage(session_maker_factory):
     assert usage_row.org_id == "GB-CHC-1234567"
     assert usage_row.input_tokens == 123
     assert usage_row.output_tokens == 45
+
+
+@pytest.mark.asyncio
+async def test_run_generation_writes_stage_transitions(session_maker_factory):
+    """Verifies the task populates generation_stage/_message/_started/_finished/_payload."""
+    from llmstxt_api.tasks import open_org_generate as task_mod
+
+    profile_id = uuid.uuid4()
+    row = _profile_row(profile_id)
+
+    session = mock.AsyncMock()
+    session.execute.return_value = _query_returning(row)[0]
+    session_maker = session_maker_factory(session)
+
+    fake_result = GenerationResult(
+        org_id='GB-CHC-1234567',
+        markdown="---\nidentity:\n  name: X\n---\n",
+        json_payload={
+            'identity': {'name': 'X'},
+            'mission': {
+                'themes': ['t1', 't2', 't3', 't4'],
+                'programmes': [{'name': 'p1'}, {'name': 'p2'}],
+                'summary': 'We do good.',
+            },
+        },
+        total_usage=Usage(
+            input_tokens=10,
+            output_tokens=5,
+            cache_creation_tokens=0,
+            cache_read_tokens=0,
+            model='claude-sonnet-4-20250514',
+        ),
+    )
+    fake_generator = mock.AsyncMock(return_value=fake_result)
+
+    await task_mod._run_generation(
+        profile_id=profile_id,
+        charity_number='1234567',
+        owner_email='o@example.com',
+        session_maker=session_maker,
+        generator=fake_generator,
+        send_claim_email=mock.AsyncMock(),
+    )
+
+    # Generation stage progressed to done.
+    assert row.generation_status == 'ready'
+    assert row.generation_stage == 'done'
+    assert row.generation_message
+    assert row.generation_started_at is not None
+    assert row.generation_finished_at is not None
+    # Payload carries derived counts for the done summary display.
+    assert row.generation_payload is not None
+    assert row.generation_payload['programmes_count'] == 2
+    assert row.generation_payload['themes_count'] == 4
+    assert row.generation_payload['has_summary'] is True
+
+
+@pytest.mark.asyncio
+async def test_run_generation_writes_error_stage_on_failure(session_maker_factory):
+    from llmstxt_api.tasks import open_org_generate as task_mod
+
+    profile_id = uuid.uuid4()
+    row = _profile_row(profile_id)
+
+    session = mock.AsyncMock()
+    session.execute.return_value = _query_returning(row)[0]
+    session_maker = session_maker_factory(session)
+
+    async def boom(**kwargs):
+        raise RuntimeError('kaboom')
+
+    await task_mod._run_generation(
+        profile_id=profile_id,
+        charity_number='1234567',
+        owner_email='o@example.com',
+        session_maker=session_maker,
+        generator=boom,
+        send_claim_email=mock.AsyncMock(),
+    )
+
+    assert row.generation_status == 'failed'
+    assert row.generation_stage == 'error'
+    assert row.generation_finished_at is not None
+

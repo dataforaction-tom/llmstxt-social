@@ -211,6 +211,7 @@ export default function GeneratePage() {
                 className="grid grid-cols-2 gap-4"
                 role="radiogroup"
                 aria-label="Select pricing tier"
+                tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                     e.preventDefault();

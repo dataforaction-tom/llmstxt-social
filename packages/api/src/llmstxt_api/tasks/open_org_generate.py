@@ -143,6 +143,8 @@ async def _run_generation(
     Always returns; swallows generator exceptions into a ``failed`` row so the
     Celery worker doesn't retry blindly on user-facing data problems.
     """
+    from datetime import datetime as _dt
+
     async with session_maker() as session:
         row = await _fetch_row(session, profile_id)
         if row is None:
@@ -151,6 +153,11 @@ async def _run_generation(
 
         row.generation_status = "generating"
         row.generation_error = None
+        row.generation_stage = "extracting"
+        row.generation_message = "Reading what we found…"
+        row.generation_started_at = _dt.utcnow()
+        row.generation_finished_at = None
+        row.generation_payload = None
         await session.commit()
 
         try:
@@ -163,6 +170,9 @@ async def _run_generation(
             message = str(exc)[:_ERROR_MESSAGE_MAX] or exc.__class__.__name__
             row.generation_status = "failed"
             row.generation_error = message
+            row.generation_stage = "error"
+            row.generation_message = "Couldn't finish — see error below."
+            row.generation_finished_at = _dt.utcnow()
             await session.commit()
             log.warning(
                 "open_org generation failed for %s: %s", charity_number, message
@@ -173,6 +183,10 @@ async def _run_generation(
         row.profile_json = result.json_payload
         row.generation_status = "ready"
         row.generation_error = None
+        row.generation_stage = "done"
+        row.generation_message = "Draft ready."
+        row.generation_finished_at = _dt.utcnow()
+        row.generation_payload = _summary_payload(result.json_payload)
 
         llm_usage_service.log_usage(
             session,
@@ -185,6 +199,22 @@ async def _run_generation(
         await send_claim_email(
             db=session, email=owner_email, org_id=result.org_id
         )
+
+
+def _summary_payload(profile_json: dict | None) -> dict:
+    """Compact preview of what the generator found.
+
+    Drives the "14 programmes mentioned, 4 themes…" line on the Generate page's
+    success state. Pure derivation from the JSON.
+    """
+    if not profile_json:
+        return {}
+    mission = profile_json.get("mission") or {}
+    return {
+        "themes_count": len(mission.get("themes") or []),
+        "programmes_count": len(mission.get("programmes") or []),
+        "has_summary": bool((mission.get("summary") or "").strip()),
+    }
 
 
 async def _fetch_row(session: AsyncSession, profile_id: uuid.UUID) -> OrgProfile | None:

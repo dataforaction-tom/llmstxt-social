@@ -31,6 +31,11 @@ vi.mock('../../api/openorg', async () => {
     useSaveIdea: () => ({ mutateAsync: saveMutateAsync, isPending: false }),
     usePublishIdea: () => ({ mutateAsync: publishMutateAsync, isPending: false }),
     useUnpublishIdea: () => ({ mutateAsync: unpublishMutateAsync, isPending: false }),
+    useThemes: () => ({
+      isLoading: false,
+      data: [{ key: 'older_people', label: 'Older people', description: '' }],
+      error: null,
+    }),
   };
 });
 
@@ -80,7 +85,7 @@ describe('EditIdeaPage publish controls', () => {
     expect(screen.queryByRole('button', { name: /^publish$/i })).toBeNull();
   });
 
-  it('calls publishIdea when Publish is clicked', () => {
+  it('calls publishIdea when Publish is confirmed', () => {
     mockData = {
       org_id: 'GB-CHC-1',
       markdown: '---\nschema_version: open-org-idea/v0.1\n---\n',
@@ -89,11 +94,12 @@ describe('EditIdeaPage publish controls', () => {
     renderAt('GB-CHC-1', 'literacy-pop-up');
 
     fireEvent.click(screen.getByRole('button', { name: /^publish$/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^publish$/i }).at(-1)!);
     expect(publishMutateAsync).toHaveBeenCalledTimes(1);
     expect(unpublishMutateAsync).not.toHaveBeenCalled();
   });
 
-  it('calls unpublishIdea when Unpublish is clicked', () => {
+  it('calls unpublishIdea when Unpublish is confirmed', () => {
     mockData = {
       org_id: 'GB-CHC-1',
       markdown: '---\nschema_version: open-org-idea/v0.1\n---\n',
@@ -102,7 +108,19 @@ describe('EditIdeaPage publish controls', () => {
     renderAt('GB-CHC-1', 'literacy-pop-up');
 
     fireEvent.click(screen.getByRole('button', { name: /^unpublish$/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^unpublish$/i }).at(-1)!);
     expect(unpublishMutateAsync).toHaveBeenCalledTimes(1);
     expect(publishMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('renders the guided sidebar with idea sections', () => {
+    window.localStorage.clear();
+    mockData = {
+      org_id: 'GB-CHC-1',
+      markdown: '---\nschema_version: open-org-idea/v0.1\nid: pop-up\n---\n',
+      published: false,
+    };
+    renderAt('GB-CHC-1', 'pop-up');
+    expect(screen.getByRole('button', { name: /^evidence base$/i })).toBeInTheDocument();
   });
 });

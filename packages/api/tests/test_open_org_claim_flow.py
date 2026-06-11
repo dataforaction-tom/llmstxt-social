@@ -199,3 +199,77 @@ async def test_verify_is_idempotent_when_admin_grant_already_exists():
         await verify_magic_link(
             VerifyTokenRequest(token="raw-token-dupe"), response, session
         )
+
+
+@pytest.mark.asyncio
+async def test_verify_returns_claim_org_id_when_token_carries_one():
+    """The verify response surfaces the token's org_id so the frontend can
+    redirect a freshly-claimed owner straight into that org's editor."""
+    from llmstxt_api.models import MagicLinkToken, User
+    from llmstxt_api.routes.auth import verify_magic_link
+    from llmstxt_api.schemas import VerifyTokenRequest
+
+    user = User(
+        id=uuid.uuid4(), email="owner@example.com", created_at=datetime.utcnow()
+    )
+    magic_token = MagicLinkToken(
+        id=uuid.uuid4(),
+        email="owner@example.com",
+        token="raw-token-claim",
+        org_id="GB-CHC-1234567",
+        expires_at=datetime.utcnow() + timedelta(hours=1),
+        used=False,
+    )
+
+    session = mock.AsyncMock()
+    token_result = mock.MagicMock()
+    token_result.scalar_one_or_none.return_value = magic_token
+    user_result = mock.MagicMock()
+    user_result.scalar_one_or_none.return_value = user
+    session.execute.side_effect = [token_result, user_result]
+
+    grant_mock = mock.AsyncMock()
+    response = mock.MagicMock()
+
+    with mock.patch(
+        "llmstxt_api.routes.open_org_auth.grant_org_admin", grant_mock
+    ):
+        result = await verify_magic_link(
+            VerifyTokenRequest(token="raw-token-claim"), response, session
+        )
+
+    assert result.claim_org_id == "GB-CHC-1234567"
+
+
+@pytest.mark.asyncio
+async def test_verify_claim_org_id_is_none_for_plain_login():
+    """A normal (non-claim) login leaves ``claim_org_id`` unset."""
+    from llmstxt_api.models import MagicLinkToken, User
+    from llmstxt_api.routes.auth import verify_magic_link
+    from llmstxt_api.schemas import VerifyTokenRequest
+
+    user = User(
+        id=uuid.uuid4(), email="owner@example.com", created_at=datetime.utcnow()
+    )
+    magic_token = MagicLinkToken(
+        id=uuid.uuid4(),
+        email="owner@example.com",
+        token="raw-token-plain",
+        org_id=None,
+        expires_at=datetime.utcnow() + timedelta(hours=1),
+        used=False,
+    )
+
+    session = mock.AsyncMock()
+    token_result = mock.MagicMock()
+    token_result.scalar_one_or_none.return_value = magic_token
+    user_result = mock.MagicMock()
+    user_result.scalar_one_or_none.return_value = user
+    session.execute.side_effect = [token_result, user_result]
+
+    response = mock.MagicMock()
+    result = await verify_magic_link(
+        VerifyTokenRequest(token="raw-token-plain"), response, session
+    )
+
+    assert result.claim_org_id is None
