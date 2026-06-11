@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_API_URL: string;
   readonly VITE_STRIPE_PUBLIC_KEY: string;
+  readonly VITE_PAYMENTS_ENABLED: string;
 }
 
 interface ImportMeta {
