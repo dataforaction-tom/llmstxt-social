@@ -715,6 +715,13 @@ STRIPE_SECRET_KEY=sk_test_your-key-here
 STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
 STRIPE_MONITORING_PRICE_ID=price_your-subscription-price-id
 
+# One-time payments kill switch. false (default) = full pipeline (enrichment
+# + assessment) is free; one-time payment endpoints return 403. Monitoring
+# subscriptions stay paid via Stripe regardless. Keep both values in sync —
+# the VITE_ one is baked into the web build.
+PAYMENTS_ENABLED=false
+VITE_PAYMENTS_ENABLED=false
+
 # Frontend
 VITE_STRIPE_PUBLIC_KEY=pk_test_your-key-here
 ```
