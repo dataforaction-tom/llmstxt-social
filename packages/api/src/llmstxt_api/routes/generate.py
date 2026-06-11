@@ -200,10 +200,11 @@ async def list_user_assessments(
     user: User = Depends(require_auth),
 ):
     """
-    List paid assessments for the authenticated user.
+    List assessments for the authenticated user.
 
-    Returns completed paid-tier generation jobs that haven't expired.
-    These are the one-off £9 assessments stored for 30 days.
+    Returns completed generation jobs with an assessment that haven't
+    expired — any tier, since the full pipeline is free while one-time
+    payments are disabled.
     """
     now = datetime.utcnow()
 
@@ -211,7 +212,7 @@ async def list_user_assessments(
         select(GenerationJob)
         .where(
             GenerationJob.user_id == user.id,
-            GenerationJob.tier == "paid",
+            GenerationJob.assessment_json.is_not(None),
             GenerationJob.status == "completed",
             GenerationJob.expires_at > now,
         )

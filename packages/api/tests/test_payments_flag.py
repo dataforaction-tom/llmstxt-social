@@ -203,3 +203,36 @@ async def test_webhook_still_processes_subscription_events_when_payments_disable
 
     handler.assert_awaited_once_with(event.data.object, db)
     assert response == {"status": "success"}
+
+
+# --- /api/assessments -------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_assessments_filter_on_assessment_presence_not_tier():
+    from llmstxt_api.models import User
+    from llmstxt_api.routes.generate import list_user_assessments
+
+    user = User(id=uuid.uuid4(), email="someone@example.org")
+
+    captured = {}
+    db = mock.AsyncMock()
+
+    async def fake_execute(query):
+        captured["query"] = query
+        result = mock.MagicMock()
+        result.scalars.return_value.all.return_value = []
+        return result
+
+    db.execute = mock.AsyncMock(side_effect=fake_execute)
+
+    response = await list_user_assessments(db, user)
+
+    sql = str(captured["query"])
+    # Free-tier jobs now carry assessments too, so the dashboard must list
+    # anything with an assessment rather than filtering on tier. Note: the
+    # SELECT clause names every column including tier, so check for a tier
+    # *filter*, not the bare word.
+    assert "assessment_json IS NOT NULL" in sql
+    assert "tier =" not in sql
+    assert response == []
