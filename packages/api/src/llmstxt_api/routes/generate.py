@@ -97,6 +97,13 @@ async def generate_paid(
     - Result valid for 30 days
     - Links to user account if authenticated (viewable in dashboard)
     """
+    # Kill switch: refuse before touching the DB or Stripe. The free
+    # endpoint already provides the full pipeline while this is off.
+    if not settings.payments_enabled:
+        raise HTTPException(
+            status_code=403, detail="One-time payments are currently disabled"
+        )
+
     # Check for duplicate job with same payment_intent_id
     existing_job = await db.execute(
         select(GenerationJob).where(

@@ -99,3 +99,56 @@ async def test_free_endpoint_keeps_basic_pipeline_when_payments_enabled():
 
     free_task.delay.assert_called_once()
     paid_task.delay.assert_not_called()
+
+
+# --- /api/generate/paid -----------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_paid_endpoint_403_when_payments_disabled():
+    from fastapi import HTTPException
+
+    from llmstxt_api.config import settings
+    from llmstxt_api.routes.generate import generate_paid
+    from llmstxt_api.schemas import GeneratePaidRequest
+
+    db = mock.AsyncMock()
+    request = GeneratePaidRequest(
+        url="https://example.org", template="charity", payment_intent_id="pi_123"
+    )
+
+    with mock.patch.object(settings, "payments_enabled", False):
+        with pytest.raises(HTTPException) as exc:
+            await generate_paid(request, db, None)
+
+    assert exc.value.status_code == 403
+    assert "disabled" in exc.value.detail.lower()
+    # Guard fires before any DB or Stripe work.
+    db.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_paid_endpoint_still_works_when_payments_enabled():
+    from llmstxt_api.config import settings
+    from llmstxt_api.routes.generate import generate_paid
+    from llmstxt_api.schemas import GeneratePaidRequest
+
+    db = make_db()
+    no_existing = mock.MagicMock()
+    no_existing.scalar_one_or_none.return_value = None
+    db.execute.return_value = no_existing
+
+    request = GeneratePaidRequest(
+        url="https://example.org", template="charity", payment_intent_id="pi_123"
+    )
+
+    paid_task = mock.MagicMock()
+    verify = mock.AsyncMock(return_value={"amount": 900, "metadata": {}})
+    with mock.patch.object(settings, "payments_enabled", True), mock.patch(
+        "llmstxt_api.routes.generate.verify_payment_intent", verify
+    ), mock.patch("llmstxt_api.routes.generate.generate_paid_task", paid_task):
+        response = await generate_paid(request, db, None)
+
+    verify.assert_awaited_once_with("pi_123")
+    paid_task.delay.assert_called_once()
+    assert response.tier == "paid"
