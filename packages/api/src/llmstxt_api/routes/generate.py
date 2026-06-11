@@ -47,8 +47,9 @@ async def generate_free(
     - When PAYMENTS_ENABLED is false (default), runs the full pipeline
       (enrichment + quality assessment); otherwise basic generation only
     """
-    # TODO: Check rate limit based on IP
-    client_ip = http_request.client.host
+    # Per-IP daily rate limiting is enforced by RateLimitMiddleware (see
+    # llmstxt_api.middleware.rate_limit) — important cost control now that
+    # this endpoint can trigger the LLM-backed full pipeline.
 
     # Apply defaults for sector and goal
     sector = request.sector or DEFAULT_SECTOR
