@@ -9,17 +9,23 @@ import ProgressIndicator from '../components/ProgressIndicator';
 import SEOHead from '../components/SEOHead';
 import SchemaScript, { generateHowToSchema } from '../components/SchemaScript';
 import { useAuth } from '../contexts/AuthContext';
+import { paymentsEnabled } from '../config/payments';
 
-const howToSteps = [
-  { name: 'Enter your URL', text: 'Enter your organisation\'s website URL in the form' },
-  { name: 'Select a template', text: 'Choose from Charity, Funder, Public Sector, or Startup template' },
-  { name: 'Choose your tier', text: 'Select Free for basic generation or Paid for full assessment' },
-  { name: 'Generate', text: 'Click generate and wait for your AI-powered llms.txt file' },
-  { name: 'Download', text: 'Download your llms.txt file and add it to your website root' },
-];
+function buildHowToSteps(payments: boolean) {
+  return [
+    { name: 'Enter your URL', text: 'Enter your organisation\'s website URL in the form' },
+    { name: 'Select a template', text: 'Choose from Charity, Funder, Public Sector, or Startup template' },
+    ...(payments
+      ? [{ name: 'Choose your tier', text: 'Select Free for basic generation or Paid for full assessment' }]
+      : []),
+    { name: 'Generate', text: 'Click generate and wait for your AI-powered llms.txt file' },
+    { name: 'Download', text: 'Download your llms.txt file and add it to your website root' },
+  ];
+}
 
 export default function GeneratePage() {
   const { user } = useAuth();
+  const payments = paymentsEnabled();
   const [url, setUrl] = useState('');
   const [template, setTemplate] = useState<Template>('charity');
   const [sector, setSector] = useState<string>('general');
@@ -67,7 +73,7 @@ export default function GeneratePage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (tier === 'paid') {
+    if (payments && tier === 'paid') {
       setShowPayment(true);
     } else {
       generateMutation.mutate();
@@ -104,7 +110,7 @@ export default function GeneratePage() {
       <SchemaScript schema={generateHowToSchema(
         'How to Generate an llms.txt File',
         'Create AI-ready documentation for your organisation in 5 simple steps',
-        howToSteps
+        buildHowToSteps(payments)
       )} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="max-w-3xl mx-auto">
@@ -204,7 +210,8 @@ export default function GeneratePage() {
               </p>
             </div>
 
-            {/* Tier Selection */}
+            {/* Tier Selection (hidden while one-time payments are off) */}
+            {payments && (
             <fieldset>
               <legend className="label">Tier</legend>
               <div
@@ -254,6 +261,7 @@ export default function GeneratePage() {
                 </button>
               </div>
             </fieldset>
+            )}
 
             {/* Submit Button */}
             <button
@@ -266,8 +274,10 @@ export default function GeneratePage() {
                   <Loader2 className="inline-block animate-spin mr-2" />
                   Generating...
                 </>
-              ) : (
+              ) : payments ? (
                 <>Generate {tier === 'paid' ? '(Proceed to Payment)' : 'Free'}</>
+              ) : (
+                <>Generate</>
               )}
             </button>
           </form>
