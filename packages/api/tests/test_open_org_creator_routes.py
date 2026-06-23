@@ -372,3 +372,28 @@ async def test_finalize_returns_400_when_markdown_invalid():
     with pytest.raises(HTTPException) as exc:
         await finalize_session(session_id=session_row.id, db=db, admin=admin)
     assert exc.value.status_code == 400
+
+
+async def test_finalize_returns_409_on_duplicate_slug():
+    """A slug colliding with an existing record must surface as 409, not a 500.
+
+    The LLM derives slugs from the title, so repeats are easy; without a guard
+    the unique constraint raises IntegrityError -> unhandled 500.
+    """
+    from fastapi import HTTPException
+    from sqlalchemy.exc import IntegrityError
+
+    from llmstxt_api.routes.open_org_creator import finalize_session
+
+    session_row = _session()
+    session_row.current_markdown = _STRATEGY_MD
+    db = mock.AsyncMock()
+    db.execute.return_value = _result(session_row)
+    db.commit.side_effect = IntegrityError("INSERT", {}, Exception("duplicate slug"))
+    admin = _admin_for()
+
+    with pytest.raises(HTTPException) as exc:
+        await finalize_session(session_id=session_row.id, db=db, admin=admin)
+
+    assert exc.value.status_code == 409
+    db.rollback.assert_awaited()

@@ -26,6 +26,7 @@ from fastapi.responses import StreamingResponse
 from starlette.concurrency import iterate_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from llmstxt_api.config import settings
@@ -378,7 +379,19 @@ async def finalize_session(
             themes=derived.get("themes"),
         )
     db.add(row)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        # Unique (org_id, slug) collision — the LLM derives slugs from the
+        # title so repeats are common. Surface a clear 409 instead of a 500.
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"a {session_row.kind} with slug {slug!r} already exists for "
+                "this org; change the 'id' in the markdown frontmatter and try again"
+            ),
+        ) from exc
 
     return FinalizeResponse(
         kind=session_row.kind,
