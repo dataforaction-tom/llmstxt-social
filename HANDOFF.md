@@ -1,3 +1,109 @@
+# Handoff — Local test pass: 10 editor bugs fixed via TDD (uncommitted on master)
+
+> Session ended: 2026-06-16
+> Branch: `master` — **all work is uncommitted in the working tree** (nothing pushed)
+> Picks up from: local click-through of the merged #18/#19 editor work on an isolated test stack
+> Resumes at: **finish the test pass**, then **branch + commit + open ONE PR** bundling everything
+
+## TL;DR
+
+Ran the Open Org editor end-to-end on an isolated local stack and fixed **10 real bugs** the merged editor (#18/#19) shipped with — each red/green TDD, each logged in `MISTAKES.md`. Nothing is committed yet (per your rule: no commits to `master`). All gates green: **web tsc clean · 156 vitest · lint clean · API 196 pytest**.
+
+### Fixes (in the order found)
+1. **Claim redirect raced to `/dashboard`** — `AuthVerify.tsx` gated `<Navigate>` on `|| isAuthenticated`, which flips true (via `refetch()`) before `claimOrgId` resolves. Now gates on `status === 'success'` only.
+2. **Rate-limit rule over-matched** — `startswith("/api/open-org/generate")` also caught the `/status` poll; now exact-match.
+3. **Rate-limit returned 500 not 429** — `raise HTTPException` inside `BaseHTTPMiddleware` bypasses handlers; now returns `JSONResponse(429)`.
+4. **Chat creator 422'd after session start** — session routes lacked `{org_id}` in their path, so `require_org_admin`'s `org_id` became a required *query* param. Added `{org_id}` to the 3 routes + threaded `orgId` through the client + `Create.tsx`.
+5. **Guided editor couldn't type spaces** — `TextField`/`TextAreaField` bound straight to a prop the bridge re-derives and trims; added a local input buffer.
+6. **Guided preview ignored frontmatter** — only rendered the body; now renders frontmatter YAML above it.
+7. **Guided saves failed silently** — `validationErrors` were only wired to the markdown surface; now shown on the guided surface too.
+8. **Guided field kinds vs schema *types*** — scalar controls pointed at object/number leaves (corrupting them). Added a `number` field kind; remapped `mission.evidence_summary` → its `beneficiaries_served_text` string subfield; removed `identity.scale`, `resource_model.current_funding_mix`, idea `geolocation` (markdown-only). New `schemaConsistency.test.ts` guard.
+9. **New-record save → NOT NULL violation** — `put_idea/strategy/profile_markdown` snapshotted a version with `parent_id=record.id`, but a new record's id is unset until flush. Pre-assign `id=uuid.uuid4()`. (This was the "couldn't save on a new idea".)
+10. **Guided array fields vs schema *item* shapes** — card cardShapes missed required item props (`evidence_id`, `org_name`); `connections` was pills (strings) for an object array; `also_known_as`/`area_codes`/`resourcing_gaps` are `string[]` modelled as `{value}` cards. Added a `string-list` field kind; fixed cardShapes; dropped the enum `connections.relationship` from cards. Guard extended to cover item shapes.
+
+## New files (untracked — `git add` before committing)
+- `packages/web/src/components/openorg/guided/fields/NumberField.tsx` (+ `.test.tsx`)
+- `packages/web/src/components/openorg/guided/fields/StringListField.tsx` (+ `.test.tsx`)
+- `packages/web/src/components/openorg/guided/sections/schemaConsistency.test.ts`
+- `docker-compose.test.yml` (repo root) — the isolated local test stack (see below). Decide whether to commit it.
+
+## How to verify / run the local stack
+Isolated, never touches the prod `llmstxt-local` stack:
+```bash
+docker compose -p llmstxt-test -f docker-compose.test.yml up -d --build   # ports 8010/5442/6389, dev mode
+docker compose -p llmstxt-test -f docker-compose.test.yml exec -T api alembic upgrade head
+```
+Backend runs from mounted source with `--reload` (Python fixes are live without rebuild); the SPA is baked into the image (**frontend fixes need a `--build`**). App + API on `http://localhost:8010`; magic-link/claim links print to the worker log. Tear down: `... down -v`.
+
+> **In-flight at session end:** a `--build` was kicked off after fix #10 (the array-field fixes). Confirm it finished and recreated the api container (`docker compose -p llmstxt-test -f docker-compose.test.yml ps` — api uptime should be recent) before re-testing evidence/connections/collaborators in the browser. If not, re-run the build line above.
+
+Gates:
+```bash
+cd packages/web && npx tsc --noEmit && npx vitest run && npm run lint   # tsc clean · 156 · lint 0
+cd packages/api && /Users/tomcwxyz/llmstxt-local/.venv/bin/python -m pytest tests/ -q   # 196
+```
+
+## Deliberate follow-ups (documented, not regressions)
+- **Structured guided editors** for the object/map types currently markdown-only: `identity.scale`, `resource_model.current_funding_mix` (int-% map), idea `geolocation`.
+- **Enum/boolean inputs inside card-lists** — `connections.relationship` (enum), `connections.mutual`/`collaborators.confirmed` (bool) are markdown-only until cards support constrained inputs.
+- The rate-limit 500→429 + over-match fixes (#2/#3) are unit-tested but not browser-verified against a real over-limit hit.
+
+## Resume / next step
+Test pass is nearly done (the user was walking the idea editor section by section). Once confirmed:
+1. Branch off `master` (e.g. `fix/openorg-editor-local-test-pass`).
+2. `git add` the 5 new files + the modified ones; commit (logical groupings or one Conventional Commit). Don't forget `docker-compose.test.yml` decision.
+3. Open **ONE PR** to `master` bundling all 10 fixes; call out the follow-ups above. Don't push/merge without confirming.
+
+---
+
+> NOTE: the entry below (2026-06-11) covers the editor-polish + PAYMENTS_ENABLED merge that this session was testing. Kept for context.
+
+---
+
+# Handoff — Editor-polish stack + PAYMENTS_ENABLED switch merged to master
+
+> Session ended: 2026-06-11
+> Branch: `master` (up to date with `origin/master`; nothing uncommitted)
+> Picks up from: the editor-polish plan (`docs/superpowers/plans/2026-05-19-openorg-editor-polish.md`)
+> Resumes at: **production rebuild + DNS**, the outstanding user actions, or **PR 7** (the one editor-polish PR still unbuilt)
+
+## TL;DR
+
+Two PRs landed and merged to `master` this session — the editor-polish stack that the prior handoff described as "stacked, unpushed" is now in, plus a payments kill switch.
+
+- **PR #18 — editor polish** (`fe97a52`, merged 2026-06-11). Carries **PR 1–6** of the 7-PR editor-polish plan: the dual-surface Guided + Markdown editor (`GuidedEditor`, `Section`, `SidebarNav`, `bridge.ts`, field widgets `CardList`/`PillPicker`/`GroupRule`), `EditorShell` + `SurfaceSwitch`, autosave (`useAutosave` + `SaveIndicator`), `PublishStrip`, live generate status (`GenerateLiveStatus`) backed by 5 new `generation_*` columns on `OrgProfile` (migration `d4f5a6b7c8`), the claim→`/openorg/edit/{orgId}/profile` redirect (`claim_org_id` on `AuthResponse` + `AuthVerify`), `WelcomeStrip` onboarding, and the central `microcopy.ts` string module. New backend routes: charity lookup + generate-status. `tsconfig` bumped to ES2022.
+- **PR #19 — free full pipeline** (`f1d3b7f`, merged 2026-06-11). New `PAYMENTS_ENABLED` kill switch. When off: the free endpoint runs the **full** generation pipeline, paid generation + payment-intent creation are refused, assessments list by presence rather than tier, and the SPA hides the tier selector + payment flow (pricing page shows everything free). Wired through `.env`, `docker-compose*.yml`, and the API Dockerfile. Covered by `test_payments_flag.py` (238 lines).
+- **`cede6ed`** — MISTAKES.md entry logging a prod compose file-order deploy mistake. **Read it before the next deploy.**
+
+## What is NOT done
+
+- **PR 7 — Keyboard + motion polish (tasks 7.1–7.2)** of the editor-polish plan never landed. PR #18 stopped at PR 6. No `motion.ts`, no `Cmd/Ctrl+S` save binding, no `j`/`k` section nav, no `prefers-reduced-motion` audit. Plan has exact tests + code at lines ~5817–6076. Task 7.2 Step 4 is a manual browser reduced-motion smoke check (can't run headlessly). This is the only remaining piece of that plan.
+
+## Still-open user / deploy actions (carried forward, none resolved this session)
+
+- **Production rebuild + DNS** — last-known live image predates all open-org code. `docker compose build` + `up -d --force-recreate api worker`, add the Cloudflare Tunnel route for `openorg.good-ship.co.uk`. Set prod env: `AUTH_COOKIE_DOMAIN=.good-ship.co.uk`, `CORS_ORIGINS=https://llmstxt.social,https://openorg.good-ship.co.uk`, Murmurations index/library URLs, and decide `PAYMENTS_ENABLED`. **Mind the compose file-order lesson in MISTAKES.md.**
+- **Open the Murmurations upstream schema PR** from `deploy/murmurations/`.
+- **Verify the Resend domain** for `hello@openorg.good-ship.co.uk`.
+- **Rotate `ANTHROPIC_API_KEY` + `CHARITY_COMMISSION_API_KEY`** (printed to a transcript during an earlier click-through).
+- **Security follow-ups** (SECURITY-REVIEW.md): M1 claim-ownership verification, M2 subdomain cookie audit; L1–L7 defence-in-depth.
+
+## Verification commands
+
+```bash
+cd packages/web && npx tsc --noEmit && npx vitest run && npm run lint && npm run build
+# backend (Python 3.11 venv):
+cd packages/api  && /Users/tomcwxyz/llmstxt-local/.venv/bin/python -m pytest tests/ -q
+cd packages/core && /Users/tomcwxyz/llmstxt-local/.venv/bin/python -m pytest tests/ -q
+```
+
+(The `npm run build` tail line "build was canceled / Vite server closed" is a cosmetic prerender-server shutdown artifact — exit code is 0.)
+
+---
+
+> NOTE: everything below is the PRIOR handoff (2026-06-05), written while the editor-polish stack was still unpushed on the `editor-polish-pr5-generate` branch. PR #18 has since merged PR 1–6 of it to `master`. Kept for historical context.
+
+---
+
 # Handoff — Editor-polish PR 5 + PR 6 complete; PR 7 is all that remains
 
 > Session ended: 2026-06-05
