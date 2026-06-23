@@ -290,6 +290,53 @@ def test_put_idea_md_validates_and_saves(app_with_admin_routes):
     assert response.status_code in (200, 201)
 
 
+def test_put_idea_md_new_record_snapshot_has_parent_id(app_with_admin_routes):
+    """Creating a NEW idea must give its version snapshot a non-null parent_id.
+
+    Regression: the new OrgIdea's id isn't assigned until flush, so
+    parent_id=idea.id was None and the org_versions insert failed with a
+    NOT NULL violation against real Postgres ("couldn't save" on a new idea).
+    """
+    from llmstxt_api.open_org_models import OrgVersion
+
+    session = app_with_admin_routes.state.mock_session
+    _mock_execute_returning(session, None)  # idea does not exist yet
+
+    client = TestClient(app_with_admin_routes)
+    response = client.put(
+        "/api/open-org/GB-CHC-1/ideas/new-idea.md",
+        json={"markdown": VALID_IDEA_MD},
+    )
+    assert response.status_code in (200, 201)
+
+    versions = [
+        c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], OrgVersion)
+    ]
+    assert versions, "expected an OrgVersion snapshot"
+    assert versions[0].parent_id is not None
+
+
+def test_put_strategy_md_new_record_snapshot_has_parent_id(app_with_admin_routes):
+    """Same regression as ideas: a new strategy's snapshot needs a parent_id."""
+    from llmstxt_api.open_org_models import OrgVersion
+
+    session = app_with_admin_routes.state.mock_session
+    _mock_execute_returning(session, None)
+
+    client = TestClient(app_with_admin_routes)
+    response = client.put(
+        "/api/open-org/GB-CHC-1/strategies/new-strategy.md",
+        json={"markdown": VALID_STRATEGY_MD},
+    )
+    assert response.status_code in (200, 201)
+
+    versions = [
+        c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], OrgVersion)
+    ]
+    assert versions, "expected an OrgVersion snapshot"
+    assert versions[0].parent_id is not None
+
+
 # --- history ---------------------------------------------------------------
 
 def test_get_history_lists_versions_for_org(app_with_admin_routes):

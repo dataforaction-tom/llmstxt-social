@@ -163,7 +163,9 @@ async def put_profile_markdown(
     result = await db.execute(select(OrgProfile).where(OrgProfile.org_id == org_id))
     profile = result.scalar_one_or_none()
     if profile is None:
-        profile = OrgProfile(org_id=org_id)
+        # Pre-assign the id so the snapshot's parent_id is non-null (see the
+        # idea route for the full rationale).
+        profile = OrgProfile(id=uuid.uuid4(), org_id=org_id)
         db.add(profile)
         # New profile has no prior history — snapshot creation as v1.
     profile.markdown_source = payload.markdown
@@ -233,7 +235,7 @@ async def put_strategy_markdown(
     )
     strategy = result.scalar_one_or_none()
     if strategy is None:
-        strategy = OrgStrategy(org_id=org_id, slug=slug)
+        strategy = OrgStrategy(id=uuid.uuid4(), org_id=org_id, slug=slug)
         db.add(strategy)
     strategy.markdown_source = payload.markdown
     strategy.strategy_json = derived
@@ -293,7 +295,10 @@ async def put_idea_markdown(
     )
     idea = result.scalar_one_or_none()
     if idea is None:
-        idea = OrgIdea(org_id=org_id, slug=slug)
+        # Pre-assign the id so the version snapshot below can reference it as
+        # parent_id — the model default fires at flush, leaving it None until
+        # then, which violates org_versions.parent_id NOT NULL.
+        idea = OrgIdea(id=uuid.uuid4(), org_id=org_id, slug=slug)
         db.add(idea)
     idea.markdown_source = payload.markdown
     idea.idea_json = derived

@@ -41,6 +41,25 @@ def _result(scalar):
 
 
 # ---------------------------------------------------------------------------
+# Routing contract
+# ---------------------------------------------------------------------------
+
+
+def test_session_routes_carry_org_id_in_path():
+    """``require_org_admin`` declares ``org_id`` with no default. If a route's
+    path template omits ``{org_id}``, FastAPI binds it as a *required query*
+    parameter instead — so the frontend's path-only calls 422 and the whole
+    chat creator dies after session creation. Every session route must carry
+    ``{org_id}`` in its path."""
+    from llmstxt_api.routes.open_org_creator import router
+
+    paths = {route.name: route.path for route in router.routes}
+    assert "{org_id}" in paths["get_session"]
+    assert "{org_id}" in paths["post_message"]
+    assert "{org_id}" in paths["finalize_session"]
+
+
+# ---------------------------------------------------------------------------
 # POST /create/{kind}
 # ---------------------------------------------------------------------------
 
