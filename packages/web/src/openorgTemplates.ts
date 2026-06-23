@@ -10,13 +10,19 @@
 export const NEW_STRATEGY_TEMPLATE = `---
 schema_version: open-org-strategy/v0.1
 id: "draft-2025-2028"     # slug — short, dash-separated, the URL-stable identifier
-status: draft              # draft | active | done
+status: draft              # draft | active | archived
 period:
   start: ""                # YYYY-MM-DD — when does this strategy start?
   end: ""                  # YYYY-MM-DD — when does it end?
   horizon: "3_5_years"     # 1_year | 2_3_years | 3_5_years | 5_10_years
 themes:                    # pick from the controlled vocabulary
   - food_access
+priorities:                # the 2-5 things you're focusing on (frontmatter only)
+  - title: "[replace with your priority title]"
+    narrative: ""          # one sentence on why this matters
+    maturity: "emerging"   # seed | emerging | established | mature
+    success_indicators:    # how you'll know it's working
+      - ""
 access_level: summary_public
 ---
 
@@ -25,13 +31,6 @@ access_level: summary_public
 <!-- What is this organisation trying to become or achieve over this
      period? Write it in plain language, as if explaining to someone who
      knows nothing about you. 2-4 sentences. -->
-
-## Priority 1: [replace with your priority title]
-
-<!-- What's the first big thing you're focusing on?
-     - What does success look like?
-     - How mature is the work — emerging, established?
-     - What evidence supports this direction? -->
 
 ## Not doing
 
@@ -56,7 +55,7 @@ access_level: summary_public
 export const NEW_IDEA_TEMPLATE = `---
 schema_version: open-org-idea/v0.1
 id: "your-idea-slug"      # short, dash-separated identifier
-status: seed              # seed | developing | active | done
+status: seed              # seed | developing | shaped | delivered | archived
 themes:
   - food_access
 place:

@@ -27,15 +27,21 @@ a time.
    one theme is required. Confirm before adding.
 3. **Summary** — two or three sentences describing what the strategy is about
    in plain English. This is the public-facing description.
-4. **Priorities** — the 2-5 things the org will focus on. For each: a short
-   title and a one-sentence rationale ("**Priority title** — rationale").
+4. **Priorities** — the 2-5 things the org will focus on. Capture each as a
+   structured entry in the YAML frontmatter `priorities` list (see the
+   structure below), NOT as a body heading. Each needs a short `title`
+   (required) and a one-sentence `narrative`; add `maturity` and
+   `success_indicators` when the user offers them.
 5. **Not doing** — important things the org has decided NOT to do (and why).
-   Same shape: "**Item** — reason". This is often the most useful section for
-   funders and peers; press gently if the user gives nothing.
+   Shape in the `## Not doing` body section: "**Item** reason". This is often
+   the most useful section for funders and peers; press gently if the user
+   gives nothing.
 6. **Tensions** — honest internal trade-offs or open questions the org is
-   sitting with. Same shape: "**Tension** — narrative of how it's being held".
+   sitting with. Shape in `## Tensions`: "**Tension** narrative of how it's
+   being held".
 7. **Learning** — what they've learned, with attribution to the source where
-   possible. Shape: "**What they learned** (from: source)".
+   possible. One bullet per lesson in `## Learning`: "- what they learned",
+   then on the next line, if they named a source, "  *Source: who or where*".
 
 ## Maintaining the live preview
 
@@ -56,6 +62,12 @@ period:
   horizon: <enum>
 themes:
   - <key>
+priorities:
+  - title: <short priority title>
+    narrative: <one sentence on why this matters>
+    maturity: <seed | emerging | established | mature>
+    success_indicators:
+      - <how they'll know it's working>
 ---
 
 ## Summary
@@ -64,16 +76,20 @@ themes:
 
 ## Not doing
 
-- **Item** — reason
+- **Item** reason
 
 ## Tensions
 
-- **Tension** — narrative
+- **Tension** narrative
 
 ## Learning
 
-- **What they learned** (from: source)
+- <what they learned>
+  *Source: <who or where>*
 ```
+
+Priorities live ONLY in the frontmatter `priorities:` list above — never add a
+`## Priorities` body heading, as it would be dropped when the strategy is saved.
 
 Generate `id` as a lowercase-hyphenated slug of the title.
 
