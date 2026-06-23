@@ -42,16 +42,9 @@ export const IDEA_SECTIONS: GuidedSection[] = [
         kind: 'group',
         children: [
           { key: 'description', label: 'Description', kind: 'textarea' },
-          { key: 'area_codes', label: 'Area codes', kind: 'card-list', cardShape: [{ key: 'value', label: 'Code', kind: 'text' }] },
-          {
-            key: 'geolocation',
-            label: 'Geolocation',
-            kind: 'group',
-            children: [
-              { key: 'lat', label: 'Lat', kind: 'text' },
-              { key: 'lon', label: 'Lon', kind: 'text' },
-            ],
-          },
+          { key: 'area_codes', label: 'Area codes', kind: 'string-list', hint: 'ONS codes, e.g. E07000148.' },
+          // geolocation (lat/lon numbers) is derived from area codes
+          // downstream, not hand-entered. Preserved in the markdown.
         ],
       },
     ],
@@ -79,8 +72,8 @@ export const IDEA_SECTIONS: GuidedSection[] = [
         label: 'Cost',
         kind: 'group',
         children: [
-          { key: 'lower', label: 'Lower', kind: 'text' },
-          { key: 'upper', label: 'Upper', kind: 'text' },
+          { key: 'lower', label: 'Lower', kind: 'number' },
+          { key: 'upper', label: 'Upper', kind: 'number' },
           { key: 'currency', label: 'Currency', kind: 'text', placeholder: 'GBP' },
           { key: 'period', label: 'Period', kind: 'text', placeholder: 'one-off / per-year' },
         ],
@@ -100,8 +93,8 @@ export const IDEA_SECTIONS: GuidedSection[] = [
         label: 'Evidence',
         kind: 'card-list',
         cardShape: [
-          { key: 'citation', label: 'Citation', kind: 'textarea' },
-          { key: 'url', label: 'URL', kind: 'text' },
+          { key: 'evidence_id', label: 'Reference', kind: 'text', hint: 'A short id, DOI, or URL.' },
+          { key: 'relevance', label: 'Relevance', kind: 'textarea' },
         ],
       },
     ],
@@ -113,12 +106,24 @@ export const IDEA_SECTIONS: GuidedSection[] = [
     yamlKeys: ['connections', 'collaborators', 'linked_strategy_id'],
     bodyHeadings: [],
     fields: [
-      { key: 'connections', label: 'Connections', kind: 'pills', vocab: 'connections' },
+      {
+        key: 'connections',
+        label: 'Connections',
+        kind: 'card-list',
+        // relationship is an enum and mutual a boolean — cards only do free
+        // text, so they're set via the Markdown surface. org_name is the
+        // required field and all a guided connection needs.
+        hint: 'Other organisations connected to this idea.',
+        cardShape: [{ key: 'org_name', label: 'Organisation', kind: 'text' }],
+      },
       {
         key: 'collaborators',
         label: 'Collaborators',
         kind: 'card-list',
-        cardShape: [{ key: 'name', label: 'Name', kind: 'text' }],
+        cardShape: [
+          { key: 'org_name', label: 'Organisation', kind: 'text' },
+          { key: 'role', label: 'Role', kind: 'text' },
+        ],
       },
       { key: 'linked_strategy_id', label: 'Linked strategy', kind: 'text', hint: 'Slug of a strategy on the same org.' },
     ],

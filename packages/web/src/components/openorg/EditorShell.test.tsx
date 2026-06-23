@@ -63,6 +63,22 @@ describe('EditorShell', () => {
     expect(screen.getByText(/saved/i)).toBeInTheDocument();
   });
 
+  it('surfaces validation errors on the guided surface', () => {
+    // A failed autosave on the guided surface must explain itself — otherwise
+    // it just silently doesn't save with no clue why.
+    render(
+      <EditorShell
+        kind="profile"
+        initialSource={SOURCE}
+        sections={PROFILE_SECTIONS}
+        onSave={vi.fn()}
+        vocabs={{}}
+        validationErrors={[{ path: 'themes', message: 'at least one theme is required' }]}
+      />,
+    );
+    expect(screen.getByText(/at least one theme is required/i)).toBeInTheDocument();
+  });
+
   it('switches to markdown surface and persists', () => {
     const { unmount } = render(
       <EditorShell

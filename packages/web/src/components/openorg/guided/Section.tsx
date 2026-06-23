@@ -1,6 +1,8 @@
 import TextField from './fields/TextField';
+import NumberField from './fields/NumberField';
 import TextAreaField from './fields/TextAreaField';
 import PillPicker, { type PillOption } from './fields/PillPicker';
+import StringListField from './fields/StringListField';
 import CardList from './fields/CardList';
 import GroupRule from './fields/GroupRule';
 import type { ParsedSection } from './bridge';
@@ -78,6 +80,18 @@ function renderField(
       />
     );
   }
+  if (field.kind === 'number') {
+    return (
+      <NumberField
+        key={field.key}
+        label={field.label}
+        value={typeof value === 'number' ? value : ''}
+        hint={field.hint}
+        placeholder={field.placeholder}
+        onChange={(v) => onChange(setByPath(parsed, field.key, v))}
+      />
+    );
+  }
   if (field.kind === 'textarea') {
     return (
       <TextAreaField
@@ -111,6 +125,18 @@ function renderField(
       />
     );
   }
+  if (field.kind === 'string-list') {
+    return (
+      <StringListField
+        key={field.key}
+        label={field.label}
+        value={Array.isArray(value) ? (value as unknown[]).filter((v): v is string => typeof v === 'string') : []}
+        hint={field.hint}
+        placeholder={field.placeholder}
+        onChange={(v) => onChange(setByPath(parsed, field.key, v))}
+      />
+    );
+  }
   if (field.kind === 'card-list') {
     return (
       <CardList
@@ -129,12 +155,36 @@ function renderField(
         {(field.children ?? []).map((child) => {
           const childKey = `${field.key}.${child.key}`;
           const childValue = getByPath(parsed, childKey);
+          if (child.kind === 'number') {
+            return (
+              <NumberField
+                key={childKey}
+                label={child.label}
+                value={typeof childValue === 'number' ? childValue : ''}
+                onChange={(v) => onChange(setByPath(parsed, childKey, v))}
+              />
+            );
+          }
           if (child.kind === 'textarea') {
             return (
               <TextAreaField
                 key={childKey}
                 label={child.label}
                 value={typeof childValue === 'string' ? childValue : ''}
+                onChange={(v) => onChange(setByPath(parsed, childKey, v))}
+              />
+            );
+          }
+          if (child.kind === 'string-list') {
+            return (
+              <StringListField
+                key={childKey}
+                label={child.label}
+                value={
+                  Array.isArray(childValue)
+                    ? (childValue as unknown[]).filter((v): v is string => typeof v === 'string')
+                    : []
+                }
                 onChange={(v) => onChange(setByPath(parsed, childKey, v))}
               />
             );

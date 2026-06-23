@@ -58,15 +58,16 @@ Before marking any deliverable complete:
 
 ## State & progress
 
-> Current focus: handed off after Step 4 (editor backend + minimal frontend); Step 5 (profile generator) is next
-> Status: 6 of 11 steps complete; 164 backend tests passing; frontend `tsc` clean; nothing committed yet
+> Current focus: local test pass of the merged editor — 10 bugs fixed via TDD, **uncommitted on `master`**; next is finish testing then branch + ONE PR (see HANDOFF.md)
+> Status: all 11 steps complete and merged through PR #19. This session's editor bugfixes (claim redirect, rate-limit 429, chat 422, guided-editor field/schema mismatches, new-record save) are green (web 156 vitest + API 196 pytest) but NOT committed. Outstanding: commit/PR the fixes, prod deploy, Murmurations upstream PR, Resend domain verify, key rotation, security M1/M2, editor-polish PR 7
 
 See `HANDOFF.md` for the session-end wrap-up. `PLAN.md` for the full 11-step build order and locked decisions. `STATE.md` for system state. `MISTAKES.md` for the lessons log.
 
 ## Known issues
 
-- Murmurations schema not yet registered upstream (Step 6 — drafting the YAML now; user opens PR)
-- Frontend test framework (Vitest+RTL) introduced fresh in Step 4 — first JS tests in repo
+- Murmurations schema not yet registered upstream — YAML drafted at `deploy/murmurations/`; user opens the PR
+- Live prod image predates all open-org code — needs a rebuild + force-recreate before openorg.good-ship.co.uk is live (see HANDOFF.md; mind the compose file-order lesson in MISTAKES.md)
+- Editor-polish PR 7 (keyboard + motion polish) not yet built — only remaining piece of the editor-polish plan
 
 ## Lessons learned
 

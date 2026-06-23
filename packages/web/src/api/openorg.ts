@@ -650,13 +650,19 @@ export async function createCreatorSession(
   return data;
 }
 
-export async function fetchCreatorSession(sessionId: string): Promise<CreatorSessionDetail> {
-  const { data } = await api.get(`/api/open-org/create/${sessionId}`);
+export async function fetchCreatorSession(
+  orgId: string,
+  sessionId: string,
+): Promise<CreatorSessionDetail> {
+  const { data } = await api.get(`/api/open-org/${orgId}/create/${sessionId}`);
   return data;
 }
 
-export async function finalizeCreatorSession(sessionId: string): Promise<FinalizeResponse> {
-  const { data } = await api.post(`/api/open-org/create/${sessionId}/finalize`);
+export async function finalizeCreatorSession(
+  orgId: string,
+  sessionId: string,
+): Promise<FinalizeResponse> {
+  const { data } = await api.post(`/api/open-org/${orgId}/create/${sessionId}/finalize`);
   return data;
 }
 
@@ -671,13 +677,14 @@ export async function finalizeCreatorSession(sessionId: string): Promise<Finaliz
  *     data: <json>\n\n
  */
 export async function streamCreatorMessage(
+  orgId: string,
   sessionId: string,
   content: string,
   onDelta: (text: string) => void,
   onDone: (payload: { current_markdown: string | null; usage?: unknown }) => void,
 ): Promise<void> {
   const baseUrl = API_BASE_URL || '';
-  const response = await fetch(`${baseUrl}/api/open-org/create/${sessionId}/message`, {
+  const response = await fetch(`${baseUrl}/api/open-org/${orgId}/create/${sessionId}/message`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },

@@ -136,16 +136,14 @@ export const STRATEGY_SECTIONS: GuidedSection[] = [
     yamlKeys: ['resource_model'],
     bodyHeadings: [],
     fields: [
-      { key: 'resource_model.current_funding_mix', label: 'Current funding mix', kind: 'textarea' },
+      // current_funding_mix is a {source: percentage} integer map — not free
+      // text. Preserved in the markdown; a structured editor is a follow-up.
       { key: 'resource_model.sustainability_direction', label: 'Sustainability direction', kind: 'textarea' },
       {
         key: 'resource_model.resourcing_gaps',
         label: 'Resourcing gaps',
-        kind: 'card-list',
-        cardShape: [
-          { key: 'title', label: 'Gap', kind: 'text' },
-          { key: 'description', label: 'Description', kind: 'textarea' },
-        ],
+        kind: 'string-list',
+        hint: 'One gap per line.',
       },
     ],
   },

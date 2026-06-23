@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-05-11
+> Last updated: 2026-06-11
 > See `HANDOFF.md` for the full session wrap-up and resume instructions.
 
 ## System state diagram
@@ -15,7 +15,7 @@ stateDiagram-v2
     Deploying --> Live: Caddy + Tunnel routes openorg.good-ship.co.uk
     Live --> [*]
 
-    note right of Testing: ← WE ARE HERE (v0.4 baselined; 6/6 must-pass GREEN; frontend polish landed; ready to merge PR #6)
+    note right of Deploying: ← WE ARE HERE (Phase-1 spec-complete; editor polish PR 1–6 + PAYMENTS_ENABLED merged through PR #19; awaiting prod rebuild + Tunnel route)
 ```
 
 ## Component status
@@ -26,7 +26,7 @@ stateDiagram-v2
 | 1 | Markdown ↔ JSON converter | ✅ Done | Round-trip identity asserted; profile/strategy/idea section maps; deferred priorities/relationships body-rendering to v0.2 |
 | 2 | DB models + Alembic migration | ✅ Done | 8 models with structural tests; migration b1c2d3e4f5a6; ready for `alembic upgrade head` |
 | 3 | CachedAnthropic + llm_usage logging | ✅ Done | Cached system blocks, sync complete + stream, USD/GBP pricing, £0.50/day cap helper |
-| 4 | Markdown editor UI + magic-link auth | ⚠️ Partial | Backend complete (10 routes); frontend has textarea editor + TanStack Query hooks. CodeMirror/Vitest/strategy+idea pages deferred. |
+| 4 | Markdown editor UI + magic-link auth | ✅ Done | Backend (10 routes) + CodeMirror editor + strategy/idea pages + Vitest/RTL. Editor-polish PR 1–6 (#18) added the dual-surface Guided editor, autosave, PublishStrip, live generate status, claim→editor redirect, and onboarding. PR 7 (keyboard/motion polish) still outstanding. |
 | 5 | Profile generator | ✅ Done | Orchestrator + ONS lookup + theme extractor + mission rewriter + claim flow + `POST /api/open-org/generate` + Celery task. 229 tests green; migration `c2d3e4f5a6b7` up/down/up clean. |
 | 6 | Murmurations schema upstream PR | ⚠️ User action needed | Schema + reference profile drafted at `deploy/murmurations/`; user opens PR to MurmurationsNetwork/MurmurationsLibrary |
 | 7 | Murmurations connector + postcodes.io | ✅ Done | postcodes.io enricher + LAD centroid + envelope + client + public /murmurations.json + publish route + submit task + daily cache sync. Defaults to test-index; flip via env vars when upstream schema PR merges. |

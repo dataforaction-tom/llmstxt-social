@@ -4,7 +4,8 @@ import logging
 from datetime import date, datetime, timezone
 from typing import Callable
 
-from fastapi import HTTPException, Request, Response
+from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from redis import Redis
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -28,7 +29,12 @@ def _rule_for(path: str):
             86400,
             date.today().isoformat(),
         )
-    if path.startswith("/api/open-org/generate"):
+    if path == "/api/open-org/generate":
+        # Exact match, not a prefix: this caps only the expensive generate POST.
+        # Sub-paths like ``/generate/{org_id}/status`` are polled every couple
+        # of seconds by the live-status UI and must not share this budget, or a
+        # single generation would exhaust the limit in seconds.
+        #
         # Hourly bucket — each generation costs real Anthropic spend; per-day
         # is too coarse to deter abuse on an unauthenticated endpoint.
         return (
@@ -73,9 +79,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 redis_client.expire(rate_limit_key, window_seconds)
 
             if count > limit:
-                raise HTTPException(
+                # Return a response directly rather than raising HTTPException:
+                # exceptions raised inside a BaseHTTPMiddleware bypass FastAPI's
+                # exception handlers and surface to the client as a 500.
+                return JSONResponse(
                     status_code=429,
-                    detail={
+                    content={
                         "error": "Rate limit exceeded",
                         "message": (
                             f"This endpoint allows {limit} requests per "
@@ -83,6 +92,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         ),
                         "retry_after_seconds": window_seconds,
                     },
+                    headers={"Retry-After": str(window_seconds)},
                 )
 
             response = await call_next(request)
@@ -91,8 +101,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             response.headers["X-RateLimit-Reset"] = bucket
             return response
 
-        except HTTPException:
-            raise
         except Exception as exc:  # noqa: BLE001
             # Fail-open if Redis is unreachable: a brief Redis outage shouldn't
             # take the whole API down. Logged at error level so it lands in a

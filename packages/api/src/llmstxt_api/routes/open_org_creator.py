@@ -210,7 +210,7 @@ async def create_session(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/create/{session_id}", response_model=SessionDetail)
+@router.get("/{org_id}/create/{session_id}", response_model=SessionDetail)
 async def get_session(
     session_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -232,7 +232,7 @@ async def get_session(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/create/{session_id}/message")
+@router.post("/{org_id}/create/{session_id}/message")
 async def post_message(
     session_id: uuid.UUID,
     payload: MessagePayload,
@@ -318,7 +318,7 @@ def _sse_event(event: str, data: dict) -> bytes:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/create/{session_id}/finalize", response_model=FinalizeResponse)
+@router.post("/{org_id}/create/{session_id}/finalize", response_model=FinalizeResponse)
 async def finalize_session(
     session_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),

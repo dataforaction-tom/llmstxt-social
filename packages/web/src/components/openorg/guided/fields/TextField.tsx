@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 export type FieldSource = 'cc' | 'website' | 'inferred';
 
@@ -30,6 +30,13 @@ export default function TextField({
 }: TextFieldProps) {
   const id = useId();
   const showChip = source && !userEdited;
+  // Local buffer so in-progress text survives the guided-editor round-trip —
+  // see the note in TextAreaField. We adopt the prop only when it genuinely
+  // changes, not on our own trimmed echoes.
+  const [local, setLocal] = useState(value);
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
   return (
     <label htmlFor={id} className="flex flex-col text-sm">
       <span className="kicker mb-2 flex items-center gap-2">
@@ -43,8 +50,11 @@ export default function TextField({
       <input
         id={id}
         type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={local}
+        onChange={(e) => {
+          setLocal(e.target.value);
+          onChange(e.target.value);
+        }}
         placeholder={placeholder}
         className="border border-rule bg-paper px-3 py-2 text-base text-ink focus:border-ink focus:outline-none"
       />
