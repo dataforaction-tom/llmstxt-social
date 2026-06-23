@@ -3,11 +3,20 @@
 import json
 import os
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from .extractor import ExtractedPage
 from .templates.sectors_goals import get_sector_by_id, get_goal_by_id
+
+if TYPE_CHECKING:
+    from .llm import LLMClient
+
+# Legacy default when no provider-neutral client is supplied. Sonnet 4
+# (claude-sonnet-4-20250514) reached end-of-life on 2026-06-15.
+LEGACY_DEFAULT_MODEL = "claude-sonnet-4-6"
 
 # Load environment variables
 load_dotenv()
@@ -223,8 +232,9 @@ async def analyze_organisation(
     template: str = "charity",
     sector: str = "general",
     goal: str | None = None,
-    model: str = "claude-sonnet-4-20250514",
-    api_key: str | None = None
+    model: str | None = None,
+    api_key: str | None = None,
+    client: "LLMClient | None" = None,
 ) -> OrganisationAnalysis | FunderAnalysis | PublicSectorAnalysis | StartupAnalysis:
     """
     Use Claude to analyze the extracted pages and produce structured data.
@@ -240,11 +250,9 @@ async def analyze_organisation(
     Returns:
         OrganisationAnalysis, FunderAnalysis, PublicSectorAnalysis, or StartupAnalysis depending on template
     """
-    # Get API key
-    if api_key is None:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not found in environment")
+    # When a provider-neutral client is supplied (Open Org generation), the key
+    # lives on that client. The direct-Anthropic fallback resolves the key in
+    # its branch below.
 
     # Prepare the content for Claude
     content = _prepare_content(pages)
@@ -279,23 +287,30 @@ PRIMARY GOAL CONTEXT: This organisation wants to {goal_info['label'].lower()}.
 {goal_info['prompt_context']}
 Ensure the extracted information supports this goal and helps the llms.txt file be most useful for this purpose."""
 
-    # Call Claude API
-    client = Anthropic(api_key=api_key)
-
-    message = client.messages.create(
-        model=model,
-        max_tokens=4096,
-        system=system_prompt,
-        messages=[
-            {
-                "role": "user",
-                "content": content
-            }
-        ]
-    )
-
-    # Parse the response
-    response_text = message.content[0].text
+    # Call the model. Prefer the provider-neutral client (so Open Org
+    # generation honours the configured provider); fall back to a direct
+    # Anthropic client for legacy llmstxt-social callers.
+    if client is not None:
+        result = client.complete(
+            messages=[{"role": "user", "content": content}],
+            system=system_prompt,
+            model=model,  # None -> client's configured default model
+            max_tokens=4096,
+        )
+        response_text = result.text
+    else:
+        if api_key is None:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise ValueError("ANTHROPIC_API_KEY not found in environment")
+        anthropic_sdk = Anthropic(api_key=api_key)
+        message = anthropic_sdk.messages.create(
+            model=model or LEGACY_DEFAULT_MODEL,
+            max_tokens=4096,
+            system=system_prompt,
+            messages=[{"role": "user", "content": content}],
+        )
+        response_text = message.content[0].text
 
     # Extract JSON from response (handle potential markdown code blocks)
     json_text = response_text

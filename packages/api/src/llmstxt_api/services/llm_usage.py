@@ -29,19 +29,40 @@ class UnknownModelError(ValueError):
 # USD per million tokens. Keep keys in sync with the model IDs CachedAnthropic
 # actually calls — update when models are added.
 MODEL_PRICING: dict[str, dict[str, Decimal]] = {
-    # Sonnet 4 (2025-05-14) — what Phase 1 uses by default
-    "claude-sonnet-4-20250514": {
+    # Sonnet 4.6 — the current default for Open Org generation + creator.
+    "claude-sonnet-4-6": {
         "input": Decimal("3.00"),
         "output": Decimal("15.00"),
         "cache_write": Decimal("3.75"),
         "cache_read": Decimal("0.30"),
     },
-    # Haiku 4.5 — cheaper fallback if cost becomes an issue
+    # Opus 4.8 — richer profiles when LLM_MODEL is pointed here.
+    "claude-opus-4-8": {
+        "input": Decimal("5.00"),
+        "output": Decimal("25.00"),
+        "cache_write": Decimal("6.25"),
+        "cache_read": Decimal("0.50"),
+    },
+    # Haiku 4.5 — cheaper fallback if cost becomes an issue.
+    "claude-haiku-4-5": {
+        "input": Decimal("1.00"),
+        "output": Decimal("5.00"),
+        "cache_write": Decimal("1.25"),
+        "cache_read": Decimal("0.10"),
+    },
     "claude-haiku-4-5-20251001": {
         "input": Decimal("1.00"),
         "output": Decimal("5.00"),
         "cache_write": Decimal("1.25"),
         "cache_read": Decimal("0.10"),
+    },
+    # Sonnet 4 (2025-05-14) — retired 2026-06-15; kept so historical usage rows
+    # already written with this id still cost out for the daily-budget query.
+    "claude-sonnet-4-20250514": {
+        "input": Decimal("3.00"),
+        "output": Decimal("15.00"),
+        "cache_write": Decimal("3.75"),
+        "cache_read": Decimal("0.30"),
     },
 }
 

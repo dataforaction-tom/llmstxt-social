@@ -38,7 +38,6 @@ from llmstxt_api.open_org_models import (
 )
 from llmstxt_api.routes.open_org_auth import require_org_admin
 from llmstxt_api.services.llm_usage import is_within_daily_budget, log_usage
-from llmstxt_core.llm import CachedAnthropic
 from llmstxt_core.open_org.converter import ConverterError, markdown_to_json
 from llmstxt_core.open_org.creator.conversation import start_turn
 from llmstxt_core.open_org.creator.extractors import (
@@ -253,7 +252,7 @@ async def post_message(
     user_message = payload.content
     history_for_prompt = list(history)
 
-    client = CachedAnthropic(api_key=settings.anthropic_api_key)
+    client = settings.build_llm_client()
 
     async def event_stream() -> AsyncIterator[bytes]:
         nonlocal history

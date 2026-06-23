@@ -726,7 +726,7 @@ Only return the JSON array, no other text. Focus on issues relevant to a {self.t
 
         try:
             message = self.client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-4-6",
                 max_tokens=2048,
                 messages=[{"role": "user", "content": QUALITY_ANALYSIS_PROMPT}]
             )
