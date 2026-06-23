@@ -50,13 +50,31 @@ export default function EditorShell({
       </div>
 
       {surface === 'guided' ? (
-        <GuidedEditor
-          source={source}
-          sections={sections}
-          onChange={setSource}
-          vocabs={vocabs}
-          startHereId={startHereId}
-        />
+        <>
+          {validationErrors.length > 0 && (
+            <div
+              role="alert"
+              className="border border-red-700/30 bg-red-50/60 p-4 text-sm text-red-900"
+            >
+              <div className="kicker mb-2 text-red-900/80">Validation errors</div>
+              <ul className="space-y-1">
+                {validationErrors.map((err, i) => (
+                  <li key={i} className="flex gap-2">
+                    <code className="font-mono text-red-900/80">{err.path || '<root>'}</code>
+                    <span>· {err.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <GuidedEditor
+            source={source}
+            sections={sections}
+            onChange={setSource}
+            vocabs={vocabs}
+            startHereId={startHereId}
+          />
+        </>
       ) : (
         <MarkdownEditor
           initialMarkdown={initialSource}

@@ -41,6 +41,20 @@ describe('GuidedEditor', () => {
     expect(screen.getByLabelText(/^name$/i)).toHaveValue('Trust');
   });
 
+  it('shows frontmatter values in the preview, not just the body', () => {
+    // Most profile fields live in frontmatter. A body-only preview makes
+    // editing them look like a no-op, so the preview must reflect frontmatter.
+    render(
+      <GuidedEditor
+        source={SOURCE}
+        sections={PROFILE_SECTIONS}
+        onChange={vi.fn()}
+        vocabs={{}}
+      />,
+    );
+    expect(screen.getByText(/name: Trust/)).toBeInTheDocument();
+  });
+
   it('writes back through the bridge on field edit', () => {
     const onChange = vi.fn();
     render(

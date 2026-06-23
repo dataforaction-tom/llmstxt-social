@@ -34,7 +34,16 @@ export default function GuidedEditor({
   const ticks = useMemo(() => computeTickStates(source, sections), [source, sections]);
   const active = sections.find((s) => s.id === activeId) ?? sections[0];
   const parsed: ParsedSection = useMemo(() => parseSection(source, active), [source, active]);
-  const { body } = useMemo(() => splitFrontmatterPreview(source), [source]);
+  const { frontmatter, body } = useMemo(() => splitFrontmatterPreview(source), [source]);
+  // Strip the `---` delimiters so the preview shows just the YAML fields.
+  const frontmatterYaml = useMemo(
+    () =>
+      frontmatter
+        .replace(/^---\r?\n/, '')
+        .replace(/\r?\n?---\s*$/, '')
+        .trim(),
+    [frontmatter],
+  );
 
   const handleSectionChange = (next: ParsedSection) => {
     onChange(applySectionEdit(source, active, next));
@@ -56,6 +65,11 @@ export default function GuidedEditor({
       <div className="border-l border-rule pl-4 lg:overflow-auto">
         <div className="kicker mb-2">Preview</div>
         <article className="editorial-preview text-ink">
+          {frontmatterYaml && (
+            <pre className="mb-4 whitespace-pre-wrap border border-rule bg-paper-2/40 p-3 text-xs text-muted">
+              {frontmatterYaml}
+            </pre>
+          )}
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
         </article>
       </div>

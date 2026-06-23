@@ -5,10 +5,16 @@ import AuthVerifyPage from './AuthVerify';
 
 const mockVerifyToken = vi.fn();
 
+// Mutable so a test can model auth state flipping to true *during*
+// verification — which is what AuthContext.verifyToken does via refetch().
+const authState = { isAuthenticated: false };
+
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
     verifyToken: mockVerifyToken,
-    isAuthenticated: false,
+    get isAuthenticated() {
+      return authState.isAuthenticated;
+    },
   }),
 }));
 
@@ -31,6 +37,23 @@ describe('AuthVerify post-claim redirect', () => {
   beforeEach(() => {
     mockVerifyToken.mockReset();
     window.localStorage.clear();
+    authState.isAuthenticated = false;
+  });
+
+  it('redirects to the claim editor even when auth is already established', async () => {
+    // Regression: verifyToken flips isAuthenticated true (via refetch) before
+    // the caller sees claimOrgId. If the redirect guard short-circuits on
+    // isAuthenticated, it navigates to /dashboard before redirectTo is set.
+    // It must wait for verification to finish and honour the claim org.
+    authState.isAuthenticated = true;
+    mockVerifyToken.mockResolvedValueOnce({
+      success: true,
+      message: 'ok',
+      claimOrgId: 'GB-CHC-7654321',
+    });
+    renderWithToken('abc');
+    await waitFor(() => expect(screen.getByTestId('editor')).toBeInTheDocument());
+    expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument();
   });
 
   it('redirects to the editor and sets the welcome flag when claimOrgId is present', async () => {

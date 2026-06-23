@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function AuthVerifyPage() {
   const [searchParams] = useSearchParams();
-  const { verifyToken, isAuthenticated } = useAuth();
+  const { verifyToken } = useAuth();
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [errorMessage, setErrorMessage] = useState('');
   const [redirectTo, setRedirectTo] = useState<string>('/dashboard');
@@ -43,9 +43,12 @@ export default function AuthVerifyPage() {
     verify();
   }, [token, verifyToken]);
 
-  // Redirect after successful login — to the org editor for claim links,
-  // otherwise to the dashboard.
-  if (status === 'success' || isAuthenticated) {
+  // Redirect only once verification has resolved — to the org editor for
+  // claim links, otherwise the dashboard. We deliberately do NOT short-circuit
+  // on `isAuthenticated`: verifyToken() flips it true (via refetch) before it
+  // returns claimOrgId, so navigating on it would race `redirectTo` and send
+  // claim flows to /dashboard.
+  if (status === 'success') {
     return <Navigate to={redirectTo} replace />;
   }
 

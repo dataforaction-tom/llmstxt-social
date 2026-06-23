@@ -10,8 +10,10 @@ import type { SectionSpec } from '../bridge';
 
 export type FieldKind =
   | 'text'
+  | 'number'
   | 'textarea'
   | 'pills'
+  | 'string-list'
   | 'card-list'
   | 'group';
 
@@ -52,9 +54,8 @@ export const PROFILE_SECTIONS: GuidedSection[] = [
       {
         key: 'identity.also_known_as',
         label: 'Also known as',
-        kind: 'card-list',
+        kind: 'string-list',
         hint: 'Any other names you operate under.',
-        cardShape: [{ key: 'value', label: 'Alias', kind: 'text' }],
       },
       { key: 'identity.website', label: 'Website', kind: 'text', placeholder: 'https://...' },
       { key: 'identity.founded', label: 'Founded', kind: 'text', hint: 'Year you started.' },
@@ -76,7 +77,10 @@ export const PROFILE_SECTIONS: GuidedSection[] = [
           { key: 'primary_area', label: 'Primary area code', kind: 'text', hint: 'ONS code, e.g. E07000148.' },
         ],
       },
-      { key: 'identity.scale', label: 'Scale', kind: 'text', hint: 'local · regional · national · international' },
+      // identity.scale (annual income band, staff/trustee counts) is a typed
+      // object sourced from the Commission filing — not free-text. It's
+      // preserved in the markdown and shown in the preview; edit it via the
+      // Markdown surface. A typed guided editor for it is a follow-up.
     ],
   },
   {
@@ -112,7 +116,9 @@ export const PROFILE_SECTIONS: GuidedSection[] = [
           { key: 'description', label: 'Description', kind: 'textarea' },
         ],
       },
-      { key: 'mission.evidence_summary', label: 'Evidence summary', kind: 'textarea' },
+      // evidence_summary is an object {beneficiaries_served_text, outcomes}.
+      // Edit the narrative subfield here; `outcomes` (an array) stays in markdown.
+      { key: 'mission.evidence_summary.beneficiaries_served_text', label: 'Evidence summary', kind: 'textarea' },
     ],
   },
   {
@@ -122,7 +128,7 @@ export const PROFILE_SECTIONS: GuidedSection[] = [
     yamlKeys: ['governance'],
     bodyHeadings: [],
     fields: [
-      { key: 'governance.board_size', label: 'Board size', kind: 'text' },
+      { key: 'governance.board_size', label: 'Board size', kind: 'number' },
       { key: 'governance.accounts_filed_to', label: 'Accounts filed to', kind: 'text', hint: 'e.g. Charity Commission for England and Wales.' },
       {
         key: 'governance.policies',

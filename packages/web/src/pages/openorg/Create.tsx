@@ -84,7 +84,7 @@ export default function CreatePage() {
       const session = await createCreatorSession(orgId, typedKind, upload ?? undefined);
       setSessionId(session.session_id);
       setCurrentMarkdown(session.current_markdown);
-      const detail: CreatorSessionDetail = await fetchCreatorSession(session.session_id);
+      const detail: CreatorSessionDetail = await fetchCreatorSession(orgId, session.session_id);
       setTurns(
         detail.conversation_history.map((t) => ({ role: t.role, content: t.content })),
       );
@@ -106,6 +106,7 @@ export default function CreatePage() {
 
     try {
       await streamCreatorMessage(
+        orgId,
         sessionId,
         message,
         (deltaText) => {
@@ -136,7 +137,7 @@ export default function CreatePage() {
     setFinalising(true);
     setError(null);
     try {
-      const result = await finalizeCreatorSession(sessionId);
+      const result = await finalizeCreatorSession(orgId, sessionId);
       const editPath =
         result.kind === 'strategy'
           ? `/openorg/edit/${result.org_id}/strategies/${result.slug}`
