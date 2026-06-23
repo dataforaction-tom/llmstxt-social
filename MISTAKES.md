@@ -55,6 +55,28 @@ Things that went wrong and what to do instead. After every correction, add an en
 
 ---
 
+### 2026-06-23
+**What happened:** Every Open Org generation 404'd because the model id `claude-sonnet-4-20250514` was hardcoded in `llm.py`, `llm_usage.py`, `analyzer.py`, and `assessor.py` — and Sonnet 4 reached end-of-life on 2026-06-15.
+**Why it was wrong:** A pinned, dated model id is a time-bomb; nothing failed until the retirement date passed, and unit tests mock the LLM so they never caught it.
+**Rule:** Don't hardcode model ids across modules. Route LLM calls through the provider abstraction (`llmstxt_core.llm_providers.build_llm_client` / `Settings.build_llm_client`) and set the model via `LLM_MODEL`. Prefer non-dated aliases (`claude-sonnet-4-6`).
+
+### 2026-06-23
+**What happened:** The Murmurations weekly health-check crashed on its first real run (`validation.get("valid")` on a `ValidationResult` dataclass), but tests were green — they mocked `validate_profile` to return a `dict`, a shape the real client never produces.
+**Why it was wrong:** A mock that doesn't match the real return type tests a fiction and hides the bug.
+**Rule:** Mock with the real type (here `ValidationResult`), not a convenient dict. When mocking a function, check its actual return type first.
+
+### 2026-06-23
+**What happened:** Edits to `packages/core` weren't picked up by the running test-stack API even though the source is mounted — `uvicorn --reload` watches the app's cwd (`/app/api`), not the sibling mount `/app/core`. Had to `docker compose ... restart api`.
+**Why it was wrong:** Assumed `--reload` covers every mounted dir. It doesn't.
+**Rule:** After editing `packages/core`, restart the test-stack `api`/`celery_worker` containers; `--reload` only reflects `packages/api` edits live.
+
+### 2026-06-23
+**What happened:** Adding the `openai` dependency means `llmstxt_api.config` now imports it at startup (via the provider factory). The running test containers (built before the dep) would have crashed on boot until `openai` was pip-installed into them.
+**Why it was wrong:** A new top-level import in `config` is a hard boot dependency for the whole API.
+**Rule:** **Before the next prod deploy, rebuild the image** (`docker compose build`) so `openai` is present — a stale image will fail to start. Same applies to the test stack after pulling these changes.
+
+---
+
 ## Patterns that didn't work
 
 <!-- Approaches we tried that turned out to be wrong for this project. Don't try these again. -->

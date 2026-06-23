@@ -63,11 +63,24 @@ Before marking any deliverable complete:
 
 See `HANDOFF.md` for the session-end wrap-up. `PLAN.md` for the full 11-step build order and locked decisions. `STATE.md` for system state. `MISTAKES.md` for the lessons log.
 
+## LLM provider abstraction
+
+Open Org generation + the strategy/idea creator run through a provider-neutral
+client (`llmstxt_core.llm_providers`): `anthropic` (native SDK, prompt caching +
+tool use), `openrouter`, or `ollama` (both OpenAI-compatible). Select via
+`LLM_PROVIDER` / `LLM_MODEL` + per-provider key/base_url (see `.env.example`).
+Default: `anthropic` / `claude-sonnet-4-6`. Add LLM calls via
+`Settings.build_llm_client()`, never a hardcoded model id.
+
 ## Known issues
 
+- **Prod/test images must be rebuilt before deploy** — `config.py` now imports
+  the `openai` dep at startup (via the provider factory); a stale image crashes
+  on boot. `docker compose build` first.
 - Murmurations schema not yet registered upstream — YAML drafted at `deploy/murmurations/`; user opens the PR
 - Live prod image predates all open-org code — needs a rebuild + force-recreate before openorg.good-ship.co.uk is live (see HANDOFF.md; mind the compose file-order lesson in MISTAKES.md)
 - Editor-polish PR 7 (keyboard + motion polish) not yet built — only remaining piece of the editor-polish plan
+- Cross-product SSO is not achievable with one cookie: `AUTH_COOKIE_DOMAIN=.good-ship.co.uk` can't span `llmstxt.social` (different registrable domain). Fine for openorg-only testing; revisit before relying on shared login across both products.
 
 ## Lessons learned
 
