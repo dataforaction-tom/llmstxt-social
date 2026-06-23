@@ -36,13 +36,18 @@ async def lifespan(app: FastAPI):
 
 
 # Create FastAPI app
+# Expose interactive API docs everywhere except production, where they would
+# leak the full API surface (every route + schema) to anonymous visitors.
+_docs_enabled = settings.environment != "production"
+
 app = FastAPI(
     title="llmstxt API",
     description="Generate and assess llms.txt files for UK social sector organisations",
     version=__version__,
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
 )
 
 # CORS middleware
