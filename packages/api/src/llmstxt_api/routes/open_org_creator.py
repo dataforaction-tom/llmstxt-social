@@ -19,10 +19,11 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import AsyncIterator, Literal
+from typing import Any, AsyncIterator, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
+from starlette.concurrency import iterate_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -254,12 +255,14 @@ async def post_message(
 
     client = settings.build_llm_client()
 
-    async def event_stream() -> AsyncIterator[bytes]:
-        nonlocal history
-        assistant_text_parts: list[str] = []
-        final_markdown: str | None = None
-        usage = None
+    # The LLM stream is synchronous (Anthropic SDK / OpenAI SDK). Iterating it
+    # directly inside the async generator would block the event loop for the
+    # whole multi-second turn, freezing every other request. Run the blocking
+    # iteration in the threadpool and stash the post-stream results for the
+    # async DB writes below.
+    turn_result: dict[str, Any] = {}
 
+    def _run_turn_sync():
         with start_turn(
             client=client,
             kind=session_row.kind,
@@ -268,12 +271,22 @@ async def post_message(
             org_profile_summary=org_summary,
         ) as turn:
             for chunk in turn.text_stream:
-                if not chunk:
-                    continue
-                assistant_text_parts.append(chunk)
-                yield _sse_event("delta", {"text": chunk})
-            final_markdown = turn.final_markdown()
-            usage = turn.usage()
+                yield chunk
+            turn_result["final_markdown"] = turn.final_markdown()
+            turn_result["usage"] = turn.usage()
+
+    async def event_stream() -> AsyncIterator[bytes]:
+        nonlocal history
+        assistant_text_parts: list[str] = []
+
+        async for chunk in iterate_in_threadpool(_run_turn_sync()):
+            if not chunk:
+                continue
+            assistant_text_parts.append(chunk)
+            yield _sse_event("delta", {"text": chunk})
+
+        final_markdown = turn_result.get("final_markdown")
+        usage = turn_result.get("usage")
 
         assistant_text = "".join(assistant_text_parts)
         history.append({"role": "user", "content": user_message})
