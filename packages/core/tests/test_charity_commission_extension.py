@@ -122,3 +122,21 @@ def test_parse_api_response_open_org_fields_missing():
     assert result.company_number is None
     assert result.latest_acc_fin_period_end_date is None
     assert result.trustee_count is None
+
+
+def test_parse_api_response_returns_none_for_missing_charity_name():
+    """The CC API returns HTTP 200 with a sparse body for unknown numbers.
+
+    Without a real charity_name that's a "not found", not a charity literally
+    named "Unknown" — returning a CharityData here makes lookups and generation
+    treat nonexistent charities as valid.
+    """
+    assert _parse_api_response({}, "9999999") is None
+    assert _parse_api_response({"charity_name": ""}, "9999999") is None
+    assert _parse_api_response({"charity_name": "   "}, "9999999") is None
+
+
+def test_parse_api_response_keeps_valid_name():
+    result = _parse_api_response({"charity_name": "Real Charity"}, "1234567")
+    assert result is not None
+    assert result.name == "Real Charity"

@@ -104,8 +104,13 @@ def _parse_api_response(data: dict, charity_number: str) -> CharityData | None:
     - charity_name, reg_status, latest_income, etc.
     """
     try:
-        # Extract charity name
-        name = data.get("charity_name", "Unknown")
+        # Extract charity name. The CC API returns HTTP 200 with a sparse body
+        # for unknown numbers; a missing/empty charity_name means "not found",
+        # not a charity named "Unknown".
+        name = data.get("charity_name")
+        if not name or not str(name).strip():
+            return None
+        name = str(name).strip()
 
         # Extract status
         status = data.get("reg_status", "Unknown")
