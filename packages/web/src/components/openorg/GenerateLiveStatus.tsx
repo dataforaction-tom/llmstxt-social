@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GenerateStatusResponse } from '../../api/openorg';
 import { t } from '../../microcopy';
 
@@ -20,11 +20,31 @@ function donePreview(payload: GenerateStatusResponse['payload']): string {
 }
 
 export default function GenerateLiveStatus({ status, onTimeout }: GenerateLiveStatusProps) {
-  const timedOut = status.status === 'generating' && status.elapsed_ms > FALLBACK_THRESHOLD_MS;
+  const isTerminal = status.status === 'ready' || status.status === 'failed';
+  // Server reports a long-running *generating* row via elapsed_ms.
+  const serverTimedOut =
+    status.status === 'generating' && status.elapsed_ms > FALLBACK_THRESHOLD_MS;
+  // Backstop: a row stuck at 'pending' (task never picked up — worker down) has
+  // elapsed_ms 0 forever, so the server check never fires. Time out from first
+  // render instead, so the user isn't trapped on the spinner indefinitely.
+  const [clientTimedOut, setClientTimedOut] = useState(false);
+  const onTimeoutRef = useRef(onTimeout);
+  onTimeoutRef.current = onTimeout;
 
   useEffect(() => {
-    if (timedOut) onTimeout();
-  }, [timedOut, onTimeout]);
+    if (serverTimedOut) onTimeoutRef.current();
+  }, [serverTimedOut]);
+
+  useEffect(() => {
+    if (isTerminal) return;
+    const timer = setTimeout(() => {
+      setClientTimedOut(true);
+      onTimeoutRef.current();
+    }, FALLBACK_THRESHOLD_MS);
+    return () => clearTimeout(timer);
+  }, [isTerminal]);
+
+  const timedOut = serverTimedOut || clientTimedOut;
 
   if (status.status === 'failed') {
     return (

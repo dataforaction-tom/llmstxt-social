@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import GenerateLiveStatus from './GenerateLiveStatus';
 
 describe('GenerateLiveStatus', () => {
@@ -56,5 +56,34 @@ describe('GenerateLiveStatus', () => {
     );
     expect(onTimeout).toHaveBeenCalled();
     expect(screen.getByText(/still working in the background/i)).toBeInTheDocument();
+  });
+});
+
+describe('GenerateLiveStatus pending backstop', () => {
+  it('times out a row stuck at pending (worker down) so the user is not trapped', () => {
+    vi.useFakeTimers();
+    try {
+      const onTimeout = vi.fn();
+      render(
+        <GenerateLiveStatus
+          status={{
+            org_id: 'GB-CHC-1',
+            status: 'pending',
+            stage: 'queued',
+            message: 'Queued…',
+            payload: null,
+            elapsed_ms: 0,
+          }}
+          onTimeout={onTimeout}
+        />,
+      );
+      expect(onTimeout).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(90_001);
+      });
+      expect(onTimeout).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
