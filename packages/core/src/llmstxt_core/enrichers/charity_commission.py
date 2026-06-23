@@ -381,6 +381,12 @@ async def _fetch_from_public_register(charity_number: str) -> CharityData | None
                     if phone_match:
                         contact["phone"] = phone_match.group(0)
 
+            # A nonexistent charity number often still returns a 200 "details"
+            # page with no real name to scrape. Treat an unresolved name as
+            # not-found rather than emitting a charity called "Unknown".
+            if name == "Unknown":
+                return None
+
             return CharityData(
                 name=name,
                 number=charity_number,
