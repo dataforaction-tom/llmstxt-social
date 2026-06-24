@@ -453,6 +453,17 @@ async def publish_profile(
             detail="profile has no content yet; save markdown before publishing",
         )
 
+    # The Murmurations envelope requires a non-empty name (the index rejects a
+    # null name). Validate it synchronously here so we never flip ``published``
+    # and report success for a profile the index will silently reject.
+    identity = (profile.profile_json or {}).get("identity") or {}
+    name = identity.get("name")
+    if not (isinstance(name, str) and name.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail="profile is missing an organisation name; add a name before publishing",
+        )
+
     profile.published = True
     await db.commit()
 

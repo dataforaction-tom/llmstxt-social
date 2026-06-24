@@ -16,9 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from llmstxt_core.llm import (
-    CachedAnthropic,
+    LLMClient,
     Usage,
-    extract_tool_input,
     system_block,
 )
 from llmstxt_core.llm import _usage_from_sdk  # noqa: PLC2701 — internal helper reuse
@@ -168,7 +167,7 @@ def _vocabulary_block_text() -> str:
 
 def extract_themes(
     *,
-    client: CachedAnthropic,
+    client: LLMClient,
     objects_text: str,
     activities_text: str,
     website_text: str = "",
@@ -230,7 +229,7 @@ def extract_themes(
         temperature=0,
     )
 
-    payload = extract_tool_input(result.raw, TOOL_NAME)
+    payload = result.tool_input(TOOL_NAME)
     if not payload:
         # Model returned prose instead of a tool call. Nothing to do — the
         # caller can retry or accept the empty result.

@@ -15,9 +15,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from llmstxt_core.llm import (
-    CachedAnthropic,
+    LLMClient,
     Usage,
-    extract_tool_input,
     system_block,
 )
 from llmstxt_core.open_org.theme_extractor import _vocabulary_block_text
@@ -87,30 +86,33 @@ def _build_system_blocks(
 
 
 class _CreatorTurn(AbstractContextManager):
-    """Wraps an in-flight SDK stream and exposes derived state."""
+    """Wraps a provider-neutral stream wrapper and exposes derived state.
 
-    def __init__(self, sdk_stream_cm: Any) -> None:
-        self._cm = sdk_stream_cm
-        self._sdk_stream: Any = None
+    The underlying wrapper (Anthropic or OpenAI-compatible) presents a uniform
+    ``text_stream`` / ``final_tool_input`` / ``usage`` surface, so this turn
+    works regardless of the configured provider.
+    """
+
+    def __init__(self, stream_wrapper: Any) -> None:
+        self._wrapper = stream_wrapper
 
     def __enter__(self) -> "_CreatorTurn":
-        self._sdk_stream = self._cm.__enter__()
+        self._wrapper.__enter__()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
-        return self._cm.__exit__(exc_type, exc, tb)
+        return self._wrapper.__exit__(exc_type, exc, tb)
 
     @property
     def text_stream(self):
-        return self._sdk_stream.text_stream
+        return self._wrapper.text_stream
 
     def final_markdown(self) -> str | None:
         """Return the last ``update_current_markdown`` argument, if any.
 
         Only call after the text stream has been exhausted.
         """
-        final = self._sdk_stream.get_final_message()
-        payload = extract_tool_input(final, UPDATE_TOOL_NAME)
+        payload = self._wrapper.final_tool_input(UPDATE_TOOL_NAME)
         if not payload:
             return None
         md = payload.get("markdown")
@@ -118,20 +120,12 @@ class _CreatorTurn(AbstractContextManager):
 
     def usage(self) -> Usage:
         """Token usage for this turn. Only valid after the stream is consumed."""
-        final = self._sdk_stream.get_final_message()
-        sdk_usage = final.usage
-        return Usage(
-            input_tokens=getattr(sdk_usage, "input_tokens", 0) or 0,
-            output_tokens=getattr(sdk_usage, "output_tokens", 0) or 0,
-            cache_creation_tokens=getattr(sdk_usage, "cache_creation_input_tokens", 0) or 0,
-            cache_read_tokens=getattr(sdk_usage, "cache_read_input_tokens", 0) or 0,
-            model=getattr(final, "model", "") or "",
-        )
+        return self._wrapper.usage()
 
 
 def start_turn(
     *,
-    client: CachedAnthropic,
+    client: LLMClient,
     kind: CreatorKind,
     conversation_history: list[dict],
     user_message: str,
@@ -157,14 +151,14 @@ def start_turn(
     ]
     system = _build_system_blocks(kind=kind, org_profile_summary=org_profile_summary)
 
-    sdk_cm = client._client.messages.stream(
-        model=model or client.default_model,
+    stream_wrapper = client.stream(
+        model=model,
         max_tokens=max_tokens,
         system=system,
         messages=messages,
         tools=[_build_tool_spec()],
     )
-    return _CreatorTurn(sdk_cm)
+    return _CreatorTurn(stream_wrapper)
 
 
 __all__ = [

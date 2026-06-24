@@ -315,6 +315,36 @@ def markdown_to_json(md: str, *, kind: str) -> dict:
     return payload
 
 
+# Scalars another YAML 1.1 parser (notably js-yaml, used by the guided editor)
+# would coerce to a number/bool/null. pyyaml round-trips these safely unquoted,
+# but js-yaml reads e.g. `01325387700` as the integer 1325387700 (leading zero
+# dropped), which then fails the schema's `string` type on save. Quoting them
+# keeps every parser treating the value as the string it is.
+_AMBIGUOUS_SCALAR_RE = re.compile(
+    r"""^(
+        [-+]?\.?[0-9][0-9_]*(\.[0-9_]*)?([eE][-+]?[0-9]+)?   # int / float (incl leading zeros)
+        | 0x[0-9a-fA-F_]+ | 0o?[0-7_]+ | 0b[01_]+            # hex / octal / binary
+        | [-+]?\.(inf|Inf|INF) | \.(nan|NaN|NAN)             # inf / nan
+        | true|True|TRUE | false|False|FALSE                 # bools
+        | yes|Yes|YES | no|No|NO | on|On|ON | off|Off|OFF
+        | null|Null|NULL | ~                                 # null
+    )$""",
+    re.VERBOSE,
+)
+
+
+class _QuotingDumper(yaml.SafeDumper):
+    """SafeDumper that single-quotes ambiguous scalars (see above)."""
+
+
+def _represent_quoting_str(dumper: yaml.Dumper, data: str):
+    style = "'" if _AMBIGUOUS_SCALAR_RE.match(data) else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+
+_QuotingDumper.add_representer(str, _represent_quoting_str)
+
+
 def json_to_markdown(payload: dict, *, kind: str) -> str:
     """Convert an Open Org payload into markdown with YAML frontmatter.
 
@@ -336,7 +366,13 @@ def json_to_markdown(payload: dict, *, kind: str) -> str:
             continue
         body_chunks.append(f"## {heading}\n\n{renderer(value)}")
 
-    yaml_str = yaml.safe_dump(working, sort_keys=False, default_flow_style=False, allow_unicode=True)
+    yaml_str = yaml.dump(
+        working,
+        Dumper=_QuotingDumper,
+        sort_keys=False,
+        default_flow_style=False,
+        allow_unicode=True,
+    )
     body_str = "\n\n".join(body_chunks)
     if body_str:
         return f"---\n{yaml_str}---\n\n{body_str}\n"

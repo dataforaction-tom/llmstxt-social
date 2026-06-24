@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isBrowser = typeof window !== 'undefined';
 
   // Check auth status on mount
-  const { data: authData, isPending, isFetching, refetch } = useQuery({
+  const { data: authData, isPending, isFetching } = useQuery({
     queryKey: ['auth'],
     queryFn: apiClient.checkAuth,
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -63,8 +63,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setVerifying(true);
     try {
       const response = await apiClient.verifyMagicLink(token);
-      // Refetch auth status after successful verification
-      await refetch();
+      // Seed the auth cache directly from the verify response. Relying on a
+      // refetch round-trip here races the protected-route guard: the refetch can
+      // resolve stale (cookie not yet attached) and bounce the freshly-verified
+      // user to /login. The verify response is authoritative for this moment;
+      // the normal auth query reconciles on its own afterwards.
+      queryClient.setQueryData(['auth'], {
+        authenticated: true,
+        user: response.user,
+      });
       return {
         success: true,
         user: response.user,

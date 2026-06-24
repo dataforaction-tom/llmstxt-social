@@ -25,7 +25,7 @@ from llmstxt_api.open_org_models import OrgProfile
 from llmstxt_api.routes.open_org_auth import create_claim_token
 from llmstxt_api.services import llm_usage as llm_usage_service
 from llmstxt_api.tasks.celery import celery_app
-from llmstxt_core.llm import CachedAnthropic
+from llmstxt_core.llm import LLMClient
 from llmstxt_core.open_org.generator import (
     GenerationResult,
     generate_profile_from_charity_number,
@@ -56,7 +56,7 @@ def _build_session_maker():
 async def _default_generator(
     *,
     charity_number: str,
-    anthropic_client: CachedAnthropic,
+    anthropic_client: LLMClient,
     cc_api_key: str | None,
 ) -> GenerationResult:
     return await generate_profile_from_charity_number(
@@ -135,7 +135,7 @@ async def _run_generation(
     session_maker: Any,
     generator: GeneratorFn,
     send_claim_email: SendEmailFn,
-    anthropic_client: CachedAnthropic | None = None,
+    anthropic_client: LLMClient | None = None,
     cc_api_key: str | None = None,
 ) -> None:
     """Run the generator and persist the result.
@@ -245,7 +245,7 @@ def generate_open_org_profile_task(
     profile_uuid = uuid.UUID(profile_id)
     session_maker = _build_session_maker()
 
-    anthropic_client = CachedAnthropic(api_key=settings.anthropic_api_key)
+    llm_client = settings.build_llm_client()
     cc_api_key = settings.charity_commission_api_key
 
     asyncio.run(
@@ -256,7 +256,7 @@ def generate_open_org_profile_task(
             session_maker=session_maker,
             generator=_default_generator,
             send_claim_email=_default_send_claim_email,
-            anthropic_client=anthropic_client,
+            anthropic_client=llm_client,
             cc_api_key=cc_api_key,
         )
     )

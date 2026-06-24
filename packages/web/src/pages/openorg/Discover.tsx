@@ -12,7 +12,7 @@
  * reveal on first paint.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -28,6 +28,7 @@ import {
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import markerIcon2xUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
+import { hasValidGeolocation } from './discoverGeo';
 
 L.Icon.Default.mergeOptions({
   iconUrl: markerIconUrl,
@@ -49,7 +50,10 @@ export default function DiscoverPage() {
   const themes = useThemes();
   const firstPage = useDiscoveryFirstPage(filters, DEFAULT_LIMIT);
 
-  useMemo(() => {
+  // Reset accumulated pages whenever the first page changes (new filter / refetch).
+  // This is a state side-effect, so it belongs in useEffect, not useMemo —
+  // a memo may be skipped or re-run in dev StrictMode, leaving stale rows.
+  useEffect(() => {
     setExtraPages([]);
     setPageCursor(firstPage.data?.next_cursor ?? null);
   }, [firstPage.data]);
@@ -59,7 +63,9 @@ export default function DiscoverPage() {
     return [...base, ...extraPages];
   }, [firstPage.data, extraPages]);
 
-  const mapped = allRows.filter((r) => r.geolocation !== null);
+  // Only map rows with finite numeric coordinates — a malformed federated row
+  // would otherwise feed NaN into Leaflet and white-screen the page.
+  const mapped = allRows.filter(hasValidGeolocation);
 
   function applyFilter(next: Partial<DiscoveryFilters>) {
     setFilters((prev) => {

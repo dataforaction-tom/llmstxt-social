@@ -4,6 +4,8 @@ import json
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from llmstxt_core.llm_providers import build_llm_client
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
@@ -17,6 +19,21 @@ class Settings(BaseSettings):
     # API Keys
     anthropic_api_key: str
     charity_commission_api_key: str | None = None
+
+    # LLM provider selection. Open Org generation + the strategy/idea creator
+    # run through a provider-neutral client (llmstxt_core.llm_providers), so the
+    # model and backend are swappable without code changes.
+    #   - ``anthropic``  → native SDK (prompt caching + tool use), uses ANTHROPIC_API_KEY
+    #   - ``openrouter`` → OpenAI-compatible, uses OPENROUTER_API_KEY
+    #   - ``ollama``     → Ollama Cloud (OpenAI-compatible), uses OLLAMA_API_KEY
+    # ``llm_model`` overrides the provider's default model (use the provider's
+    # own model id, e.g. ``anthropic/claude-3.5-sonnet`` on OpenRouter).
+    llm_provider: str = "anthropic"
+    llm_model: str | None = None
+    openrouter_api_key: str | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    ollama_api_key: str | None = None
+    ollama_base_url: str = "https://ollama.com/v1"
 
     # Stripe
     stripe_secret_key: str
@@ -100,6 +117,23 @@ class Settings(BaseSettings):
                 return [str(item).strip() for item in parsed if str(item).strip()]
             return []
         return [item.strip() for item in value.split(",") if item.strip()]
+
+    def build_llm_client(self):
+        """Construct the configured provider-neutral LLM client.
+
+        Open Org generation + the creator call this instead of instantiating a
+        client directly, so switching ``LLM_PROVIDER`` / ``LLM_MODEL`` in the
+        environment is all that's needed to change backend.
+        """
+        return build_llm_client(
+            self.llm_provider,
+            model=self.llm_model,
+            anthropic_api_key=self.anthropic_api_key,
+            openrouter_api_key=self.openrouter_api_key,
+            openrouter_base_url=self.openrouter_base_url,
+            ollama_api_key=self.ollama_api_key,
+            ollama_base_url=self.ollama_base_url,
+        )
 
 
 # Global settings instance

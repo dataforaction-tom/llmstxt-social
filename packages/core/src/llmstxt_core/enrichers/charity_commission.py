@@ -104,8 +104,13 @@ def _parse_api_response(data: dict, charity_number: str) -> CharityData | None:
     - charity_name, reg_status, latest_income, etc.
     """
     try:
-        # Extract charity name
-        name = data.get("charity_name", "Unknown")
+        # Extract charity name. The CC API returns HTTP 200 with a sparse body
+        # for unknown numbers; a missing/empty charity_name means "not found",
+        # not a charity named "Unknown".
+        name = data.get("charity_name")
+        if not name or not str(name).strip():
+            return None
+        name = str(name).strip()
 
         # Extract status
         status = data.get("reg_status", "Unknown")
@@ -375,6 +380,12 @@ async def _fetch_from_public_register(charity_number: str) -> CharityData | None
                     phone_match = re.search(r'0\d{10}|0\d{4}\s?\d{6}|0\d{3}\s?\d{3}\s?\d{4}', contact_text)
                     if phone_match:
                         contact["phone"] = phone_match.group(0)
+
+            # A nonexistent charity number often still returns a 200 "details"
+            # page with no real name to scrape. Treat an unresolved name as
+            # not-found rather than emitting a charity called "Unknown".
+            if name == "Unknown":
+                return None
 
             return CharityData(
                 name=name,

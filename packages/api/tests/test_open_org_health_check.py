@@ -12,6 +12,8 @@ from unittest import mock
 
 import pytest
 
+from llmstxt_core.open_org.murmurations import ValidationResult
+
 
 def _profile(*, org_id: str, status: str = "validated", published: bool = True):
     from llmstxt_api.open_org_models import OrgProfile
@@ -51,7 +53,7 @@ async def test_health_check_marks_drift_when_validation_fails():
     maker, session = _session_maker_with([profile])
 
     client = mock.AsyncMock()
-    client.validate_profile.return_value = {"valid": False, "errors": ["e"]}
+    client.validate_profile.return_value = ValidationResult(valid=False, errors=["e"])
 
     counts = await _run_health_check(
         session_maker=maker,
@@ -74,7 +76,7 @@ async def test_health_check_leaves_validated_state_when_valid():
     maker, session = _session_maker_with([profile])
 
     client = mock.AsyncMock()
-    client.validate_profile.return_value = {"valid": True}
+    client.validate_profile.return_value = ValidationResult(valid=True)
 
     counts = await _run_health_check(
         session_maker=maker,
@@ -93,7 +95,7 @@ async def test_health_check_recovers_from_drift_when_validation_succeeds():
     maker, _ = _session_maker_with([profile])
 
     client = mock.AsyncMock()
-    client.validate_profile.return_value = {"valid": True}
+    client.validate_profile.return_value = ValidationResult(valid=True)
 
     await _run_health_check(
         session_maker=maker,

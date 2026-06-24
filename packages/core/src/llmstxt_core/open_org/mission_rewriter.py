@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from llmstxt_core.llm import CachedAnthropic, Usage, system_block
+from llmstxt_core.llm import LLMClient, Usage, system_block
 
 
 MISSION_SUMMARY_MAX_CHARS = 500
@@ -46,7 +46,7 @@ def _clean(text: str) -> str:
 
 def rewrite_mission_summary(
     *,
-    client: CachedAnthropic,
+    client: LLMClient,
     activities_text: str,
     model: str | None = None,
 ) -> MissionRewriteResult:

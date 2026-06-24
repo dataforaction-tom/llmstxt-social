@@ -33,7 +33,7 @@ from llmstxt_core.enrichers.charity_commission import (
     fetch_charity_data,
 )
 from llmstxt_core.extractor import ExtractedPage
-from llmstxt_core.llm import CachedAnthropic, Usage
+from llmstxt_core.llm import LLMClient, Usage
 from llmstxt_core.open_org import SCHEMA_VERSION
 from llmstxt_core.open_org.converter import json_to_markdown
 from llmstxt_core.open_org.income_bands import income_to_band
@@ -368,7 +368,7 @@ def _build_payload(
 async def generate_profile_from_charity_number(
     charity_number: str,
     *,
-    anthropic_client: CachedAnthropic,
+    anthropic_client: LLMClient,
     cc_api_key: str | None = None,
     anthropic_api_key: str | None = None,
     fetch_charity: FetchCharity | None = None,
@@ -423,7 +423,9 @@ async def generate_profile_from_charity_number(
         # Defensive: a flaky analyzer (network, parse error) must never break
         # generation. CC + theme extraction alone produces a valid profile.
         try:
-            analysis = await analyzer(pages=pages, api_key=anthropic_api_key)
+            analysis = await analyzer(
+                pages=pages, api_key=anthropic_api_key, client=anthropic_client
+            )
         except Exception:  # noqa: BLE001 — see comment above
             analysis = None
 
@@ -480,8 +482,10 @@ def _default_extract_themes(*args, **kwargs) -> ThemeExtractionResult:
     return extract_themes(*args, **kwargs)
 
 
-async def _default_analyze(*, pages, api_key=None):
-    return await analyze_organisation(pages, template="charity", api_key=api_key)
+async def _default_analyze(*, pages, api_key=None, client=None):
+    return await analyze_organisation(
+        pages, template="charity", api_key=api_key, client=client
+    )
 
 
 __all__ = [

@@ -18,6 +18,7 @@ import IdeasPage from './pages/openorg/Ideas';
 import AboutPage from './pages/openorg/About';
 import NewRecordPage from './pages/openorg/NewRecord';
 import OpenOrgGeneratePage from './pages/openorg/Generate';
+import { ErrorBoundary } from './components/ErrorBoundary';
 // Lazy-load Discover because it pulls in Leaflet, which evaluates
 // ``window`` at module-load time. Eager import broke the prerender script
 // (which does ``vite.ssrLoadModule('/src/App.tsx')`` under Node). Splitting
@@ -189,7 +190,9 @@ function App() {
     <AppProviders>
       <BrowserRouter>
         <Layout>
-          <AppRoutes />
+          <ErrorBoundary>
+            <AppRoutes />
+          </ErrorBoundary>
         </Layout>
       </BrowserRouter>
     </AppProviders>

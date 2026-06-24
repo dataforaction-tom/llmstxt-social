@@ -208,3 +208,17 @@ async def test_is_within_daily_budget_respects_override_limit():
     assert await is_within_daily_budget(
         session, org_id="GB-CHC-X", limit_gbp=Decimal("10.00")
     ) is True
+
+
+def test_pricing_covers_current_default_and_opus_models():
+    """Provider migration: the new default + the opus upgrade target must price.
+
+    Without these, a usage row for the current model is silently skipped by the
+    daily-budget query (UnknownModelError → skip), under-counting spend.
+    """
+    from llmstxt_api.services.llm_usage import MODEL_PRICING
+
+    assert "claude-sonnet-4-6" in MODEL_PRICING
+    assert "claude-opus-4-8" in MODEL_PRICING
+    # Retired Sonnet 4 id retained so historical rows still cost out.
+    assert "claude-sonnet-4-20250514" in MODEL_PRICING

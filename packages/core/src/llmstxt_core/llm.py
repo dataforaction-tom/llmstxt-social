@@ -18,12 +18,12 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any, Iterator, Protocol, runtime_checkable
 
 from anthropic import Anthropic
 
 
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
+DEFAULT_MODEL = "claude-sonnet-4-6"
 DEFAULT_MAX_TOKENS = 4096
 
 
@@ -65,12 +65,32 @@ class Usage:
 
 
 @dataclass
+class ToolCall:
+    """A provider-neutral tool/function call returned by the model."""
+
+    name: str
+    input: dict
+
+
+@dataclass
 class CompletionResult:
-    """Result of a synchronous Anthropic completion."""
+    """Result of a synchronous completion (provider-neutral)."""
 
     text: str
     usage: Usage
     raw: Any = field(repr=False, default=None)
+    tool_calls: list[ToolCall] = field(default_factory=list)
+
+    def tool_input(self, name: str) -> dict | None:
+        """Return the ``input`` of the first tool call matching ``name``.
+
+        Provider-neutral: works regardless of which client produced the
+        result. Returns ``None`` when the model didn't call ``name``.
+        """
+        for call in self.tool_calls:
+            if call.name == name:
+                return call.input
+        return None
 
 
 def _usage_from_sdk(response: Any) -> Usage:
@@ -88,6 +108,19 @@ def _usage_from_sdk(response: Any) -> Usage:
 def _text_from_blocks(content: list[Any]) -> str:
     """Concatenate text blocks from an SDK response, skipping non-text blocks."""
     return "".join(getattr(b, "text", "") for b in content if getattr(b, "type", None) == "text")
+
+
+def _tool_calls_from_blocks(content: list[Any]) -> list[ToolCall]:
+    """Normalise Anthropic ``tool_use`` blocks into provider-neutral ToolCalls."""
+    calls: list[ToolCall] = []
+    for block in content or []:
+        if getattr(block, "type", None) != "tool_use":
+            continue
+        name = getattr(block, "name", None)
+        payload = getattr(block, "input", None)
+        if isinstance(name, str) and isinstance(payload, dict):
+            calls.append(ToolCall(name=name, input=payload))
+    return calls
 
 
 def extract_tool_input(response: Any, tool_name: str) -> dict | None:
@@ -136,6 +169,32 @@ class _StreamWrapper(AbstractContextManager):
         final = self._sdk_stream.get_final_message()
         return _text_from_blocks(final.content)
 
+    def final_tool_input(self, name: str) -> dict | None:
+        """Return the input of the first ``tool_use`` block matching ``name``.
+
+        Only valid after the stream has been consumed. Provider-neutral
+        counterpart to :meth:`_OpenAIStreamWrapper.final_tool_input`.
+        """
+        final = self._sdk_stream.get_final_message()
+        return extract_tool_input(final, name)
+
+
+@runtime_checkable
+class LLMClient(Protocol):
+    """Provider-neutral LLM client surface shared by all backends.
+
+    Implemented by :class:`CachedAnthropic` and
+    :class:`llmstxt_core.llm_providers.OpenAICompatibleClient`. Consumers should
+    annotate against this rather than a concrete client so providers stay
+    swappable.
+    """
+
+    default_model: str
+
+    def complete(self, **kwargs: Any) -> CompletionResult: ...
+
+    def stream(self, **kwargs: Any) -> Any: ...
+
 
 class CachedAnthropic:
     """Thin caching-aware wrapper around the sync Anthropic client."""
@@ -180,6 +239,7 @@ class CachedAnthropic:
             text=_text_from_blocks(response.content),
             usage=_usage_from_sdk(response),
             raw=response,
+            tool_calls=_tool_calls_from_blocks(response.content),
         )
 
     def stream(
@@ -190,10 +250,13 @@ class CachedAnthropic:
         model: str | None = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
         temperature: float | None = None,
+        tools: list[dict] | None = None,
     ) -> _StreamWrapper:
         """Streaming completion.
 
-        Use within a ``with`` block::
+        Pass ``tools`` to stream a turn that may also emit a ``tool_use`` block
+        (read it with :meth:`_StreamWrapper.final_tool_input` once the text
+        stream is exhausted). Use within a ``with`` block::
 
             with client.stream(messages=[...]) as stream:
                 for delta in stream.text_stream:
@@ -209,6 +272,8 @@ class CachedAnthropic:
             kwargs["system"] = system
         if temperature is not None:
             kwargs["temperature"] = temperature
+        if tools is not None:
+            kwargs["tools"] = tools
 
         return _StreamWrapper(self._client.messages.stream(**kwargs))
 
@@ -218,6 +283,8 @@ __all__ = [
     "DEFAULT_MAX_TOKENS",
     "CachedAnthropic",
     "CompletionResult",
+    "LLMClient",
+    "ToolCall",
     "Usage",
     "extract_tool_input",
     "system_block",

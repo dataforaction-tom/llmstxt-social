@@ -341,7 +341,7 @@ async def _run_health_check(
                 errored += 1
                 continue
 
-            if not validation.get("valid"):
+            if not validation.valid:
                 profile.murmurations_status = "drift"
                 drifted += 1
             elif profile.murmurations_status == "drift":

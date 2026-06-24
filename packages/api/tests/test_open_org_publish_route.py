@@ -185,3 +185,40 @@ async def test_put_profile_does_not_queue_submit_if_unpublished():
         )
 
     task_mock.delay.assert_not_called()
+
+
+async def test_publish_rejects_profile_without_name_with_400():
+    """Publishing must not flip published when identity.name is missing.
+
+    The Murmurations envelope requires a non-empty name; the index rejects a
+    null name, so without this guard the user is told "Published" while the
+    node never lands in the index.
+    """
+    from fastapi import HTTPException
+
+    from llmstxt_api.open_org_models import OrgAdmin
+    from llmstxt_api.routes.open_org_admin import publish_profile
+
+    nameless = _profile(
+        profile_json={
+            "schema_version": "open-org/v0.1",
+            "identity": {"identifiers": {"org_id": "GB-CHC-1234567"}},
+            "mission": {"themes": ["education"]},
+        }
+    )
+    db = mock.AsyncMock()
+    db.execute.return_value = mock.MagicMock(
+        scalar_one_or_none=mock.MagicMock(return_value=nameless)
+    )
+    admin = OrgAdmin(user_id=uuid.uuid4(), org_id="GB-CHC-1234567", role="owner")
+    task_mock = mock.MagicMock()
+
+    with mock.patch(
+        "llmstxt_api.routes.open_org_admin.submit_to_murmurations_task", task_mock
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await publish_profile("GB-CHC-1234567", db, admin)
+
+    assert exc.value.status_code == 400
+    assert nameless.published is False
+    task_mock.delay.assert_not_called()

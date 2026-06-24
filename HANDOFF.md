@@ -1,3 +1,39 @@
+# Handoff — LLM provider abstraction + full bug sweep (branch, committed, not pushed)
+
+> Session ended: 2026-06-23
+> Branch: `fix/openorg-providers-and-bug-sweep` (off `master`) — **committed, NOT pushed**; no PR yet (awaiting confirmation)
+> Picks up from: the second bug sweep before live-user testing
+> Resumes at: **push + open ONE PR**, then **rebuild prod image** (now needs the `openai` dep) + deploy
+
+## TL;DR
+
+A second sweep (6 parallel domain audits) found the generation path was 404'ing
+on a retired model and surfaced 9 real bugs. All fixed via TDD, each its own
+commit. Gates: **core 296 · API 203 · web 166 · tsc + lint clean**. Generation
+verified **end-to-end live** on the test stack (3× `POST /v1/messages` → 200 on
+`claude-sonnet-4-6`; profile reached `ready`); lookup `9999999` → 404, `1089464` → 200.
+
+### What landed (one commit each)
+1. **Provider abstraction + retired-model fix (headline).** `claude-sonnet-4-20250514` reached EOL 2026-06-15 → every generation 404'd. New `llmstxt_core.llm_providers` with an OpenAI-compatible client for **OpenRouter + Ollama Cloud** + an Anthropic client behind a shared `LLMClient` protocol; `Settings.build_llm_client()` selects via `LLM_PROVIDER`/`LLM_MODEL`. Default `claude-sonnet-4-6`. Routed generation + creator + analyzer through it.
+2. **Strategy creator data loss** — priorities (frontmatter, not body) + learning format + template enum values.
+3. **Murmurations** — health-check `.get()` crash on a dataclass; publish validated for a non-empty name before flipping `published` (no more silent `name: null` federation failures).
+4. **Charity not-found** — sparse CC API body + scrape fallback now return None instead of a charity named "Unknown".
+5. **Creator SSE** offloaded to the threadpool (was blocking the event loop for the whole turn); finalize returns 409 (not 500) on duplicate slug.
+6. **Discover** map guarded against non-finite coords (white-screen); pagination reset moved `useMemo`→`useEffect`; top-level **ErrorBoundary** added.
+7. **Hardening** — `/docs` disabled in prod; verify seeds the auth cache (no login bounce); stuck-`pending` generations time out client-side.
+
+## Deploy notes (important)
+- **Rebuild the image before deploy** — `config.py` imports `openai` at boot now; a stale image crashes. The running test stack was hot-patched with `pip install openai`; a clean rebuild is the real fix.
+- New env vars documented in `.env.example` (`LLM_PROVIDER`, `LLM_MODEL`, `OPENROUTER_*`, `OLLAMA_*`).
+- `packages/core` edits need a test-stack container **restart** (uvicorn `--reload` doesn't watch `/app/core`).
+
+## Flagged, not fixed (low-severity / decisions)
+- Cross-product SSO cookie can't span `llmstxt.social` + `good-ship.co.uk` (product decision).
+- Rate-limit real-client-IP behind Cloudflare/Caddy — verify `trusted_proxies` from a real external client.
+- Cosmetic: idea/strategy cards show raw slugs as titles; `/discover/ideas` `area_code` filter is a no-op.
+
+---
+
 # Handoff — Local test pass: 10 editor bugs fixed via TDD (uncommitted on master)
 
 > Session ended: 2026-06-16

@@ -19,12 +19,14 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import AsyncIterator, Literal
+from typing import Any, AsyncIterator, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
+from starlette.concurrency import iterate_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from llmstxt_api.config import settings
@@ -38,7 +40,6 @@ from llmstxt_api.open_org_models import (
 )
 from llmstxt_api.routes.open_org_auth import require_org_admin
 from llmstxt_api.services.llm_usage import is_within_daily_budget, log_usage
-from llmstxt_core.llm import CachedAnthropic
 from llmstxt_core.open_org.converter import ConverterError, markdown_to_json
 from llmstxt_core.open_org.creator.conversation import start_turn
 from llmstxt_core.open_org.creator.extractors import (
@@ -253,14 +254,16 @@ async def post_message(
     user_message = payload.content
     history_for_prompt = list(history)
 
-    client = CachedAnthropic(api_key=settings.anthropic_api_key)
+    client = settings.build_llm_client()
 
-    async def event_stream() -> AsyncIterator[bytes]:
-        nonlocal history
-        assistant_text_parts: list[str] = []
-        final_markdown: str | None = None
-        usage = None
+    # The LLM stream is synchronous (Anthropic SDK / OpenAI SDK). Iterating it
+    # directly inside the async generator would block the event loop for the
+    # whole multi-second turn, freezing every other request. Run the blocking
+    # iteration in the threadpool and stash the post-stream results for the
+    # async DB writes below.
+    turn_result: dict[str, Any] = {}
 
+    def _run_turn_sync():
         with start_turn(
             client=client,
             kind=session_row.kind,
@@ -269,12 +272,22 @@ async def post_message(
             org_profile_summary=org_summary,
         ) as turn:
             for chunk in turn.text_stream:
-                if not chunk:
-                    continue
-                assistant_text_parts.append(chunk)
-                yield _sse_event("delta", {"text": chunk})
-            final_markdown = turn.final_markdown()
-            usage = turn.usage()
+                yield chunk
+            turn_result["final_markdown"] = turn.final_markdown()
+            turn_result["usage"] = turn.usage()
+
+    async def event_stream() -> AsyncIterator[bytes]:
+        nonlocal history
+        assistant_text_parts: list[str] = []
+
+        async for chunk in iterate_in_threadpool(_run_turn_sync()):
+            if not chunk:
+                continue
+            assistant_text_parts.append(chunk)
+            yield _sse_event("delta", {"text": chunk})
+
+        final_markdown = turn_result.get("final_markdown")
+        usage = turn_result.get("usage")
 
         assistant_text = "".join(assistant_text_parts)
         history.append({"role": "user", "content": user_message})
@@ -366,7 +379,19 @@ async def finalize_session(
             themes=derived.get("themes"),
         )
     db.add(row)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        # Unique (org_id, slug) collision — the LLM derives slugs from the
+        # title so repeats are common. Surface a clear 409 instead of a 500.
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"a {session_row.kind} with slug {slug!r} already exists for "
+                "this org; change the 'id' in the markdown frontmatter and try again"
+            ),
+        ) from exc
 
     return FinalizeResponse(
         kind=session_row.kind,
