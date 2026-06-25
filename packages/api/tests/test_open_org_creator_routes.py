@@ -270,6 +270,64 @@ async def test_post_message_returns_404_for_unknown_session():
     assert exc.value.status_code == 404
 
 
+async def test_post_message_emits_sse_error_event_when_llm_stream_raises():
+    """If the LLM stream throws mid-turn, the client must get a structured
+    ``error`` SSE event — not a silent connection drop. Without a try/except
+    around the threadpool iteration the exception escapes the async generator
+    after 200 + headers have already been sent, so Starlette just closes the
+    socket and the browser's EventSource sees an abrupt end with no clue why.
+    """
+    from llmstxt_api.routes import open_org_creator as mod
+    from llmstxt_api.routes.open_org_creator import post_message, MessagePayload
+
+    session_row = _session()
+    db = mock.AsyncMock()
+    db.execute.return_value = _result(session_row)
+    admin = _admin_for()
+
+    # Make iterate_in_threadpool return an async generator that yields a chunk
+    # then raises — simulating a mid-stream LLM failure.
+    async def _exploding():
+        yield "partial delta"
+        raise RuntimeError("upstream blew up")
+
+    patches = [
+        mock.patch(
+            "llmstxt_api.routes.open_org_creator.is_within_daily_budget",
+            new=mock.AsyncMock(return_value=True),
+        ),
+        mock.patch.object(mod, "_load_profile", new=mock.AsyncMock(return_value=None)),
+        mock.patch.object(mod, "start_turn", return_value=mock.MagicMock()),
+        mock.patch.object(mod, "iterate_in_threadpool", return_value=_exploding()),
+    ]
+    for p in patches:
+        p.start()
+    try:
+        response = await post_message(
+            session_id=session_row.id,
+            payload=MessagePayload(content="hi"),
+            db=db,
+            admin=admin,
+        )
+
+        # Drain the SSE stream while mocks are still active.
+        chunks: list[bytes] = []
+        async for chunk in response.body_iterator:
+            chunks.append(chunk)
+    finally:
+        for p in patches:
+            p.stop()
+
+    body = b"".join(chunks).decode("utf-8")
+
+    # The partial delta was sent before the error.
+    assert "event: delta" in body
+    assert "partial delta" in body
+    # An error event was emitted with a message.
+    assert "event: error" in body
+    assert "upstream blew up" in body
+
+
 async def test_post_message_returns_410_for_expired_session():
     """Sessions are 30-day-TTL — past expiry they're gone."""
     from fastapi import HTTPException
