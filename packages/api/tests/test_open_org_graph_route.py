@@ -664,3 +664,166 @@ async def test_theme_filter_still_works_with_new_edge_types():
     assert "idea:GB-CHC-2:tutoring" not in node_ids
     # No idea_idea edges because only one idea survived the filter
     assert [e for e in body["edges"] if e["type"].startswith("idea_idea")] == []
+
+
+# ---------------------------------------------------------------------------
+# Meaningful cluster insights (enhanced graph summary)
+# ---------------------------------------------------------------------------
+
+
+async def test_cluster_description_includes_org_names_ideas_summary_places_dominant_themes():
+    """Each cluster surfaces org_names, ideas_summary, places, dominant_themes,
+    edge_count, and a human-readable description sentence."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Riverside Trust", themes=["food_access", "social_prescribing"]),
+            _local(org_id="GB-CHC-2", name="Norfolk Food Network", themes=["food_access", "social_prescribing"]),
+            _local(org_id="GB-CHC-3", name="Age UK Norfolk", themes=["food_access", "social_prescribing"]),
+        ],
+        ideas=[
+            _idea(
+                org_id="GB-CHC-1",
+                slug="k1",
+                themes=["food_access"],
+                summary="Hot meals for families",
+                place={"description": "Great Yarmouth"},
+            ),
+            _idea(
+                org_id="GB-CHC-2",
+                slug="k2",
+                themes=["social_prescribing"],
+                summary="Social prescribing pilots",
+                place={"description": "Great Yarmouth"},
+            ),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    clusters = body["graph_summary"]["clusters"]
+    assert len(clusters) == 1
+    c = clusters[0]
+    assert set(c["org_names"]) == {"Riverside Trust", "Norfolk Food Network", "Age UK Norfolk"}
+    assert c["ideas_summary"] is not None
+    assert "Hot meals" in c["ideas_summary"]
+    assert "Great Yarmouth" in c["places"]
+    assert "food_access" in c["dominant_themes"]
+    assert "social_prescribing" in c["dominant_themes"]
+    assert len(c["dominant_themes"]) <= 3
+    assert c["edge_count"] >= 1
+    assert "Riverside Trust" in c["description"]
+    assert "Great Yarmouth" in c["description"]
+
+
+async def test_cluster_themes_sorted_by_frequency_most_common_first():
+    """The cluster's `themes` list is sorted by frequency (most common first)."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Alpha", themes=["food_access", "health"]),
+            _local(org_id="GB-CHC-2", name="Beta", themes=["food_access", "health"]),
+            _local(org_id="GB-CHC-3", name="Gamma", themes=["food_access", "education"]),
+        ],
+        ideas=[],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    c = body["graph_summary"]["clusters"][0]
+    # food_access appears on all 3 orgs; health on 2; education on 1.
+    assert c["themes"][:2] == ["food_access", "health"]
+    assert c["dominant_themes"][0] == "food_access"
+
+
+async def test_cluster_ideas_summary_truncated_to_200_chars():
+    """ideas_summary concatenates idea summaries and is capped at 200 chars."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    long_summary = "A" * 300
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Alpha", themes=["food_access"]),
+            _local(org_id="GB-CHC-2", name="Beta", themes=["food_access"]),
+        ],
+        ideas=[
+            _idea(org_id="GB-CHC-1", slug="k1", themes=["food_access"], summary=long_summary),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    c = body["graph_summary"]["clusters"][0]
+    assert c["ideas_summary"] is not None
+    assert len(c["ideas_summary"]) <= 200
+
+
+async def test_nodes_in_cluster_get_cluster_id_isolated_nodes_get_null():
+    """Nodes in a ≥2-node connected component receive a cluster_id; isolated
+    nodes (no edges) get cluster_id: null."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Alpha", themes=["food_access"]),
+            _local(org_id="GB-CHC-2", name="Beta", themes=["food_access"]),
+            _local(org_id="GB-CHC-3", name="Gamma", themes=["education"]),  # isolated
+        ],
+        ideas=[],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    by_id = {n["id"]: n for n in body["nodes"]}
+    assert by_id["GB-CHC-1"]["cluster_id"] is not None
+    assert by_id["GB-CHC-2"]["cluster_id"] is not None
+    assert by_id["GB-CHC-1"]["cluster_id"] == by_id["GB-CHC-2"]["cluster_id"]
+    assert by_id["GB-CHC-3"]["cluster_id"] is None
+
+
+async def test_clusters_sorted_by_size_largest_first():
+    """Multiple clusters are returned largest first; cluster_id maps to nodes."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="A1", themes=["food_access"]),
+            _local(org_id="GB-CHC-2", name="A2", themes=["food_access"]),
+            _local(org_id="GB-CHC-3", name="A3", themes=["food_access"]),
+            _local(org_id="GB-CHC-4", name="B1", themes=["education"]),
+            _local(org_id="GB-CHC-5", name="B2", themes=["education"]),
+        ],
+        ideas=[],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    clusters = body["graph_summary"]["clusters"]
+    assert len(clusters) == 2
+    assert clusters[0]["node_count"] == 3
+    assert clusters[1]["node_count"] == 2
+    assert clusters[0]["node_count"] >= clusters[1]["node_count"]
+
+
+async def test_cluster_description_sentence_format_matches_spec():
+    """The description reads like 'N organisations (Name, Name) and M ideas around theme in Place'."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Riverside Trust", themes=["food_access", "social_prescribing"]),
+            _local(org_id="GB-CHC-2", name="Norfolk Food Network", themes=["food_access", "social_prescribing"]),
+            _local(org_id="GB-CHC-3", name="Age UK Norfolk", themes=["food_access", "social_prescribing"]),
+        ],
+        ideas=[
+            _idea(org_id="GB-CHC-1", slug="k1", themes=["food_access"], summary="Hot meals", place={"description": "Great Yarmouth"}),
+            _idea(org_id="GB-CHC-2", slug="k2", themes=["social_prescribing"], summary="Prescribing", place={"description": "Great Yarmouth"}),
+            _idea(org_id="GB-CHC-3", slug="k3", themes=["food_access"], summary="Pantry", place={"description": "Great Yarmouth"}),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    c = body["graph_summary"]["clusters"][0]
+    desc = c["description"]
+    assert "3 organisations" in desc
+    assert "Riverside Trust" in desc
+    assert "Age UK Norfolk" in desc
+    assert "3 ideas" in desc
+    assert "Great Yarmouth" in desc

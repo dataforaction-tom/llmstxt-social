@@ -431,6 +431,9 @@ class GraphNode(BaseModel):
     # strategy-only — period + priorities count
     period: dict | None = None
     priorities_count: int | None = None
+    # cluster membership — set during summary build. Nodes in a ≥2-node
+    # connected component carry a stable cluster_id; isolated nodes are null.
+    cluster_id: int | None = None
 
 
 class GraphEdge(BaseModel):
@@ -448,6 +451,14 @@ class GraphEdge(BaseModel):
 class GraphCluster(BaseModel):
     description: str
     themes: list[str] = Field(default_factory=list)
+    # Enhanced cluster insight fields — give funders a real sense of what
+    # each cluster represents, not just a head-count.
+    node_count: int = 0
+    org_names: list[str] = Field(default_factory=list)
+    ideas_summary: str | None = None
+    places: list[str] = Field(default_factory=list)
+    dominant_themes: list[str] = Field(default_factory=list)
+    edge_count: int = 0
 
 
 class GraphSummary(BaseModel):
@@ -838,7 +849,14 @@ def _build_graph(
 def _build_graph_summary(
     nodes: list[GraphNode], edges: list[GraphEdge]
 ) -> GraphSummary:
-    """Aggregate counts + connected-component clusters (≥2 nodes)."""
+    """Aggregate counts + connected-component clusters (≥2 nodes).
+
+    Each cluster carries enriched fields — org_names, ideas_summary, places,
+    themes sorted by frequency, dominant_themes, edge_count — so a funder sees
+    "three organisations across two places all circling similar work" rather
+    than just a head-count. Nodes belonging to a cluster get ``cluster_id``
+    stamped on them (mutating the node in place); isolated nodes stay null.
+    """
     org_count = sum(1 for n in nodes if n.type == "organisation")
     idea_count = sum(1 for n in nodes if n.type == "idea")
     strategy_count = sum(1 for n in nodes if n.type == "strategy")
@@ -866,24 +884,95 @@ def _build_graph_summary(
         root = find(n.id)
         components.setdefault(root, []).append(n)
 
-    clusters: list[GraphCluster] = []
-    for comp_nodes in components.values():
-        if len(comp_nodes) < 2:
-            continue
-        orgs = sum(1 for n in comp_nodes if n.type == "organisation")
-        ideas = sum(1 for n in comp_nodes if n.type == "idea")
-        themes_in_cluster: list[str] = sorted({
-            t for n in comp_nodes for t in (n.themes or [])
-        })
-        description = (
-            f"{orgs} organisation{'s' if orgs != 1 else ''}, "
-            f"{ideas} idea{'s' if ideas != 1 else ''}"
-            f" around {', '.join(themes_in_cluster) if themes_in_cluster else 'no themes'}"
-        )
-        clusters.append(GraphCluster(description=description, themes=themes_in_cluster))
+    # Pre-compute edge membership by endpoint for per-cluster edge counting.
+    endpoints: dict[str, set[str]] = {n.id: set() for n in nodes}
+    for e in edges:
+        if e.source in endpoints and e.target in endpoints:
+            endpoints[e.source].add(e.target)
+            endpoints[e.target].add(e.source)
 
-    # Deterministic order: by size desc, then description.
-    clusters.sort(key=lambda c: (-len(c.themes), c.description))
+    # Build cluster records, assigning each a stable integer id. Sort the
+    # raw components by size (desc) then by sorted node ids (asc) for
+    # deterministic cluster_id assignment.
+    raw_components = sorted(
+        components.values(),
+        key=lambda comp: (-len(comp), sorted(n.id for n in comp)),
+    )
+
+    clusters: list[GraphCluster] = []
+    for cluster_idx, comp_nodes in enumerate(raw_components, start=1):
+        if len(comp_nodes) < 2:
+            # Isolated node — no cluster_id assigned.
+            continue
+        comp_ids = {n.id for n in comp_nodes}
+
+        # Stamp cluster_id on every node in this component.
+        for n in comp_nodes:
+            n.cluster_id = cluster_idx
+
+        org_nodes = [n for n in comp_nodes if n.type == "organisation"]
+        idea_nodes = [n for n in comp_nodes if n.type == "idea"]
+
+        org_names = [n.name for n in org_nodes]
+
+        # Ideas summary — concatenate idea summaries, truncate to 200 chars.
+        idea_summaries = [n.summary for n in idea_nodes if n.summary]
+        joined = " ".join(idea_summaries).strip()
+        if len(joined) > 200:
+            joined = joined[:200]
+        ideas_summary = joined or None
+
+        # Places — distinct non-empty place values from idea/strategy nodes.
+        place_set: dict[str, None] = {}
+        for n in comp_nodes:
+            if n.place:
+                place_set.setdefault(n.place, None)
+            if n.area and n.type == "organisation":
+                place_set.setdefault(n.area, None)
+        places = list(place_set.keys())
+
+        # Themes — union of all node themes, sorted by frequency (desc) then
+        # alphabetical for tie-breaking.
+        theme_freq: dict[str, int] = {}
+        for n in comp_nodes:
+            for t in (n.themes or []):
+                theme_freq[t] = theme_freq.get(t, 0) + 1
+            for t in (n.strategy_themes or []):
+                theme_freq[t] = theme_freq.get(t, 0) + 1
+        themes_sorted = sorted(
+            theme_freq.keys(), key=lambda t: (-theme_freq[t], t)
+        )
+        dominant_themes = themes_sorted[:3]
+
+        # Edge count within this cluster — undirected, deduplicated.
+        edge_count = 0
+        for n in comp_nodes:
+            for nbr in endpoints.get(n.id, ()):
+                if nbr in comp_ids and nbr > n.id:
+                    edge_count += 1
+
+        description = _cluster_description(
+            org_count=len(org_nodes),
+            org_names=org_names,
+            idea_count=len(idea_nodes),
+            dominant_themes=dominant_themes,
+            places=places,
+        )
+
+        clusters.append(GraphCluster(
+            description=description,
+            themes=themes_sorted,
+            node_count=len(comp_nodes),
+            org_names=org_names,
+            ideas_summary=ideas_summary,
+            places=places,
+            dominant_themes=dominant_themes,
+            edge_count=edge_count,
+        ))
+
+    # Clusters are already in size-desc order due to raw_components sort.
+    # Keep a deterministic tiebreak by description.
+    clusters.sort(key=lambda c: (-c.node_count, c.description))
 
     return GraphSummary(
         total_nodes=len(nodes),
@@ -893,6 +982,37 @@ def _build_graph_summary(
         strategies=strategy_count,
         clusters=clusters,
     )
+
+
+def _cluster_description(
+    *,
+    org_count: int,
+    org_names: list[str],
+    idea_count: int,
+    dominant_themes: list[str],
+    places: list[str],
+) -> str:
+    """Render a human-readable cluster description sentence.
+
+    Example: "3 organisations (Riverside Trust, Norfolk Food Network, Age UK
+    Norfolk) and 5 ideas around food_access, social_prescribing in Great
+    Yarmouth".
+    """
+    org_word = "organisation" if org_count == 1 else "organisations"
+    idea_word = "idea" if idea_count == 1 else "ideas"
+    names_part = f" ({', '.join(org_names)})" if org_names else ""
+
+    parts: list[str] = [f"{org_count} {org_word}{names_part}"]
+    if idea_count > 0:
+        parts.append(f"and {idea_count} {idea_word}")
+    if dominant_themes:
+        parts.append(f"around {', '.join(dominant_themes)}")
+    if places:
+        parts.append(f"in {', '.join(places)}")
+
+    # First two fragments ("N orgs (...) and M ideas") join with a space;
+    # remaining fragments ("around ...", "in ...") join with a space too.
+    return " ".join(parts)
 
 
 __all__ = [

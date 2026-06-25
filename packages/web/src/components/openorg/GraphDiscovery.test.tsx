@@ -31,6 +31,7 @@ const mockGraphData: GraphData = {
       income_band: '250k-500k',
       ideas_count: 1,
       strategy_themes: ['food_access'],
+      cluster_id: 1,
     },
     {
       id: 'idea:GB-CHC-1:kitchen',
@@ -44,6 +45,7 @@ const mockGraphData: GraphData = {
       connections: [
         { org_name: 'Beta', org_id: 'GB-CHC-2', relationship: 'complementary' },
       ],
+      cluster_id: 1,
     },
     {
       id: 'strategy:GB-CHC-1:2025-2028',
@@ -54,6 +56,7 @@ const mockGraphData: GraphData = {
       summary: 'Three-year plan for food access.',
       period: { start: '2025-01-01', end: '2028-12-31', horizon: '3_5_years' },
       priorities_count: 4,
+      cluster_id: 1,
     },
     {
       id: 'GB-CHC-2',
@@ -64,6 +67,18 @@ const mockGraphData: GraphData = {
       income_band: '100k-250k',
       ideas_count: 0,
       strategy_themes: [],
+      cluster_id: 1,
+    },
+    {
+      id: 'GB-CHC-99',
+      type: 'organisation',
+      name: 'Lone Org',
+      themes: ['education'],
+      area: 'Nowhere',
+      income_band: '10k-100k',
+      ideas_count: 0,
+      strategy_themes: [],
+      cluster_id: null,
     },
   ],
   edges: [
@@ -83,15 +98,22 @@ const mockGraphData: GraphData = {
     },
   ],
   graph_summary: {
-    total_nodes: 4,
+    total_nodes: 5,
     total_edges: 5,
-    organisations: 2,
+    organisations: 3,
     ideas: 1,
     strategies: 1,
     clusters: [
       {
-        description: '2 organisations, 1 idea around food_access, health',
+        description:
+          '2 organisations (Riverside Trust, Beta Trust) and 1 idea around food_access, health in Great Yarmouth',
         themes: ['food_access', 'health'],
+        node_count: 4,
+        org_names: ['Riverside Trust', 'Beta Trust'],
+        ideas_summary: 'A community kitchen serving hot meals.',
+        places: ['Great Yarmouth'],
+        dominant_themes: ['food_access', 'health'],
+        edge_count: 5,
       },
     ],
   },
@@ -192,10 +214,76 @@ describe('GraphDiscovery', () => {
     expect(markerEnd).toBeTruthy();
   });
 
-  it('shows the graph summary above the graph when present', () => {
+  it('shows the cluster summary panel with total counts when present', () => {
     renderComponent();
-    expect(screen.getByText(/2 organisations, 1 idea, 1 strategy/i)).toBeInTheDocument();
-    expect(screen.getByText(/1 cluster/i)).toBeInTheDocument();
+    const counts = screen.getByTestId('landscape-counts');
+    expect(counts.textContent).toMatch(/3 organisations, 1 idea, 1 strategy/i);
+  });
+
+  it('renders a cluster card with the description sentence and dominant theme chips', () => {
+    renderComponent();
+    const cards = screen.getAllByTestId('cluster-card');
+    expect(cards.length).toBeGreaterThanOrEqual(1);
+    // Description includes the named orgs.
+    expect(cards[0].textContent).toContain('Riverside Trust');
+    expect(cards[0].textContent).toContain('Great Yarmouth');
+    // Dominant themes render as chips.
+    const chips = cards[0].querySelectorAll('[data-cluster-theme-chip]');
+    expect(chips.length).toBe(2);
+  });
+
+  it('clicking a cluster card dims nodes outside the cluster', () => {
+    const { container } = renderComponent();
+    const card = screen.getByTestId('cluster-card');
+    fireEvent.click(card);
+    // The lone org (cluster_id null) should now be dimmed.
+    const loneCircle = container.querySelector('svg circle[data-id="GB-CHC-99"]');
+    expect(loneCircle).not.toBeNull();
+    expect(loneCircle!.getAttribute('opacity')).toBe('0.25');
+    // A clustered node stays full opacity.
+    const clusteredCircle = container.querySelector('svg circle[data-id="GB-CHC-1"]');
+    expect(clusteredCircle!.getAttribute('opacity')).not.toBe('0.25');
+  });
+
+  it('renders the Clusters toggle button, off by default', () => {
+    renderComponent();
+    const toggle = screen.getByRole('button', { name: /clusters/i });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('turning the Clusters toggle on colour-codes nodes by cluster instead of type', () => {
+    const { container } = renderComponent();
+    const toggle = screen.getByRole('button', { name: /clusters/i });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    // Cluster 1 nodes should share the same fill colour.
+    const c1 = container.querySelector('svg circle[data-id="GB-CHC-1"]');
+    const c2 = container.querySelector('svg circle[data-id="GB-CHC-2"]');
+    expect(c1!.getAttribute('fill')).toBeTruthy();
+    expect(c1!.getAttribute('fill')).toBe(c2!.getAttribute('fill'));
+    // The unclustered node should use the type-based colour.
+    const lone = container.querySelector('svg circle[data-id="GB-CHC-99"]');
+    expect(lone!.getAttribute('fill')).not.toBe(c1!.getAttribute('fill'));
+  });
+
+  it('shows a "No clusters" message when only isolated nodes exist', () => {
+    graphDataValue = {
+      nodes: [
+        { id: 'GB-CHC-1', type: 'organisation', name: 'Solo', themes: ['education'], cluster_id: null },
+        { id: 'GB-CHC-2', type: 'organisation', name: 'Other', themes: ['health'], cluster_id: null },
+      ],
+      edges: [],
+      graph_summary: {
+        total_nodes: 2,
+        total_edges: 0,
+        organisations: 2,
+        ideas: 0,
+        strategies: 0,
+        clusters: [],
+      },
+    };
+    renderComponent();
+    expect(screen.getByText(/no clusters/i)).toBeInTheDocument();
   });
 
   it('idea side panel shows summary, themes, place, cost range, and connections', () => {

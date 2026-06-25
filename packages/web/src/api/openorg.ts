@@ -582,6 +582,8 @@ export interface GraphNode {
   // strategy-only
   period?: { start?: string; end?: string; horizon?: string } | null;
   priorities_count?: number | null;
+  // cluster membership — null when the node isn't in a ≥2-node cluster.
+  cluster_id?: number | null;
 }
 
 export interface GraphEdge {
@@ -606,6 +608,14 @@ export interface GraphEdge {
 export interface GraphCluster {
   description: string;
   themes: string[];
+  // Enhanced cluster insight fields — give funders a real sense of what
+  // each cluster represents, not just a head-count.
+  node_count?: number;
+  org_names?: string[];
+  ideas_summary?: string | null;
+  places?: string[];
+  dominant_themes?: string[];
+  edge_count?: number;
 }
 
 export interface GraphSummary {

@@ -30,6 +30,14 @@ const COLOURS: Record<GraphNode['type'], string> = {
   strategy: '#D4993D',     // amber (Good Ship secondary accent)
 };
 
+// Cluster colour palette — cycled per cluster_id so the frontend can
+// colour-code nodes by cluster membership when the "Clusters" toggle is on.
+const CLUSTER_COLOURS = ['#2D8B7A', '#D4993D', '#C75B3A', '#8BA4B8', '#1B2A4A', '#243556'];
+
+function clusterColour(clusterId: number): string {
+  return CLUSTER_COLOURS[(clusterId - 1) % CLUSTER_COLOURS.length];
+}
+
 const INCOME_BAND_ORDER = [
   'under_10k', '10k-100k', '100k-250k', '250k-500k',
   '500k-1m', '1m-5m', '5m-10m', '10m-100m', 'over_100m',
@@ -110,6 +118,8 @@ export default function GraphDiscovery() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoveredEdgeIndex, setHoveredEdgeIndex] = useState<number | null>(null);
   const [explicitOnly, setExplicitOnly] = useState(false);
+  const [colourByCluster, setColourByCluster] = useState(false);
+  const [highlightedClusterIdx, setHighlightedClusterIdx] = useState<number | null>(null);
 
   const themesQuery = useThemes();
   const themes: ThemeEntry[] = themesQuery.data ?? [];
@@ -229,11 +239,39 @@ export default function GraphDiscovery() {
     return ids;
   }, [hoveredId, selectedNode, simLinks]);
 
+  // --- cluster highlight (card click) --------------------------------------
+  // When a cluster card is clicked, only nodes in that cluster (by index in
+  // summary.clusters order) stay bright; everything else dims. Mapping from
+  // cluster index → set of node ids uses the cluster_id stamps on the nodes.
+  const highlightedClusterIds = useMemo(() => {
+    if (highlightedClusterIdx === null || !graphData) return null;
+    const clusters = graphData.graph_summary?.clusters ?? [];
+    const target = clusters[highlightedClusterIdx];
+    if (!target) return null;
+    // Cluster index in summary order is 0-based; node.cluster_id is the 1-based
+    // backend id. Sort clusters by node_count desc to mirror the backend's
+    // ordering, then map by position. Since the backend sorts clusters by
+    // size, the summary array order already aligns with cluster_id order
+    // (largest cluster has cluster_id 1).
+    const clusterId = highlightedClusterIdx + 1;
+    const ids = new Set<string>();
+    for (const n of graphData.nodes) {
+      if (n.cluster_id === clusterId) ids.add(n.id);
+    }
+    return ids;
+  }, [highlightedClusterIdx, graphData]);
+
   function isDimmed(id: string): boolean {
+    if (highlightedClusterIds !== null) {
+      return !highlightedClusterIds.has(id);
+    }
     return connectedIds !== null && !connectedIds.has(id);
   }
 
   function isEdgeDimmed(sourceId: string, targetId: string): boolean {
+    if (highlightedClusterIds !== null) {
+      return !(highlightedClusterIds.has(sourceId) && highlightedClusterIds.has(targetId));
+    }
     if (!connectedIds) return false;
     return !(connectedIds.has(sourceId) && connectedIds.has(targetId));
   }
@@ -330,7 +368,69 @@ export default function GraphDiscovery() {
           >
             Show only explicit connections
           </button>
+          <button
+            type="button"
+            aria-pressed={colourByCluster}
+            onClick={() => setColourByCluster((v) => !v)}
+            className={
+              'px-3 py-1.5 text-sm transition ' +
+              (colourByCluster
+                ? 'bg-navy text-cream'
+                : 'border border-rule text-navy hover:bg-cream-dark')
+            }
+          >
+            Clusters
+          </button>
         </div>
+
+        {/* --- cluster summary panel ----------------------------------- */}
+        {graphData?.graph_summary && (
+          <div className="mb-4 border border-rule bg-cream-dark p-3">
+            <div className="kicker mb-2">Landscape</div>
+            <p className="text-sm text-navy" data-testid="landscape-counts">
+              {graphData.graph_summary.organisations} organisation{graphData.graph_summary.organisations !== 1 ? 's' : ''},{' '}
+              {graphData.graph_summary.ideas} idea{graphData.graph_summary.ideas !== 1 ? 's' : ''},{' '}
+              {graphData.graph_summary.strategies} strateg{graphData.graph_summary.strategies !== 1 ? 'ies' : 'y'}.
+            </p>
+            {graphData.graph_summary.clusters.length > 0 ? (
+              <div className="mt-2 space-y-2">
+                {graphData.graph_summary.clusters.map((cluster, idx) => (
+                  <button
+                    key={idx}
+                    data-testid="cluster-card"
+                    type="button"
+                    onClick={() =>
+                      setHighlightedClusterIdx(
+                        highlightedClusterIdx === idx ? null : idx,
+                      )
+                    }
+                    className="block w-full border border-rule bg-cream p-3 text-left transition hover:border-navy"
+                  >
+                    <p className="text-sm text-navy">{cluster.description}</p>
+                    {(cluster.places?.length ?? 0) > 0 && (
+                      <p className="mt-1 text-xs text-grey-blue">
+                        Places: {(cluster.places ?? []).join(', ')}
+                      </p>
+                    )}
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {cluster.dominant_themes?.map((t) => (
+                        <span
+                          key={t}
+                          data-cluster-theme-chip
+                          className="border border-teal/40 bg-teal/10 px-1.5 py-0.5 text-xs text-teal"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-grey-blue">No clusters — all organisations are isolated.</p>
+            )}
+          </div>
+        )}
 
         {graphQuery.isLoading ? (
           <div className="flex h-[600px] items-center justify-center border border-rule text-grey-blue">
@@ -438,7 +538,11 @@ export default function GraphDiscovery() {
                     <circle
                       data-id={node.id}
                       r={r}
-                      fill={COLOURS[node.type]}
+                      fill={
+                        colourByCluster && node.cluster_id
+                          ? clusterColour(node.cluster_id)
+                          : COLOURS[node.type]
+                      }
                       stroke="#fff"
                       strokeWidth={1.5}
                       opacity={dim ? 0.25 : 1}
