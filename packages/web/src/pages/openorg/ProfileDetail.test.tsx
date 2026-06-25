@@ -17,6 +17,7 @@ import ProfileDetailPage from './ProfileDetail';
 const fetchPublicProfile = vi.fn();
 const fetchPublicStrategies = vi.fn();
 const fetchPublicIdeas = vi.fn();
+const fetchPublicOrgHistory = vi.fn();
 
 vi.mock('../../api/openorg', async () => {
   const actual = await vi.importActual<typeof import('../../api/openorg')>(
@@ -27,6 +28,7 @@ vi.mock('../../api/openorg', async () => {
     fetchPublicProfile: (orgId: string) => fetchPublicProfile(orgId),
     fetchPublicStrategies: (orgId: string) => fetchPublicStrategies(orgId),
     fetchPublicIdeas: (orgId: string) => fetchPublicIdeas(orgId),
+    fetchPublicOrgHistory: (orgId: string) => fetchPublicOrgHistory(orgId),
   };
 });
 
@@ -75,8 +77,10 @@ describe('ProfileDetailPage', () => {
     fetchPublicProfile.mockReset();
     fetchPublicStrategies.mockReset();
     fetchPublicIdeas.mockReset();
+    fetchPublicOrgHistory.mockReset();
     fetchPublicStrategies.mockResolvedValue([]);
     fetchPublicIdeas.mockResolvedValue([]);
+    fetchPublicOrgHistory.mockResolvedValue([]);
   });
 
   it('renders mission, themes, programmes, evidence', async () => {
@@ -131,5 +135,86 @@ describe('ProfileDetailPage', () => {
       const rawLink = screen.getByText('View raw JSON').closest('a');
       expect(rawLink).toHaveAttribute('href', '/open-org/GB-CHC-1234567/profile.json');
     });
+  });
+
+  it('renders a timeline of version events when history is present', async () => {
+    fetchPublicProfile.mockResolvedValue(FULL_PROFILE);
+    fetchPublicOrgHistory.mockResolvedValue([
+      {
+        timestamp: '2026-06-15T09:00:00',
+        parent_kind: 'strategy',
+        parent_slug: '2025-2028',
+        summary: 'Three-year plan to grow community kitchens.',
+      },
+      {
+        timestamp: '2026-05-10T14:30:00',
+        parent_kind: 'profile',
+        parent_slug: null,
+        summary: 'Profile generated from charity number 1234567.',
+      },
+    ]);
+    renderAt('GB-CHC-1');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Timeline/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText('Strategy published')).toBeInTheDocument();
+    expect(
+      screen.getByText('Profile generated from charity number 1234567.'),
+    ).toBeInTheDocument();
+  });
+
+  it('does not render a timeline section when there is no history', async () => {
+    fetchPublicProfile.mockResolvedValue(FULL_PROFILE);
+    fetchPublicOrgHistory.mockResolvedValue([]);
+    renderAt('GB-CHC-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Riverside Community Trust')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Timeline/i)).not.toBeInTheDocument();
+  });
+
+  it('renders idea status badges and created/updated timestamps', async () => {
+    fetchPublicProfile.mockResolvedValue(FULL_PROFILE);
+    fetchPublicIdeas.mockResolvedValue([
+      {
+        slug: 'kitchen-network',
+        themes: ['food_access'],
+        status: 'developing',
+        created_at: '2026-04-01T10:00:00',
+        updated_at: '2026-06-01T12:00:00',
+      },
+    ]);
+    renderAt('GB-CHC-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('kitchen-network')).toBeInTheDocument();
+    });
+    const badge = screen.getByText('developing');
+    expect(badge).toBeInTheDocument();
+    expect(badge.className).toContain('text-teal');
+    expect(screen.getByText(/created/i)).toHaveTextContent('1 Apr 2026');
+    expect(screen.getByText(/updated/i)).toHaveTextContent('1 Jun 2026');
+  });
+
+  it('renders strategy status badges with correct colours', async () => {
+    fetchPublicProfile.mockResolvedValue(FULL_PROFILE);
+    fetchPublicStrategies.mockResolvedValue([
+      {
+        slug: '2025-2028',
+        themes: ['food_access'],
+        status: 'active',
+        created_at: '2026-01-01T00:00:00',
+        updated_at: '2026-03-01T00:00:00',
+      },
+    ]);
+    renderAt('GB-CHC-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('2025-2028')).toBeInTheDocument();
+    });
+    const badge = screen.getByText('active');
+    expect(badge.className).toContain('text-teal');
   });
 });

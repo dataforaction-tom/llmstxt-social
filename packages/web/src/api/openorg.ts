@@ -118,6 +118,8 @@ export interface PublicRecordSummary {
   themes: string[];
   status?: string;
   summary?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export async function fetchPublicStrategies(orgId: string): Promise<PublicRecordSummary[]> {
@@ -127,6 +129,38 @@ export async function fetchPublicStrategies(orgId: string): Promise<PublicRecord
 
 export async function fetchPublicIdeas(orgId: string): Promise<PublicRecordSummary[]> {
   const { data } = await api.get(`/open-org/${orgId}/ideas`);
+  return data;
+}
+
+// --- public version history (no auth) ------------------------------------
+
+export interface PublicHistoryEntry {
+  timestamp: string;
+  parent_kind: 'profile' | 'strategy' | 'idea';
+  parent_slug: string | null;
+  summary: string;
+}
+
+export async function fetchPublicOrgHistory(
+  orgId: string,
+): Promise<PublicHistoryEntry[]> {
+  const { data } = await api.get(`/open-org/${orgId}/history`);
+  return data;
+}
+
+export async function fetchPublicStrategyHistory(
+  orgId: string,
+  slug: string,
+): Promise<PublicHistoryEntry[]> {
+  const { data } = await api.get(`/open-org/${orgId}/strategies/${slug}/history`);
+  return data;
+}
+
+export async function fetchPublicIdeaHistory(
+  orgId: string,
+  slug: string,
+): Promise<PublicHistoryEntry[]> {
+  const { data } = await api.get(`/open-org/${orgId}/ideas/${slug}/history`);
   return data;
 }
 

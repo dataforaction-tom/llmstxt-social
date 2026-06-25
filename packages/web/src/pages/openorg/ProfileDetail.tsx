@@ -12,8 +12,10 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   fetchPublicIdeas,
+  fetchPublicOrgHistory,
   fetchPublicProfile,
   fetchPublicStrategies,
+  type PublicHistoryEntry,
   type PublicRecordSummary,
 } from '../../api/openorg';
 
@@ -84,6 +86,12 @@ export default function ProfileDetailPage() {
   const ideas = useQuery({
     queryKey: ['openorg', 'public-ideas', orgId],
     queryFn: () => fetchPublicIdeas(orgId),
+    enabled: Boolean(orgId),
+    retry: false,
+  });
+  const history = useQuery({
+    queryKey: ['openorg', 'public-history', orgId],
+    queryFn: () => fetchPublicOrgHistory(orgId),
     enabled: Boolean(orgId),
     retry: false,
   });
@@ -301,6 +309,8 @@ export default function ProfileDetailPage() {
             </dl>
           </Section>
         )}
+
+        <TimelineSection entries={history.data ?? []} />
       </div>
     </div>
   );
@@ -337,9 +347,7 @@ function RecordList({
                 </a>
               </h3>
               {item.status && (
-                <span className="text-xs uppercase tracking-wider text-grey-blue">
-                  {item.status}
-                </span>
+                <StatusBadge kind={kind} status={item.status} />
               )}
             </div>
             {item.summary && (
@@ -354,9 +362,97 @@ function RecordList({
                 ))}
               </div>
             )}
+            {(item.created_at || item.updated_at) && (
+              <p className="mt-1 text-xs text-grey-blue">
+                {item.created_at && <>created {formatDate(item.created_at)}</>}
+                {item.created_at && item.updated_at && ' · '}
+                {item.updated_at && <>updated {formatDate(item.updated_at)}</>}
+              </p>
+            )}
           </li>
         );
       })}
     </ul>
   );
+}
+
+// --- status badges (Part C) ------------------------------------------------
+
+const IDEA_STATUS_CLASSES: Record<string, string> = {
+  seed: 'bg-grey-blue/15 text-grey-blue',
+  developing: 'bg-teal/15 text-teal',
+  shaped: 'bg-amber/15 text-amber',
+  delivered: 'bg-teal/20 text-teal',
+  archived: 'bg-grey-blue/10 text-grey-blue/70',
+};
+
+const STRATEGY_STATUS_CLASSES: Record<string, string> = {
+  draft: 'bg-grey-blue/15 text-grey-blue',
+  active: 'bg-teal/15 text-teal',
+  archived: 'bg-grey-blue/10 text-grey-blue/70',
+};
+
+function StatusBadge({
+  kind,
+  status,
+}: {
+  kind: 'strategies' | 'ideas';
+  status: string;
+}) {
+  const palette = kind === 'ideas' ? IDEA_STATUS_CLASSES : STRATEGY_STATUS_CLASSES;
+  const className = palette[status] ?? 'bg-grey-blue/15 text-grey-blue';
+  return (
+    <span
+      className={`rounded-brand px-2 py-0.5 text-xs uppercase tracking-wider ${className}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+// --- timeline (Part B) -----------------------------------------------------
+
+function TimelineSection({ entries }: { entries: PublicHistoryEntry[] }) {
+  if (entries.length === 0) return null;
+  return (
+    <Section title="Timeline">
+      <ol className="relative border-l-2 border-teal/40 pl-6">
+        {entries.map((entry, i) => (
+          <li key={`${entry.timestamp}-${i}`} className="mb-5 last:mb-0">
+            <span
+              className="absolute -left-[7px] mt-1 h-3 w-3 rounded-full bg-navy"
+              aria-hidden
+            />
+            <div className="text-xs uppercase tracking-wider text-grey-blue">
+              {historyLabel(entry)}
+            </div>
+            <div className="mt-0.5 text-sm text-navy">{entry.summary}</div>
+            <time className="mt-0.5 block text-xs text-grey-blue">
+              {formatDate(entry.timestamp)}
+            </time>
+          </li>
+        ))}
+      </ol>
+    </Section>
+  );
+}
+
+function historyLabel(entry: PublicHistoryEntry): string {
+  if (entry.summary.toLowerCase().includes('status changed')) {
+    return `${entry.parent_kind.charAt(0).toUpperCase()}${entry.parent_kind.slice(1)} status changed`;
+  }
+  if (entry.parent_kind === 'profile') return 'Profile updated';
+  if (entry.parent_kind === 'strategy') return 'Strategy published';
+  if (entry.parent_kind === 'idea') return 'Idea updated';
+  return 'Updated';
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-GB', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
