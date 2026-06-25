@@ -38,16 +38,26 @@ export default function EditIdeaPage() {
   const themes = useThemes();
 
   if (!orgId || !slug) {
-    return <div className="p-6 text-red-700">Missing org_id or slug in URL.</div>;
+    return (
+      <div className="surface-paper min-h-screen">
+        <div className="p-6 text-red-700">Missing org_id or slug in URL.</div>
+      </div>
+    );
   }
 
   if (idea.isLoading) {
-    return <div className="p-6 text-gray-500">Loading idea…</div>;
+    return (
+      <div className="surface-paper min-h-screen">
+        <div className="p-6 text-muted">Loading idea…</div>
+      </div>
+    );
   }
   if (idea.isError) {
     return (
-      <div className="p-6 text-red-700">
-        Failed to load idea: {String(idea.error)}
+      <div className="surface-paper min-h-screen">
+        <div className="p-6 text-red-700">
+          Failed to load idea: {String(idea.error)}
+        </div>
       </div>
     );
   }

@@ -194,7 +194,7 @@ export default function CreatePage() {
             type="button"
             onClick={start}
             disabled={starting}
-            className="mt-10 bg-ink px-5 py-2.5 text-sm font-medium text-paper transition hover:bg-primary-700 disabled:opacity-50"
+            className="mt-10 bg-ink px-5 py-2.5 text-sm font-medium text-paper transition hover:bg-sage-700 disabled:opacity-50"
           >
             {starting ? 'Starting…' : 'Begin session →'}
           </button>
@@ -224,7 +224,7 @@ export default function CreatePage() {
             type="button"
             onClick={finalize}
             disabled={!currentMarkdown || finalising}
-            className="bg-ink px-4 py-2 text-sm text-paper transition hover:bg-primary-700 disabled:opacity-40"
+            className="bg-ink px-4 py-2 text-sm text-paper transition hover:bg-sage-700 disabled:opacity-40"
           >
             {finalising ? 'Finalising…' : 'Finalise & open editor'}
           </button>
@@ -253,13 +253,13 @@ export default function CreatePage() {
                       'border-l-2 pl-4 ' +
                       (turn.role === 'user'
                         ? 'border-ink/80'
-                        : 'border-primary-600/70')
+                        : 'border-sage-600/70')
                     }
                   >
                     <div
                       className={
                         'kicker mb-1 ' +
-                        (turn.role === 'assistant' ? 'text-primary-700' : '')
+                        (turn.role === 'assistant' ? 'text-sage-700' : '')
                       }
                     >
                       {turn.role === 'user' ? 'You' : 'Assistant'}
@@ -296,7 +296,7 @@ export default function CreatePage() {
               <button
                 type="submit"
                 disabled={!draft.trim() || pending}
-                className="self-end bg-ink px-4 py-1.5 text-sm text-paper transition hover:bg-primary-700 disabled:opacity-40"
+                className="self-end bg-ink px-4 py-1.5 text-sm text-paper transition hover:bg-sage-700 disabled:opacity-40"
               >
                 {pending ? '…' : 'Send'}
               </button>

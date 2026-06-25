@@ -95,7 +95,7 @@ export default function MarkdownEditor({
           type="button"
           onClick={handleSave}
           disabled={saving || !dirty}
-          className="bg-ink px-4 py-1.5 text-sm font-medium text-paper transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="bg-ink px-4 py-1.5 text-sm font-medium text-paper transition hover:bg-sage-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {saving ? 'Saving…' : saveLabel}
         </button>

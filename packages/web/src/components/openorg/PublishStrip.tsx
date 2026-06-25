@@ -52,7 +52,7 @@ export default function PublishStrip({
             type="button"
             onClick={() => setConfirming('publish')}
             disabled={busy}
-            className="bg-ink px-4 py-1.5 text-sm font-medium text-paper hover:bg-primary-700 disabled:opacity-40"
+            className="bg-ink px-4 py-1.5 text-sm font-medium text-paper hover:bg-sage-700 disabled:opacity-40"
           >
             Publish
           </button>
@@ -138,7 +138,7 @@ export default function PublishStrip({
               {t('publish.celebrate.share')}
             </button>
             {copied && (
-              <span className="ml-2 text-xs text-emerald-700">{t('publish.celebrate.copied')}</span>
+              <span className="ml-2 text-xs text-sage-700">{t('publish.celebrate.copied')}</span>
             )}
           </p>
         </div>

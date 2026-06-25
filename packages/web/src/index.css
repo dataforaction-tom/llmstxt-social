@@ -10,9 +10,7 @@
 
   body {
     @apply bg-white text-gray-900;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-      sans-serif;
+    font-family: theme('fontFamily.sans');
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -34,6 +32,14 @@
 
   .btn-secondary {
     @apply bg-gray-200 text-gray-900 hover:bg-gray-300;
+  }
+
+  .btn-editorial {
+    @apply bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors duration-200 hover:bg-sage-700;
+  }
+
+  .btn-editorial-secondary {
+    @apply border border-rule px-4 py-2 text-sm text-ink transition-colors duration-200 hover:bg-paper-2;
   }
 
   .btn-outline {
@@ -121,7 +127,7 @@
   .editorial-preview li { margin: 0.25rem 0; line-height: 1.65; }
   .editorial-preview strong { font-weight: 600; color: theme('colors.ink'); }
   .editorial-preview a {
-    color: theme('colors.primary.700');
+    color: theme('colors.sage.700');
     text-decoration: underline;
     text-underline-offset: 3px;
   }

@@ -169,7 +169,7 @@ export default function IdeasPage() {
           <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
             <button
               type="submit"
-              className="bg-ink px-4 py-1.5 text-sm font-medium text-paper hover:bg-primary-700"
+              className="bg-ink px-4 py-1.5 text-sm font-medium text-paper hover:bg-sage-700"
             >
               Apply
             </button>

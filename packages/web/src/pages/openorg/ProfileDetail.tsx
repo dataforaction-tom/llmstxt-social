@@ -89,7 +89,11 @@ export default function ProfileDetailPage() {
   });
 
   if (!orgId) {
-    return <div className="p-6 text-red-700">Missing org_id in URL.</div>;
+    return (
+      <div className="surface-paper min-h-screen">
+        <div className="p-6 text-red-700">Missing org_id in URL.</div>
+      </div>
+    );
   }
 
   if (profile.isLoading) {

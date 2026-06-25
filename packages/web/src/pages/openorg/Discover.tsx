@@ -172,7 +172,7 @@ export default function DiscoverPage() {
             <div className="flex gap-3">
               <button
                 type="submit"
-                className="bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-primary-700"
+                className="bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-sage-700"
               >
                 Apply
               </button>

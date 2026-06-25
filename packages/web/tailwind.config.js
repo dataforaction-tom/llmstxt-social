@@ -37,6 +37,20 @@ export default {
         ink: '#1A1814',       // warm near-black primary text
         muted: '#6E6859',     // secondary text + dim labels (5.24:1 on paper — WCAG AA)
         rule: '#D9D2C2',      // hairline dividers and borders
+        navy: '#1B2A4A',      // deep navy for editorial headings
+        // Sage accent scale — Open Org positive states, button hovers, links.
+        sage: {
+          50: '#F0F4ED',
+          100: '#DCE5D3',
+          200: '#B9CFA7',
+          300: '#94B67E',
+          400: '#739D5B',
+          500: '#5A8244',
+          600: '#486A38',
+          700: '#3A5530',
+          800: '#314728',
+          900: '#293C23',
+        },
       },
       letterSpacing: {
         'kicker': '0.14em',   // for small-caps kicker labels

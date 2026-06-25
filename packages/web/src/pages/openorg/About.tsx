@@ -101,7 +101,7 @@ export default function AboutPage() {
           <p className="mt-3">
             <Link
               to="/openorg/generate"
-              className="bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-primary-700"
+              className="bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-sage-700"
             >
               Generate your profile →
             </Link>

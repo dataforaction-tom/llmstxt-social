@@ -40,16 +40,26 @@ export default function EditStrategyPage() {
   const themes = useThemes();
 
   if (!orgId || !slug) {
-    return <div className="p-6 text-red-700">Missing org_id or slug in URL.</div>;
+    return (
+      <div className="surface-paper min-h-screen">
+        <div className="p-6 text-red-700">Missing org_id or slug in URL.</div>
+      </div>
+    );
   }
 
   if (strategy.isLoading) {
-    return <div className="p-6 text-gray-500">Loading strategy…</div>;
+    return (
+      <div className="surface-paper min-h-screen">
+        <div className="p-6 text-muted">Loading strategy…</div>
+      </div>
+    );
   }
   if (strategy.isError) {
     return (
-      <div className="p-6 text-red-700">
-        Failed to load strategy: {String(strategy.error)}
+      <div className="surface-paper min-h-screen">
+        <div className="p-6 text-red-700">
+          Failed to load strategy: {String(strategy.error)}
+        </div>
       </div>
     );
   }

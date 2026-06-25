@@ -46,16 +46,26 @@ export default function EditProfilePage() {
   const restore = useRestoreVersion(orgId);
 
   if (!orgId) {
-    return <div className="p-6 text-red-700">Missing org_id in URL.</div>;
+    return (
+      <div className="surface-paper min-h-screen">
+        <div className="p-6 text-red-700">Missing org_id in URL.</div>
+      </div>
+    );
   }
 
   if (profile.isLoading) {
-    return <div className="p-6 text-gray-500">Loading profile…</div>;
+    return (
+      <div className="surface-paper min-h-screen">
+        <div className="p-6 text-muted">Loading profile…</div>
+      </div>
+    );
   }
   if (profile.isError) {
     return (
-      <div className="p-6 text-red-700">
-        Failed to load profile: {String(profile.error)}
+      <div className="surface-paper min-h-screen">
+        <div className="p-6 text-red-700">
+          Failed to load profile: {String(profile.error)}
+        </div>
       </div>
     );
   }
@@ -245,7 +255,7 @@ function HistoryPanel({
                     {formatVersionTime(v.created_at)}
                   </span>
                   {isLatest && (
-                    <span className="ml-2 text-xs uppercase tracking-wider text-emerald-700">
+                    <span className="ml-2 text-xs uppercase tracking-wider text-sage-700">
                       current
                     </span>
                   )}

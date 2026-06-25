@@ -18,9 +18,9 @@ export function PublishBadge({ published, noun = 'Profile' }: PublishBadgeProps)
     return (
       <span
         aria-label={`${noun} is published`}
-        className="inline-flex items-center gap-1.5 border border-emerald-700/40 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-emerald-900"
+        className="inline-flex items-center gap-1.5 border border-sage-700/40 bg-sage-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-sage-900"
       >
-        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-700" />
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-sage-700" />
         Published
       </span>
     );
@@ -68,7 +68,7 @@ export function PublishControls({
       onClick={onPublish}
       disabled={busy}
       aria-busy={busy}
-      className="bg-ink px-4 py-1.5 text-sm font-medium text-paper transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+      className="bg-ink px-4 py-1.5 text-sm font-medium text-paper transition hover:bg-sage-700 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {busy ? 'Publishing…' : 'Publish'}
     </button>

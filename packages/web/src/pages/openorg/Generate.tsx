@@ -153,7 +153,7 @@ export default function GeneratePage() {
               6 to 8 digits. England &amp; Wales registrations only for now.
             </span>
             {lookupName && (
-              <span className="mt-1 text-xs text-emerald-700">Match: {lookupName}</span>
+              <span className="mt-1 text-xs text-sage-700">Match: {lookupName}</span>
             )}
           </label>
 
@@ -190,7 +190,7 @@ export default function GeneratePage() {
             <button
               type="submit"
               disabled={submitting}
-              className="bg-ink px-5 py-2 text-sm font-medium text-paper hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="bg-ink px-5 py-2 text-sm font-medium text-paper hover:bg-sage-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {submitting ? 'Generating…' : 'Generate profile'}
             </button>

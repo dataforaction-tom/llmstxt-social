@@ -58,8 +58,8 @@ export default function GenerateLiveStatus({ status, onTimeout }: GenerateLiveSt
     const took = Math.max(1, Math.round(status.elapsed_ms / 1000));
     const preview = donePreview(status.payload);
     return (
-      <div className="border-l-2 border-emerald-700/40 bg-emerald-50/40 px-4 py-3">
-        <div className="kicker text-emerald-900">✓ Draft ready</div>
+      <div className="border-l-2 border-sage-700/40 bg-sage-50/40 px-4 py-3">
+        <div className="kicker text-sage-900">✓ Draft ready</div>
         <p className="mt-1 text-sm text-ink">
           Took {took} seconds. {preview && <>{preview} found.</>}
         </p>
