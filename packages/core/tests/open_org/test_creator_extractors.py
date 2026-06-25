@@ -76,6 +76,31 @@ def test_extract_docx_joins_paragraphs_with_newlines():
     assert "Second paragraph." in text
 
 
+def test_extract_docx_includes_table_text():
+    """A strategy document often contains tables (budgets, timelines, RACI).
+    If the extractor only reads ``document.paragraphs`` and skips
+    ``document.tables``, that content is silently lost — the LLM never sees
+    it and the seeded conversation starts from an incomplete picture.
+    """
+    from docx import Document
+
+    document = Document()
+    document.add_paragraph("Intro paragraph.")
+    table = document.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = "Year"
+    table.cell(0, 1).text = "Budget"
+    table.cell(1, 0).text = "2025"
+    table.cell(1, 1).text = "£50,000"
+    buffer = io.BytesIO()
+    document.save(buffer)
+
+    text = extract_text("strategy.docx", buffer.getvalue())
+    assert "Year" in text
+    assert "Budget" in text
+    assert "2025" in text
+    assert "£50,000" in text or "50000" in text
+
+
 # --- PDF (mocked) ----------------------------------------------------------
 
 
