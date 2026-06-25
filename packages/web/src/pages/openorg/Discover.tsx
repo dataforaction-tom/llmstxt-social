@@ -12,7 +12,7 @@
  * reveal on first paint.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -30,6 +30,12 @@ import markerIcon2xUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { hasValidGeolocation } from './discoverGeo';
 
+// Lazy-load the graph view — D3 is ~50KB and only needed when the user
+// switches to graph mode.
+const GraphDiscovery = lazy(() => import('../../components/openorg/GraphDiscovery'));
+
+type ViewMode = 'list' | 'graph';
+
 L.Icon.Default.mergeOptions({
   iconUrl: markerIconUrl,
   iconRetinaUrl: markerIcon2xUrl,
@@ -46,6 +52,7 @@ export default function DiscoverPage() {
   const [extraPages, setExtraPages] = useState<DiscoveryRow[]>([]);
   const [pageCursor, setPageCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const themes = useThemes();
   const firstPage = useDiscoveryFirstPage(filters, DEFAULT_LIMIT);
@@ -208,8 +215,52 @@ export default function DiscoverPage() {
           )}
         </form>
 
+        {/* --- view toggle --------------------------------------------- */}
+        <div className="mt-6 flex items-center gap-2">
+          <span className="kicker">View</span>
+          <button
+            type="button"
+            className={
+              'px-3 py-1 text-sm transition ' +
+              (viewMode === 'list'
+                ? 'bg-ink text-paper'
+                : 'border border-rule text-ink hover:bg-paper-2')
+            }
+            onClick={() => setViewMode('list')}
+          >
+            List + Map
+          </button>
+          <button
+            type="button"
+            className={
+              'px-3 py-1 text-sm transition ' +
+              (viewMode === 'graph'
+                ? 'bg-ink text-paper'
+                : 'border border-rule text-ink hover:bg-paper-2')
+            }
+            onClick={() => setViewMode('graph')}
+          >
+            Graph
+          </button>
+        </div>
+
+        {/* --- graph view ---------------------------------------------- */}
+        {viewMode === 'graph' && (
+          <section className="mt-10">
+            <Suspense
+              fallback={
+                <div className="py-16 text-center text-muted">
+                  Loading graph…
+                </div>
+              }
+            >
+              <GraphDiscovery />
+            </Suspense>
+          </section>
+        )}
+
         {/* --- map (only when there's something to plot) -------------- */}
-        {mapped.length > 0 && (
+        {viewMode === 'list' && mapped.length > 0 && (
           <section className="mt-10">
             <div className="kicker num mb-2">Map · {mapped.length} located</div>
             <div className="overflow-hidden border border-rule">
@@ -234,7 +285,7 @@ export default function DiscoverPage() {
                         <div className="text-xs text-muted">{row.primary_area}</div>
                       ) : null}
                       <a
-                        className="text-xs text-primary-700 underline"
+                        className="text-xs text-sage-700 underline"
                         href={`/openorg/${row.org_id}`}
                       >
                         View profile
@@ -248,6 +299,7 @@ export default function DiscoverPage() {
         )}
 
         {/* --- results -------------------------------------------------- */}
+        {viewMode === 'list' && (
         <section className="mt-10">
           <div className="kicker num mb-4 flex items-baseline justify-between">
             <span>
@@ -286,7 +338,7 @@ export default function DiscoverPage() {
                   <div>
                     <a
                       href={`/openorg/${row.org_id}`}
-                      className="display-head text-2xl font-medium leading-tight text-ink hover:text-primary-700"
+                      className="display-head text-2xl font-medium leading-tight text-ink hover:text-sage-700"
                     >
                       {row.name}
                     </a>
@@ -315,7 +367,7 @@ export default function DiscoverPage() {
                     <span
                       className={
                         'kicker num ' +
-                        (row.source === 'local' ? 'text-primary-700' : 'text-muted')
+                        (row.source === 'local' ? 'text-sage-700' : 'text-muted')
                       }
                     >
                       {row.source}
@@ -345,6 +397,8 @@ export default function DiscoverPage() {
             </div>
           ) : null}
         </section>
+        )}
+
       </div>
 
       {/* keyframes inline so the page is self-contained */}

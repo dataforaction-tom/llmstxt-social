@@ -133,7 +133,7 @@ export default function PublishStrip({
             <button
               type="button"
               onClick={handleCopy}
-              className="underline decoration-rule underline-offset-2 hover:text-primary-700"
+              className="underline decoration-rule underline-offset-2 hover:text-sage-700"
             >
               {t('publish.celebrate.share')}
             </button>

@@ -555,6 +555,52 @@ export function useDiscoveryFirstPage(filters: DiscoveryFilters, limit = 20) {
   });
 }
 
+// --- graph data (public, no auth) -----------------------------------------
+
+export interface GraphNode {
+  id: string;
+  type: 'organisation' | 'idea' | 'strategy';
+  name: string;
+  themes: string[];
+  // organisation-only
+  area?: string | null;
+  income_band?: string | null;
+  ideas_count?: number | null;
+  strategy_themes?: string[];
+  // idea/strategy-only
+  org_id?: string | null;
+  cost_range?: [number, number] | null;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  type: 'org_idea' | 'org_strategy' | 'shared_theme' | 'shared_area';
+  weight?: number | null;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export async function fetchGraphData(
+  themes: string[] = [],
+  limit = 100,
+): Promise<GraphData> {
+  const params: Record<string, string | number> = { limit };
+  if (themes.length > 0) params.themes = themes.join(',');
+  const { data } = await api.get('/api/open-org/graph', { params });
+  return data;
+}
+
+export function useGraphData(themes: string[], limit = 100) {
+  return useQuery({
+    queryKey: ['openorg', 'graph', themes, limit],
+    queryFn: () => fetchGraphData(themes, limit),
+  });
+}
+
 // --- idea browser (cross-org) ---------------------------------------------
 
 export interface IdeaRow {
