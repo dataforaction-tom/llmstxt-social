@@ -101,6 +101,12 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # Docker-compose and the frontend set env vars (POSTGRES_PASSWORD,
+        # VITE_STRIPE_PUBLIC_KEY, RESEND_FROM_EMAIL) that aren't declared on
+        # this model. Pydantic-settings v2 defaults to extra='forbid', which
+        # crashes on the real .env file. Ignore them — the vars we care about
+        # are declared explicitly above.
+        extra="ignore",
     )
 
     @property
