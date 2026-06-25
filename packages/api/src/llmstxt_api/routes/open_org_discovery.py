@@ -23,7 +23,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from llmstxt_api.database import get_db
-from llmstxt_api.open_org_models import ExternalOrgCache, OrgIdea, OrgProfile
+from llmstxt_api.open_org_models import ExternalOrgCache, OrgIdea, OrgProfile, OrgStrategy
 from llmstxt_core.open_org.themes import load_themes
 
 
@@ -406,13 +406,261 @@ def _matches_idea_filters(
     return True
 
 
+# ---------------------------------------------------------------------------
+# Graph endpoint — nodes + edges for the discovery visualisation
+# ---------------------------------------------------------------------------
+
+
+class GraphNode(BaseModel):
+    id: str
+    type: str  # "organisation" | "idea" | "strategy"
+    name: str
+    themes: list[str] = Field(default_factory=list)
+    # organisation-only
+    area: str | None = None
+    income_band: str | None = None
+    ideas_count: int | None = None
+    strategy_themes: list[str] = Field(default_factory=list)
+    # idea/strategy-only
+    org_id: str | None = None
+    cost_range: list[int] | None = None
+
+
+class GraphEdge(BaseModel):
+    source: str
+    target: str
+    type: str  # "org_idea" | "org_strategy" | "shared_theme" | "shared_area"
+    weight: int | None = None
+
+
+class GraphPayload(BaseModel):
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+
+
+def _profile_themes(profile: OrgProfile) -> list[str]:
+    payload = profile.profile_json or {}
+    mission = payload.get("mission") or {}
+    themes = mission.get("themes")
+    return list(themes) if isinstance(themes, list) else []
+
+
+def _profile_area(profile: OrgProfile) -> str | None:
+    payload = profile.profile_json or {}
+    identity = payload.get("identity") or {}
+    geography = identity.get("geography") or {}
+    area = geography.get("primary_area")
+    return area if isinstance(area, str) else None
+
+
+def _profile_income_band(profile: OrgProfile) -> str | None:
+    payload = profile.profile_json or {}
+    identity = payload.get("identity") or {}
+    scale = identity.get("scale") or {}
+    band = scale.get("annual_income_band")
+    return band if isinstance(band, str) else None
+
+
+def _idea_name(idea: OrgIdea) -> str:
+    payload = idea.idea_json or {}
+    title = payload.get("title")
+    if isinstance(title, str) and title:
+        return title
+    return idea.slug
+
+
+def _idea_cost_range(idea: OrgIdea) -> list[int] | None:
+    payload = idea.idea_json or {}
+    cost = payload.get("indicative_cost") or {}
+    lower = cost.get("lower")
+    upper = cost.get("upper")
+    if isinstance(lower, int) and isinstance(upper, int):
+        return [lower, upper]
+    if isinstance(lower, int):
+        return [lower, lower]
+    if isinstance(upper, int):
+        return [upper, upper]
+    return None
+
+
+def _strategy_name(strategy: OrgStrategy) -> str:
+    payload = strategy.strategy_json or {}
+    title = payload.get("title")
+    if isinstance(title, str) and title:
+        return title
+    return strategy.slug
+
+
+def _strategy_themes(strategy: OrgStrategy) -> list[str]:
+    return list(strategy.themes or [])
+
+
+@router.get("/graph", response_model=GraphPayload)
+async def graph(
+    themes: str | None = Query(
+        default=None,
+        description="Comma-separated theme keys; only nodes matching at least one are included",
+    ),
+    limit: int = Query(default=100, ge=1, le=500, description="Max organisation nodes"),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Return a graph of organisations, ideas, and strategies with edges for
+    direct ownership and shared themes / areas. Public, no auth."""
+    theme_filter: set[str] | None = None
+    if themes:
+        # Accept either a comma-separated string (the wire format) or a list
+        # (direct calls in tests).
+        if isinstance(themes, str):
+            theme_list = [t.strip() for t in themes.split(",") if t.strip()]
+        else:
+            theme_list = [str(t).strip() for t in themes if str(t).strip()]
+        theme_filter = set(theme_list) if theme_list else None
+
+    profiles = (
+        await db.execute(select(OrgProfile).where(OrgProfile.published.is_(True)))
+    ).scalars().all()
+    ideas = (
+        await db.execute(select(OrgIdea).where(OrgIdea.published.is_(True)))
+    ).scalars().all()
+    strategies = (
+        await db.execute(select(OrgStrategy).where(OrgStrategy.published.is_(True)))
+    ).scalars().all()
+
+    payload = _build_graph(
+        profiles, ideas, strategies, theme_filter=theme_filter, limit=limit
+    )
+    return Response(
+        content=payload.model_dump_json().encode("utf-8"),
+        media_type="application/json",
+        headers={"Cache-Control": _DISCOVER_CACHE},
+    )
+
+
+def _build_graph(
+    profiles: list[OrgProfile],
+    ideas: list[OrgIdea],
+    strategies: list[OrgStrategy],
+    *,
+    theme_filter: set[str] | None,
+    limit: int,
+) -> GraphPayload:
+    # Apply limit to organisation nodes (sorted by name for determinism).
+    sorted_profiles = sorted(
+        profiles, key=lambda p: (
+            ((p.profile_json or {}).get("identity") or {}).get("name") or p.org_id
+        )
+    )[:limit]
+    profile_org_ids = {p.org_id for p in sorted_profiles}
+
+    def _matches_themes(node_themes: list[str]) -> bool:
+        if theme_filter is None:
+            return True
+        return bool(set(node_themes) & theme_filter)
+
+    nodes: list[GraphNode] = []
+    edges: list[GraphEdge] = []
+
+    # Idea nodes keyed by org_id for ideas_count and strategy_themes.
+    ideas_by_org: dict[str, list[OrgIdea]] = {}
+    for idea in ideas:
+        if idea.org_id not in profile_org_ids:
+            continue
+        idea_themes = list(idea.themes or [])
+        if not _matches_themes(idea_themes):
+            continue
+        ideas_by_org.setdefault(idea.org_id, []).append(idea)
+        nodes.append(GraphNode(
+            id=f"idea:{idea.org_id}:{idea.slug}",
+            type="idea",
+            name=_idea_name(idea),
+            themes=idea_themes,
+            org_id=idea.org_id,
+            cost_range=_idea_cost_range(idea),
+        ))
+        edges.append(GraphEdge(
+            source=idea.org_id,
+            target=f"idea:{idea.org_id}:{idea.slug}",
+            type="org_idea",
+        ))
+
+    strategy_themes_by_org: dict[str, list[str]] = {}
+    for strategy in strategies:
+        if strategy.org_id not in profile_org_ids:
+            continue
+        strat_themes = _strategy_themes(strategy)
+        if not _matches_themes(strat_themes):
+            continue
+        strategy_themes_by_org.setdefault(strategy.org_id, []).extend(strat_themes)
+        nodes.append(GraphNode(
+            id=f"strategy:{strategy.org_id}:{strategy.slug}",
+            type="strategy",
+            name=_strategy_name(strategy),
+            themes=strat_themes,
+            org_id=strategy.org_id,
+        ))
+        edges.append(GraphEdge(
+            source=strategy.org_id,
+            target=f"strategy:{strategy.org_id}:{strategy.slug}",
+            type="org_strategy",
+        ))
+
+    # Organisation nodes — must match theme filter (against profile themes OR
+    # its ideas/strategies themes that survived filtering, so an org whose only
+    # matching theme is on an idea still appears).
+    for profile in sorted_profiles:
+        profile_themes = _profile_themes(profile)
+        org_idea_themes = [
+            t for idea in ideas_by_org.get(profile.org_id, [])
+            for t in (idea.themes or [])
+        ]
+        org_strategy_themes = strategy_themes_by_org.get(profile.org_id, [])
+        all_org_themes = set(profile_themes) | set(org_idea_themes) | set(org_strategy_themes)
+        if theme_filter is not None and not (all_org_themes & theme_filter):
+            continue
+        nodes.append(GraphNode(
+            id=profile.org_id,
+            type="organisation",
+            name=((profile.profile_json or {}).get("identity") or {}).get("name") or profile.org_id,
+            themes=profile_themes,
+            area=_profile_area(profile),
+            income_band=_profile_income_band(profile),
+            ideas_count=len(ideas_by_org.get(profile.org_id, [])),
+            strategy_themes=list(set(org_strategy_themes)),
+        ))
+
+    # Org-org edges: shared themes and shared area.
+    org_nodes = [n for n in nodes if n.type == "organisation"]
+    for i, a in enumerate(org_nodes):
+        a_themes = set(a.themes)
+        a_area = a.area
+        for b in org_nodes[i + 1:]:
+            shared = a_themes & set(b.themes)
+            if shared:
+                edges.append(GraphEdge(
+                    source=a.id, target=b.id, type="shared_theme", weight=len(shared),
+                ))
+            if a_area and b.area and a_area == b.area:
+                edges.append(GraphEdge(
+                    source=a.id, target=b.id, type="shared_area", weight=1,
+                ))
+
+    # Sort for deterministic output.
+    nodes.sort(key=lambda n: n.id)
+    edges.sort(key=lambda e: (e.source, e.target, e.type))
+    return GraphPayload(nodes=nodes, edges=edges)
+
+
 __all__ = [
     "DiscoveryPage",
     "DiscoveryRow",
+    "GraphPayload",
+    "GraphNode",
+    "GraphEdge",
     "IdeaPage",
     "IdeaRow",
     "discover",
     "discover_ideas",
     "get_themes",
+    "graph",
     "router",
 ]
