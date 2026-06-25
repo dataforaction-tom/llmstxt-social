@@ -3,8 +3,11 @@
  *
  * Uses d3-force for layout and renders SVG via React. Nodes are coloured by
  * type (organisation / idea / strategy), sized by income band or cost range.
- * Edges show ownership, shared themes, and shared areas. Supports hover
- * highlighting, click-to-detail-panel, zoom/pan, and theme filter checkboxes.
+ * Edges show ownership, shared themes/areas, and the semantic connection
+ * layer (strategy→idea, idea→idea shared theme/place, idea→org explicit
+ * connections, strategy→strategy shared themes). Supports hover highlighting
+ * with edge labels, click-to-detail-panel, zoom/pan, theme filter checkboxes,
+ * and an "explicit only" toggle that hides derived edges.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -12,6 +15,7 @@ import { Link } from 'react-router-dom';
 import * as d3 from 'd3';
 import {
   type GraphData,
+  type GraphEdge,
   type GraphNode,
   type ThemeEntry,
   useGraphData,
@@ -61,18 +65,39 @@ function nodeRadius(node: GraphNode): number {
 interface SimNode extends d3.SimulationNodeDatum, GraphNode {}
 
 interface SimLink extends d3.SimulationLinkDatum<SimNode> {
-  type: GraphEdgeType;
+  type: GraphEdge['type'];
   weight?: number | null;
+  relationship?: string;
+  description?: string;
 }
 
-type GraphEdgeType = 'org_idea' | 'org_strategy' | 'shared_theme' | 'shared_area';
+type EdgeStyle = { stroke: string; width: number; dash: string; directed: boolean; derived: boolean };
 
-const EDGE_STROKE: Record<GraphEdgeType, { stroke: string; width: number; dash: string }> = {
-  org_idea: { stroke: '#888', width: 1.5, dash: 'none' },
-  org_strategy: { stroke: '#888', width: 1.5, dash: 'none' },
-  shared_theme: { stroke: '#2D8B7A', width: 2.5, dash: '6 4' },
-  shared_area: { stroke: '#aaa', width: 1, dash: '2 4' },
+const EDGE_STROKE: Record<GraphEdge['type'], EdgeStyle> = {
+  org_idea: { stroke: '#888', width: 1.5, dash: 'none', directed: false, derived: false },
+  org_strategy: { stroke: '#888', width: 1.5, dash: 'none', directed: false, derived: false },
+  shared_theme: { stroke: '#2D8B7A', width: 2.5, dash: '6 4', directed: false, derived: true },
+  shared_area: { stroke: '#aaa', width: 1, dash: '2 4', directed: false, derived: true },
+  strategy_idea: { stroke: '#2D8B7A', width: 2, dash: 'none', directed: true, derived: false },
+  idea_idea_shared_theme: { stroke: '#2D8B7A', width: 1.5, dash: '6 4', directed: false, derived: true },
+  idea_idea_shared_place: { stroke: '#8BA4B8', width: 1, dash: '2 4', directed: false, derived: true },
+  idea_idea_explicit: { stroke: '#D4993D', width: 2, dash: 'none', directed: false, derived: false },
+  strategy_strategy_shared_theme: { stroke: '#1B2A4A', width: 1.5, dash: '6 4', directed: false, derived: true },
+  idea_org_connection: { stroke: '#C75B3A', width: 1.5, dash: 'none', directed: true, derived: false },
 };
+
+const EDGE_LEGEND: Array<{ type: GraphEdge['type']; label: string }> = [
+  { type: 'org_idea', label: 'Org owns idea' },
+  { type: 'org_strategy', label: 'Org owns strategy' },
+  { type: 'shared_theme', label: 'Shared theme (org↔org)' },
+  { type: 'shared_area', label: 'Shared area (org↔org)' },
+  { type: 'strategy_idea', label: 'Strategy → idea' },
+  { type: 'idea_idea_shared_theme', label: 'Idea ↔ idea (shared theme)' },
+  { type: 'idea_idea_shared_place', label: 'Idea ↔ idea (shared place)' },
+  { type: 'idea_idea_explicit', label: 'Idea ↔ idea (explicit)' },
+  { type: 'strategy_strategy_shared_theme', label: 'Strategy ↔ strategy (shared theme)' },
+  { type: 'idea_org_connection', label: 'Idea → org (explicit connection)' },
+];
 
 // --- component -------------------------------------------------------------
 
@@ -83,6 +108,8 @@ export default function GraphDiscovery() {
   const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<SimNode | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [hoveredEdgeIndex, setHoveredEdgeIndex] = useState<number | null>(null);
+  const [explicitOnly, setExplicitOnly] = useState(false);
 
   const themesQuery = useThemes();
   const themes: ThemeEntry[] = themesQuery.data ?? [];
@@ -95,7 +122,6 @@ export default function GraphDiscovery() {
   const graphData: GraphData | undefined = graphQuery.data;
 
   const svgRef = useRef<SVGSVGElement | null>(null);
-
   // Build simulation nodes/links from the fetched data.
   const { simNodes, simLinks } = useMemo(() => {
     if (!graphData) return { simNodes: [] as SimNode[], simLinks: [] as SimLink[] };
@@ -123,6 +149,8 @@ export default function GraphDiscovery() {
           target,
           type: e.type,
           weight: e.weight ?? undefined,
+          relationship: e.relationship,
+          description: e.description,
         } as SimLink;
       })
       .filter((l): l is SimLink => l !== null);
@@ -189,16 +217,17 @@ export default function GraphDiscovery() {
 
   // --- hover neighbourhood -------------------------------------------------
   const connectedIds = useMemo(() => {
-    if (!hoveredId) return null;
-    const ids = new Set<string>([hoveredId]);
+    const focus = hoveredId ?? selectedNode?.id ?? null;
+    if (!focus) return null;
+    const ids = new Set<string>([focus]);
     for (const link of simLinks) {
       const s = (link.source as SimNode).id ?? (link.source as unknown as string);
       const t = (link.target as SimNode).id ?? (link.target as unknown as string);
-      if (s === hoveredId) ids.add(t);
-      if (t === hoveredId) ids.add(s);
+      if (s === focus) ids.add(t);
+      if (t === focus) ids.add(s);
     }
     return ids;
-  }, [hoveredId, simLinks]);
+  }, [hoveredId, selectedNode, simLinks]);
 
   function isDimmed(id: string): boolean {
     return connectedIds !== null && !connectedIds.has(id);
@@ -219,6 +248,20 @@ export default function GraphDiscovery() {
     });
   }
 
+  // --- edge label ----------------------------------------------------------
+  function edgeLabel(link: SimLink): string | null {
+    if (link.relationship) return link.relationship;
+    if (link.description) return link.description;
+    if (link.weight && link.weight > 1) return `${link.weight} shared`;
+    return null;
+  }
+
+  // --- visible links (explicit-only filter) --------------------------------
+  const visibleLinks = useMemo(() => {
+    if (!explicitOnly) return simLinks;
+    return simLinks.filter((l) => !EDGE_STROKE[l.type].derived);
+  }, [simLinks, explicitOnly]);
+
   // --- detail link ---------------------------------------------------------
   function detailUrl(node: SimNode): string {
     if (node.type === 'organisation') return `/openorg/${node.id}`;
@@ -235,32 +278,59 @@ export default function GraphDiscovery() {
     return '#';
   }
 
+  const summary = graphData?.graph_summary;
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
       {/* --- left: graph + filters ------------------------------------- */}
       <div>
-        {/* theme filter checkboxes */}
-        {themes.length > 0 && (
-          <fieldset className="mb-4 border border-rule bg-cream-dark p-3">
-            <legend className="kicker px-1">Filter by theme</legend>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
-              {themes.map((t) => (
-                <label
-                  key={t.key}
-                  className="flex items-center gap-1.5 text-sm text-navy"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedThemes.has(t.key)}
-                    onChange={() => toggleTheme(t.key)}
-                    aria-label={t.label}
-                  />
-                  <span>{t.label}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+        {/* graph summary */}
+        {summary && (
+          <p className="mb-3 text-sm text-grey-blue">
+            {summary.organisations} organisation{summary.organisations === 1 ? '' : 's'},{' '}
+            {summary.ideas} idea{summary.ideas === 1 ? '' : 's'},{' '}
+            {summary.strategies} strateg{summary.strategies === 1 ? 'y' : 'ies'}.{' '}
+            {summary.clusters.length} cluster{summary.clusters.length === 1 ? '' : 's'} detected.
+          </p>
         )}
+
+        {/* theme filter checkboxes + explicit-only toggle */}
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          {themes.length > 0 && (
+            <fieldset className="border border-rule bg-cream-dark p-3">
+              <legend className="kicker px-1">Filter by theme</legend>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+                {themes.map((t) => (
+                  <label
+                    key={t.key}
+                    className="flex items-center gap-1.5 text-sm text-navy"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedThemes.has(t.key)}
+                      onChange={() => toggleTheme(t.key)}
+                      aria-label={t.label}
+                    />
+                    <span>{t.label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          <button
+            type="button"
+            aria-pressed={explicitOnly}
+            onClick={() => setExplicitOnly((v) => !v)}
+            className={
+              'px-3 py-1.5 text-sm transition ' +
+              (explicitOnly
+                ? 'bg-navy text-cream'
+                : 'border border-rule text-navy hover:bg-cream-dark')
+            }
+          >
+            Show only explicit connections
+          </button>
+        </div>
 
         {graphQuery.isLoading ? (
           <div className="flex h-[600px] items-center justify-center border border-rule text-grey-blue">
@@ -282,16 +352,31 @@ export default function GraphDiscovery() {
             className="block border border-rule bg-cream"
             style={{ cursor: 'grab' }}
           >
+            <defs>
+              <marker
+                id="arrowhead"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#666" />
+              </marker>
+            </defs>
             <g transform={transform.toString()}>
               {/* edges */}
-              {simLinks.map((link, i) => {
+              {visibleLinks.map((link, i) => {
                 const s = link.source as SimNode;
                 const t = link.target as SimNode;
                 if (s.x == null || s.y == null || t.x == null || t.y == null) return null;
                 const style = EDGE_STROKE[link.type];
+                const dim = isEdgeDimmed(s.id, t.id);
                 return (
                   <line
                     key={`edge-${i}`}
+                    data-edge-type={link.type}
                     x1={s.x}
                     y1={s.y}
                     x2={t.x}
@@ -299,10 +384,39 @@ export default function GraphDiscovery() {
                     stroke={style.stroke}
                     strokeWidth={style.width}
                     strokeDasharray={style.dash === 'none' ? undefined : style.dash}
-                    opacity={isEdgeDimmed(s.id, t.id) ? 0.15 : 0.7}
+                    opacity={dim ? 0.15 : 0.7}
+                    markerEnd={style.directed ? 'url(#arrowhead)' : undefined}
+                    style={{ cursor: 'pointer' }}
+                    onMouseEnter={() => setHoveredEdgeIndex(i)}
+                    onMouseLeave={() => setHoveredEdgeIndex(null)}
                   />
                 );
               })}
+
+              {/* edge hover label */}
+              {hoveredEdgeIndex != null && visibleLinks[hoveredEdgeIndex] && (() => {
+                const link = visibleLinks[hoveredEdgeIndex];
+                const s = link.source as SimNode;
+                const t = link.target as SimNode;
+                if (s.x == null || s.y == null || t.x == null || t.y == null) return null;
+                const mx = (s.x + t.x) / 2;
+                const my = (s.y + t.y) / 2;
+                const label = edgeLabel(link);
+                if (!label) return null;
+                return (
+                  <text
+                    data-edge-label
+                    x={mx}
+                    y={my - 4}
+                    fontSize={10}
+                    fill="#1B2A4A"
+                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                    textAnchor="middle"
+                  >
+                    {label}
+                  </text>
+                );
+              })()}
 
               {/* nodes */}
               {simNodes.map((node) => {
@@ -347,7 +461,10 @@ export default function GraphDiscovery() {
         )}
 
         {/* legend */}
-        <div className="mt-3 flex flex-wrap gap-4 text-xs text-grey-blue">
+        <div
+          data-testid="graph-legend"
+          className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-grey-blue"
+        >
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-3 w-3 rounded-full" style={{ background: COLOURS.organisation }} />
             Organisation
@@ -360,6 +477,25 @@ export default function GraphDiscovery() {
             <span className="inline-block h-3 w-3 rounded-full" style={{ background: COLOURS.strategy }} />
             Strategy
           </span>
+          {EDGE_LEGEND.map((e) => {
+            const style = EDGE_STROKE[e.type];
+            return (
+              <span key={e.type} className="flex items-center gap-1.5">
+                <svg width="20" height="6" aria-hidden>
+                  <line
+                    x1="0"
+                    y1="3"
+                    x2="20"
+                    y2="3"
+                    stroke={style.stroke}
+                    strokeWidth={style.width}
+                    strokeDasharray={style.dash === 'none' ? undefined : style.dash}
+                  />
+                </svg>
+                {e.label}
+              </span>
+            );
+          })}
         </div>
       </div>
 
@@ -371,6 +507,9 @@ export default function GraphDiscovery() {
             <h3 className="display-head text-xl font-medium text-navy">
               {selectedNode.name}
             </h3>
+            {selectedNode.summary && (
+              <p className="mt-2 text-sm text-navy/90">{selectedNode.summary}</p>
+            )}
             {selectedNode.themes.length > 0 && (
               <ul className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-grey-blue">
                 {selectedNode.themes.map((t) => (
@@ -391,10 +530,53 @@ export default function GraphDiscovery() {
                 )}
               </dl>
             )}
-            {selectedNode.type === 'idea' && selectedNode.cost_range && (
-              <p className="mt-3 text-sm text-navy">
-                Cost: £{selectedNode.cost_range[0].toLocaleString()}–£{selectedNode.cost_range[1].toLocaleString()}
-              </p>
+            {selectedNode.type === 'idea' && (
+              <dl className="mt-3 space-y-1 text-sm">
+                {selectedNode.place && (
+                  <div><dt className="inline text-grey-blue">Place: </dt><dd className="inline text-navy">{selectedNode.place}</dd></div>
+                )}
+                {selectedNode.cost_range && (
+                  <div>
+                    <dt className="inline text-grey-blue">Cost: </dt>
+                    <dd className="inline text-navy">
+                      £{selectedNode.cost_range[0].toLocaleString()}–£{selectedNode.cost_range[1].toLocaleString()}
+                    </dd>
+                  </div>
+                )}
+                {selectedNode.connections && selectedNode.connections.length > 0 && (
+                  <div>
+                    <dt className="text-grey-blue">Connections:</dt>
+                    <dd>
+                      <ul className="mt-1 space-y-0.5">
+                        {selectedNode.connections.map((c, idx) => (
+                          <li key={idx} className="text-navy">
+                            {c.org_name}
+                            {c.relationship ? <span className="text-grey-blue"> · {c.relationship}</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            )}
+            {selectedNode.type === 'strategy' && (
+              <dl className="mt-3 space-y-1 text-sm">
+                {selectedNode.period && (
+                  <div>
+                    <dt className="inline text-grey-blue">Period: </dt>
+                    <dd className="inline text-navy">
+                      {selectedNode.period.start ?? '?'}–{selectedNode.period.end ?? '?'}
+                    </dd>
+                  </div>
+                )}
+                {selectedNode.priorities_count != null && (
+                  <div>
+                    <dt className="inline text-grey-blue">Priorities: </dt>
+                    <dd className="inline text-navy">{selectedNode.priorities_count} priorities</dd>
+                  </div>
+                )}
+              </dl>
             )}
             {selectedNode.type === 'organisation' ? (
               <Link
@@ -402,6 +584,20 @@ export default function GraphDiscovery() {
                 className="mt-4 inline-block text-sm text-teal underline"
               >
                 View profile →
+              </Link>
+            ) : selectedNode.type === 'idea' && selectedNode.org_id ? (
+              <Link
+                to={detailUrl(selectedNode)}
+                className="mt-4 inline-block text-sm text-teal underline"
+              >
+                View idea →
+              </Link>
+            ) : selectedNode.type === 'strategy' && selectedNode.org_id ? (
+              <Link
+                to={detailUrl(selectedNode)}
+                className="mt-4 inline-block text-sm text-teal underline"
+              >
+                View strategy →
               </Link>
             ) : selectedNode.org_id ? (
               <Link

@@ -570,18 +570,57 @@ export interface GraphNode {
   // idea/strategy-only
   org_id?: string | null;
   cost_range?: [number, number] | null;
+  summary?: string | null;
+  // idea-only
+  place?: string | null;
+  connections?: Array<{
+    org_name: string;
+    org_id?: string;
+    relationship?: string;
+    mutual?: boolean;
+  }> | null;
+  // strategy-only
+  period?: { start?: string; end?: string; horizon?: string } | null;
+  priorities_count?: number | null;
 }
 
 export interface GraphEdge {
   source: string;
   target: string;
-  type: 'org_idea' | 'org_strategy' | 'shared_theme' | 'shared_area';
+  type:
+    | 'org_idea'
+    | 'org_strategy'
+    | 'shared_theme'
+    | 'shared_area'
+    | 'strategy_idea'
+    | 'idea_idea_shared_theme'
+    | 'idea_idea_shared_place'
+    | 'idea_idea_explicit'
+    | 'strategy_strategy_shared_theme'
+    | 'idea_org_connection';
   weight?: number | null;
+  relationship?: string;
+  description?: string;
+}
+
+export interface GraphCluster {
+  description: string;
+  themes: string[];
+}
+
+export interface GraphSummary {
+  total_nodes: number;
+  total_edges: number;
+  organisations: number;
+  ideas: number;
+  strategies: number;
+  clusters: GraphCluster[];
 }
 
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  graph_summary?: GraphSummary | null;
 }
 
 export async function fetchGraphData(

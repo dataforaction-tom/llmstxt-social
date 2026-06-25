@@ -39,6 +39,11 @@ const mockGraphData: GraphData = {
       themes: ['food_access'],
       org_id: 'GB-CHC-1',
       cost_range: [80000, 120000],
+      summary: 'A community kitchen serving hot meals.',
+      place: 'Great Yarmouth',
+      connections: [
+        { org_name: 'Beta', org_id: 'GB-CHC-2', relationship: 'complementary' },
+      ],
     },
     {
       id: 'strategy:GB-CHC-1:2025-2028',
@@ -46,13 +51,50 @@ const mockGraphData: GraphData = {
       name: '2025-2028 Strategy',
       themes: ['food_access'],
       org_id: 'GB-CHC-1',
+      summary: 'Three-year plan for food access.',
+      period: { start: '2025-01-01', end: '2028-12-31', horizon: '3_5_years' },
+      priorities_count: 4,
+    },
+    {
+      id: 'GB-CHC-2',
+      type: 'organisation',
+      name: 'Beta Trust',
+      themes: ['food_access'],
+      area: 'Great Yarmouth',
+      income_band: '100k-250k',
+      ideas_count: 0,
+      strategy_themes: [],
     },
   ],
   edges: [
     { source: 'GB-CHC-1', target: 'idea:GB-CHC-1:kitchen', type: 'org_idea' },
     { source: 'GB-CHC-1', target: 'strategy:GB-CHC-1:2025-2028', type: 'org_strategy' },
     { source: 'GB-CHC-1', target: 'GB-CHC-2', type: 'shared_theme', weight: 2 },
+    {
+      source: 'strategy:GB-CHC-1:2025-2028',
+      target: 'idea:GB-CHC-1:kitchen',
+      type: 'strategy_idea',
+    },
+    {
+      source: 'idea:GB-CHC-1:kitchen',
+      target: 'GB-CHC-2',
+      type: 'idea_org_connection',
+      relationship: 'complementary',
+    },
   ],
+  graph_summary: {
+    total_nodes: 4,
+    total_edges: 5,
+    organisations: 2,
+    ideas: 1,
+    strategies: 1,
+    clusters: [
+      {
+        description: '2 organisations, 1 idea around food_access, health',
+        themes: ['food_access', 'health'],
+      },
+    ],
+  },
 };
 
 let graphDataValue: GraphData | undefined;
@@ -128,5 +170,124 @@ describe('GraphDiscovery', () => {
     fireEvent.click(circle!);
     const link = screen.getByRole('link', { name: /view profile/i });
     expect(link).toHaveAttribute('href', '/openorg/GB-CHC-1');
+  });
+
+  it('renders new semantic edge types with their stroke colours', () => {
+    const { container } = renderComponent();
+    const lines = container.querySelectorAll('svg line[data-edge-type]');
+    const types = new Set(Array.from(lines).map((l) => l.getAttribute('data-edge-type')));
+    expect(types.has('strategy_idea')).toBe(true);
+    expect(types.has('idea_org_connection')).toBe(true);
+  });
+
+  it('renders arrowhead markers for directed edges', () => {
+    const { container } = renderComponent();
+    // SVG marker definitions should exist
+    const marker = container.querySelector('svg defs marker');
+    expect(marker).not.toBeNull();
+    // Directed edge lines should reference the marker
+    const directedLines = container.querySelectorAll('svg line[data-edge-type="strategy_idea"]');
+    expect(directedLines.length).toBeGreaterThan(0);
+    const markerEnd = directedLines[0].getAttribute('marker-end');
+    expect(markerEnd).toBeTruthy();
+  });
+
+  it('shows the graph summary above the graph when present', () => {
+    renderComponent();
+    expect(screen.getByText(/2 organisations, 1 idea, 1 strategy/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 cluster/i)).toBeInTheDocument();
+  });
+
+  it('idea side panel shows summary, themes, place, cost range, and connections', () => {
+    const { container } = renderComponent();
+    const ideaCircle = container.querySelector('svg circle[data-id="idea:GB-CHC-1:kitchen"]');
+    expect(ideaCircle).not.toBeNull();
+    fireEvent.click(ideaCircle!);
+    const aside = container.querySelector('aside')!;
+    expect(aside.textContent).toContain('A community kitchen serving hot meals.');
+    expect(aside.textContent).toContain('Great Yarmouth');
+    expect(aside.textContent).toContain('£80,000');
+    // Connection list shows org name + relationship
+    expect(aside.textContent).toContain('Beta');
+    expect(aside.textContent).toContain('complementary');
+  });
+
+  it('strategy side panel shows summary, period, and priorities count', () => {
+    const { container } = renderComponent();
+    const stratCircle = container.querySelector('svg circle[data-id="strategy:GB-CHC-1:2025-2028"]');
+    expect(stratCircle).not.toBeNull();
+    fireEvent.click(stratCircle!);
+    const aside = container.querySelector('aside')!;
+    expect(aside.textContent).toContain('Three-year plan for food access.');
+    expect(aside.textContent).toContain('2025-01-01');
+    expect(aside.textContent).toContain('4 priorities');
+  });
+
+  it('idea node side panel has a link to the idea detail page', () => {
+    const { container } = renderComponent();
+    const ideaCircle = container.querySelector('svg circle[data-id="idea:GB-CHC-1:kitchen"]');
+    fireEvent.click(ideaCircle!);
+    const ideaLink = screen.getByRole('link', { name: /view idea/i });
+    expect(ideaLink).toHaveAttribute('href', '/openorg/GB-CHC-1?idea=kitchen');
+  });
+
+  it('strategy node side panel has a link to the strategy detail page', () => {
+    const { container } = renderComponent();
+    const stratCircle = container.querySelector('svg circle[data-id="strategy:GB-CHC-1:2025-2028"]');
+    fireEvent.click(stratCircle!);
+    const stratLink = screen.getByRole('link', { name: /view strategy/i });
+    expect(stratLink).toHaveAttribute('href', '/openorg/GB-CHC-1?strategy=2025-2028');
+  });
+
+  it('filter toggle button is present and starts off', () => {
+    renderComponent();
+    const toggle = screen.getByRole('button', { name: /show only explicit connections/i });
+    expect(toggle).toBeInTheDocument();
+    // Off by default — no 'active-only' indicator class
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('clicking the filter toggle hides derived edges and shows only explicit ones', () => {
+    const { container } = renderComponent();
+    // Initially shared_theme (derived) is visible
+    const beforeTypes = new Set(
+      Array.from(container.querySelectorAll('svg line[data-edge-type]')).map((l) =>
+        l.getAttribute('data-edge-type'),
+      ),
+    );
+    expect(beforeTypes.has('shared_theme')).toBe(true);
+
+    const toggle = screen.getByRole('button', { name: /show only explicit connections/i });
+    fireEvent.click(toggle);
+
+    const afterLines = container.querySelectorAll('svg line[data-edge-type]');
+    const afterTypes = new Set(Array.from(afterLines).map((l) => l.getAttribute('data-edge-type')));
+    // Derived edges hidden
+    expect(afterTypes.has('shared_theme')).toBe(false);
+    // Explicit edges still shown
+    expect(afterTypes.has('org_idea')).toBe(true);
+    expect(afterTypes.has('strategy_idea')).toBe(true);
+    expect(afterTypes.has('idea_org_connection')).toBe(true);
+  });
+
+  it('edge label appears on hover for edges with a relationship or description', () => {
+    const { container } = renderComponent();
+    const edgeLine = container.querySelector('svg line[data-edge-type="idea_org_connection"]');
+    expect(edgeLine).not.toBeNull();
+    fireEvent.mouseEnter(edgeLine!);
+    // A label text element should appear near the edge
+    const edgeLabels = container.querySelectorAll('svg text[data-edge-label]');
+    expect(edgeLabels.length).toBeGreaterThan(0);
+    expect(Array.from(edgeLabels).some((l) => l.textContent?.includes('complementary'))).toBe(true);
+  });
+
+  it('legend shows all edge type swatches', () => {
+    renderComponent();
+    const legend = screen.getByTestId('graph-legend');
+    const legendText = legend.textContent ?? '';
+    // Should mention derived + explicit edge categories
+    expect(legendText).toMatch(/shared theme|theme overlap/i);
+    expect(legendText).toMatch(/strategy.*idea/i);
+    expect(legendText).toMatch(/idea.*org/i);
   });
 });
