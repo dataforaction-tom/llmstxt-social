@@ -197,6 +197,45 @@ def render_bold_items_with_source(items: list[dict[str, str]]) -> str:
 # depends on parsers and renderers being inverse — see
 # tests/open_org/test_converter_round_trip.py.
 
+# Strategy priorities are rendered as `## Priority N: Title` sections whose
+# body is the narrative. They don't have a fixed heading — we use a regex to
+# detect them during parse and a dedicated renderer for the markdown side.
+_PRIORITY_HEADING_RE = re.compile(r"^Priority\s+\d+\s*:\s*(.+)$", re.IGNORECASE)
+
+
+def parse_priorities(body_sections: list[tuple[str, str]]) -> list[dict[str, str]]:
+    """Extract priority objects from body sections matching ``## Priority N: Title``.
+
+    The section body becomes the ``narrative`` field. Heading order is preserved
+    so ``Priority 1`` maps to ``priorities[0]``, etc.
+    """
+    out: list[dict[str, str]] = []
+    for heading, content in body_sections:
+        match = _PRIORITY_HEADING_RE.match(heading)
+        if not match:
+            continue
+        title = match.group(1).strip()
+        item: dict[str, str] = {"title": title}
+        narrative = content.strip()
+        if narrative:
+            item["narrative"] = narrative
+        out.append(item)
+    return out
+
+
+def render_priorities(items: list[dict[str, str]]) -> str:
+    """Render priorities as ``## Priority N: Title`` sections with narrative body."""
+    chunks: list[str] = []
+    for i, item in enumerate(items, start=1):
+        title = item.get("title", "")
+        narrative = item.get("narrative", "")
+        if narrative:
+            chunks.append(f"## Priority {i}: {title}\n\n{narrative}")
+        else:
+            chunks.append(f"## Priority {i}: {title}")
+    return "\n\n".join(chunks)
+
+
 def _bold_items_rationale(body: str):
     return parse_bold_items(body, body_field="rationale")
 
@@ -313,12 +352,20 @@ def markdown_to_json(md: str, *, kind: str) -> dict:
     body = strip_comments(body)
 
     payload = dict(frontmatter_dict)
-    sections_by_heading = dict(_split_body_sections(body))
+    body_sections = _split_body_sections(body)
+    sections_by_heading = dict(body_sections)
 
     for heading, path, parser, _renderer in _BODY_SECTIONS[kind]:
         if heading in sections_by_heading:
             value = parser(sections_by_heading[heading])
             _set_path(payload, path, value)
+
+    # Strategy priorities are multi-section (## Priority N: Title) and need
+    # special handling outside the fixed-heading map.
+    if kind == "strategy":
+        priorities = parse_priorities(body_sections)
+        if priorities:
+            payload["priorities"] = priorities
 
     ValidationError, validate_for_kind = _import_validator()
     try:
@@ -379,6 +426,12 @@ def json_to_markdown(payload: dict, *, kind: str) -> str:
         if value is None or value == "" or value == [] or value == {}:
             continue
         body_chunks.append(f"## {heading}\n\n{renderer(value)}")
+
+    # Strategy priorities are rendered as ## Priority N: Title sections.
+    if kind == "strategy":
+        priorities = _pop_path(working, ("priorities",))
+        if priorities:
+            body_chunks.append(render_priorities(priorities))
 
     yaml_str = yaml.dump(
         working,
