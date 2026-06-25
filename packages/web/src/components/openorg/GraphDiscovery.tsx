@@ -22,8 +22,8 @@ import {
 
 const COLOURS: Record<GraphNode['type'], string> = {
   organisation: '#1B2A4A', // navy
-  idea: '#486A38', // sage-600
-  strategy: '#C97B3F', // warm orange
+  idea: '#2D8B7A',         // teal (Good Ship brand accent)
+  strategy: '#D4993D',     // amber (Good Ship secondary accent)
 };
 
 const INCOME_BAND_ORDER = [
@@ -70,7 +70,7 @@ type GraphEdgeType = 'org_idea' | 'org_strategy' | 'shared_theme' | 'shared_area
 const EDGE_STROKE: Record<GraphEdgeType, { stroke: string; width: number; dash: string }> = {
   org_idea: { stroke: '#888', width: 1.5, dash: 'none' },
   org_strategy: { stroke: '#888', width: 1.5, dash: 'none' },
-  shared_theme: { stroke: '#486A38', width: 2.5, dash: '6 4' },
+  shared_theme: { stroke: '#2D8B7A', width: 2.5, dash: '6 4' },
   shared_area: { stroke: '#aaa', width: 1, dash: '2 4' },
 };
 
@@ -241,13 +241,13 @@ export default function GraphDiscovery() {
       <div>
         {/* theme filter checkboxes */}
         {themes.length > 0 && (
-          <fieldset className="mb-4 border border-rule bg-paper-2 p-3">
+          <fieldset className="mb-4 border border-rule bg-cream-dark p-3">
             <legend className="kicker px-1">Filter by theme</legend>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
               {themes.map((t) => (
                 <label
                   key={t.key}
-                  className="flex items-center gap-1.5 text-sm text-ink"
+                  className="flex items-center gap-1.5 text-sm text-navy"
                 >
                   <input
                     type="checkbox"
@@ -263,7 +263,7 @@ export default function GraphDiscovery() {
         )}
 
         {graphQuery.isLoading ? (
-          <div className="flex h-[600px] items-center justify-center border border-rule text-muted">
+          <div className="flex h-[600px] items-center justify-center border border-rule text-grey-blue">
             Loading graph…
           </div>
         ) : graphQuery.isError ? (
@@ -271,7 +271,7 @@ export default function GraphDiscovery() {
             Couldn't load the graph.
           </div>
         ) : simNodes.length === 0 ? (
-          <div className="flex h-[600px] items-center justify-center border border-rule text-muted">
+          <div className="flex h-[600px] items-center justify-center border border-rule text-grey-blue">
             No data to visualise.
           </div>
         ) : (
@@ -279,7 +279,7 @@ export default function GraphDiscovery() {
             ref={svgRef}
             width={WIDTH}
             height={HEIGHT}
-            className="block border border-rule bg-paper"
+            className="block border border-rule bg-cream"
             style={{ cursor: 'grab' }}
           >
             <g transform={transform.toString()}>
@@ -347,7 +347,7 @@ export default function GraphDiscovery() {
         )}
 
         {/* legend */}
-        <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted">
+        <div className="mt-3 flex flex-wrap gap-4 text-xs text-grey-blue">
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-3 w-3 rounded-full" style={{ background: COLOURS.organisation }} />
             Organisation
@@ -364,15 +364,15 @@ export default function GraphDiscovery() {
       </div>
 
       {/* --- right: side panel ---------------------------------------- */}
-      <aside className="border border-rule bg-paper-2 p-4">
+      <aside className="border border-rule bg-cream-dark p-4">
         {selectedNode ? (
           <div>
             <div className="kicker mb-1">{selectedNode.type}</div>
-            <h3 className="display-head text-xl font-medium text-ink">
+            <h3 className="display-head text-xl font-medium text-navy">
               {selectedNode.name}
             </h3>
             {selectedNode.themes.length > 0 && (
-              <ul className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted">
+              <ul className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-grey-blue">
                 {selectedNode.themes.map((t) => (
                   <li key={t} className="font-mono">#{t}</li>
                 ))}
@@ -381,46 +381,46 @@ export default function GraphDiscovery() {
             {selectedNode.type === 'organisation' && (
               <dl className="mt-3 space-y-1 text-sm">
                 {selectedNode.area && (
-                  <div><dt className="inline text-muted">Area: </dt><dd className="inline text-ink">{selectedNode.area}</dd></div>
+                  <div><dt className="inline text-grey-blue">Area: </dt><dd className="inline text-navy">{selectedNode.area}</dd></div>
                 )}
                 {selectedNode.income_band && (
-                  <div><dt className="inline text-muted">Income band: </dt><dd className="inline text-ink">{selectedNode.income_band}</dd></div>
+                  <div><dt className="inline text-grey-blue">Income band: </dt><dd className="inline text-navy">{selectedNode.income_band}</dd></div>
                 )}
                 {selectedNode.ideas_count != null && (
-                  <div><dt className="inline text-muted">Ideas: </dt><dd className="inline text-ink">{selectedNode.ideas_count}</dd></div>
+                  <div><dt className="inline text-grey-blue">Ideas: </dt><dd className="inline text-navy">{selectedNode.ideas_count}</dd></div>
                 )}
               </dl>
             )}
             {selectedNode.type === 'idea' && selectedNode.cost_range && (
-              <p className="mt-3 text-sm text-ink">
+              <p className="mt-3 text-sm text-navy">
                 Cost: £{selectedNode.cost_range[0].toLocaleString()}–£{selectedNode.cost_range[1].toLocaleString()}
               </p>
             )}
             {selectedNode.type === 'organisation' ? (
               <Link
                 to={detailUrl(selectedNode)}
-                className="mt-4 inline-block text-sm text-sage-700 underline"
+                className="mt-4 inline-block text-sm text-teal underline"
               >
                 View profile →
               </Link>
             ) : selectedNode.org_id ? (
               <Link
                 to={`/openorg/${selectedNode.org_id}`}
-                className="mt-4 inline-block text-sm text-sage-700 underline"
+                className="mt-4 inline-block text-sm text-teal underline"
               >
                 View organisation →
               </Link>
             ) : null}
             <button
               type="button"
-              className="mt-4 block text-xs text-muted underline-offset-4 hover:text-ink hover:underline"
+              className="mt-4 block text-xs text-grey-blue underline-offset-4 hover:text-navy hover:underline"
               onClick={() => setSelectedNode(null)}
             >
               Close panel
             </button>
           </div>
         ) : (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-grey-blue">
             Click a node to see details.
           </p>
         )}

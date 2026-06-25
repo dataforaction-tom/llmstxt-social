@@ -18,9 +18,9 @@ export function PublishBadge({ published, noun = 'Profile' }: PublishBadgeProps)
     return (
       <span
         aria-label={`${noun} is published`}
-        className="inline-flex items-center gap-1.5 border border-sage-700/40 bg-sage-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-sage-900"
+        className="inline-flex items-center gap-1.5 border border-teal/40 bg-teal/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-navy"
       >
-        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-sage-700" />
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-teal" />
         Published
       </span>
     );
@@ -28,9 +28,9 @@ export function PublishBadge({ published, noun = 'Profile' }: PublishBadgeProps)
   return (
     <span
       aria-label={`${noun} is a draft`}
-      className="inline-flex items-center gap-1.5 border border-rule bg-paper-2 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-muted"
+      className="inline-flex items-center gap-1.5 border border-rule bg-cream-dark px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-grey-blue"
     >
-      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-muted/60" />
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-grey-blue/60" />
       Draft
     </span>
   );
@@ -56,7 +56,7 @@ export function PublishControls({
         onClick={onUnpublish}
         disabled={busy}
         aria-busy={busy}
-        className="border border-ink/30 bg-paper px-4 py-1.5 text-sm font-medium text-ink transition hover:bg-paper-2 disabled:cursor-not-allowed disabled:opacity-40"
+        className="border border-navy/30 bg-cream px-4 py-1.5 text-sm font-medium text-navy transition hover:bg-cream-dark disabled:cursor-not-allowed disabled:opacity-40"
       >
         {busy ? 'Unpublishing…' : 'Unpublish'}
       </button>
@@ -68,7 +68,7 @@ export function PublishControls({
       onClick={onPublish}
       disabled={busy}
       aria-busy={busy}
-      className="bg-ink px-4 py-1.5 text-sm font-medium text-paper transition hover:bg-sage-700 disabled:cursor-not-allowed disabled:opacity-40"
+      className="bg-teal px-4 py-1.5 text-sm font-medium text-cream transition hover:bg-teal-light disabled:cursor-not-allowed disabled:opacity-40"
     >
       {busy ? 'Publishing…' : 'Publish'}
     </button>

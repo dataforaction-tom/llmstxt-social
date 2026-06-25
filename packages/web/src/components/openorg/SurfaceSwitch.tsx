@@ -13,7 +13,7 @@ export default function SurfaceSwitch({ value, onChange }: SurfaceSwitchProps) {
         onClick={() => onChange('guided')}
         aria-pressed={value === 'guided'}
         className={`px-3 py-1 uppercase tracking-wider transition ${
-          value === 'guided' ? 'bg-ink text-paper' : 'bg-paper text-muted hover:text-ink'
+          value === 'guided' ? 'bg-navy text-cream' : 'bg-cream text-grey-blue hover:text-navy'
         }`}
       >
         Guided
@@ -23,7 +23,7 @@ export default function SurfaceSwitch({ value, onChange }: SurfaceSwitchProps) {
         onClick={() => onChange('markdown')}
         aria-pressed={value === 'markdown'}
         className={`px-3 py-1 uppercase tracking-wider transition ${
-          value === 'markdown' ? 'bg-ink text-paper' : 'bg-paper text-muted hover:text-ink'
+          value === 'markdown' ? 'bg-navy text-cream' : 'bg-cream text-grey-blue hover:text-navy'
         }`}
       >
         Markdown

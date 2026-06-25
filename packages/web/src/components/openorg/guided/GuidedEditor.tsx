@@ -64,9 +64,9 @@ export default function GuidedEditor({
       </div>
       <div className="border-l border-rule pl-4 lg:overflow-auto">
         <div className="kicker mb-2">Preview</div>
-        <article className="editorial-preview text-ink">
+        <article className="editorial-preview text-navy">
           {frontmatterYaml && (
-            <pre className="mb-4 whitespace-pre-wrap border border-rule bg-paper-2/40 p-3 text-xs text-muted">
+            <pre className="mb-4 whitespace-pre-wrap border border-rule bg-cream-dark/40 p-3 text-xs text-grey-blue">
               {frontmatterYaml}
             </pre>
           )}

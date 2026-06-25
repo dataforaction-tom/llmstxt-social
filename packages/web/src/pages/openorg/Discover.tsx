@@ -7,8 +7,8 @@
  *
  * Route: /openorg/discover
  *
- * Design: civic editorial. Warm paper background, Fraunces display heads,
- * Public Sans body, hairline rules, small-caps kickers. Staggered card
+ * Design: Good Ship brand. Cream background, Fraunces display heads,
+ * DM Sans body, hairline rules, small-caps kickers. Staggered card
  * reveal on first paint.
  */
 
@@ -104,7 +104,7 @@ export default function DiscoverPage() {
   ].filter(Boolean) as { label: string; key: keyof DiscoveryFilters }[];
 
   return (
-    <div className="surface-paper min-h-screen">
+    <div className="surface-cream min-h-screen">
       <Helmet>
         <title>Discover · Open Org</title>
         <meta
@@ -122,7 +122,7 @@ export default function DiscoverPage() {
             <br />
             organisations by what they do.
           </h1>
-          <p className="mt-4 max-w-2xl text-base text-muted">
+          <p className="mt-4 max-w-2xl text-base text-grey-blue">
             Profiles published in the Open Org format, drawn from this site
             and the federated Murmurations index. Filter by theme, place, or
             keyword.
@@ -142,7 +142,7 @@ export default function DiscoverPage() {
               <span className="kicker">Search</span>
               <input
                 type="text"
-                className="mt-1.5 w-full border-0 border-b border-rule bg-transparent pb-1.5 text-base text-ink placeholder:text-muted focus:border-ink focus:outline-none focus:ring-0"
+                className="mt-1.5 w-full border-0 border-b border-rule bg-transparent pb-1.5 text-base text-navy placeholder:text-grey-blue focus:border-navy focus:outline-none focus:ring-0"
                 placeholder="Name or area"
                 value={draftQ}
                 onChange={(e) => setDraftQ(e.target.value)}
@@ -152,7 +152,7 @@ export default function DiscoverPage() {
             <label className="block">
               <span className="kicker">Theme</span>
               <select
-                className="mt-1.5 w-full border-0 border-b border-rule bg-transparent pb-1.5 text-base text-ink focus:border-ink focus:outline-none focus:ring-0"
+                className="mt-1.5 w-full border-0 border-b border-rule bg-transparent pb-1.5 text-base text-navy focus:border-navy focus:outline-none focus:ring-0"
                 value={filters.theme ?? ''}
                 onChange={(e) => applyFilter({ theme: e.target.value })}
               >
@@ -169,7 +169,7 @@ export default function DiscoverPage() {
               <span className="kicker">ONS area code</span>
               <input
                 type="text"
-                className="mt-1.5 w-full border-0 border-b border-rule bg-transparent pb-1.5 font-mono text-sm text-ink placeholder:text-muted focus:border-ink focus:outline-none focus:ring-0"
+                className="mt-1.5 w-full border-0 border-b border-rule bg-transparent pb-1.5 font-mono text-sm text-navy placeholder:text-grey-blue focus:border-navy focus:outline-none focus:ring-0"
                 placeholder="E92000001"
                 value={draftAreaCode}
                 onChange={(e) => setDraftAreaCode(e.target.value)}
@@ -179,13 +179,13 @@ export default function DiscoverPage() {
             <div className="flex gap-3">
               <button
                 type="submit"
-                className="bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-sage-700"
+                className="bg-teal px-4 py-2 text-sm font-medium text-cream transition hover:bg-teal-light"
               >
                 Apply
               </button>
               <button
                 type="button"
-                className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline"
+                className="text-sm text-grey-blue underline-offset-4 hover:text-navy hover:underline"
                 onClick={() => {
                   setFilters({});
                   setDraftQ('');
@@ -205,10 +205,10 @@ export default function DiscoverPage() {
                   key={chip.key}
                   type="button"
                   onClick={() => applyFilter({ [chip.key]: undefined } as Partial<DiscoveryFilters>)}
-                  className="group inline-flex items-center gap-1.5 border border-rule bg-paper-2 px-2 py-0.5 text-ink hover:border-ink"
+                  className="group inline-flex items-center gap-1.5 border border-rule bg-cream-dark px-2 py-0.5 text-navy hover:border-navy"
                 >
                   <span className="font-mono">{chip.label}</span>
-                  <span className="text-muted group-hover:text-ink">×</span>
+                  <span className="text-grey-blue group-hover:text-navy">×</span>
                 </button>
               ))}
             </div>
@@ -223,8 +223,8 @@ export default function DiscoverPage() {
             className={
               'px-3 py-1 text-sm transition ' +
               (viewMode === 'list'
-                ? 'bg-ink text-paper'
-                : 'border border-rule text-ink hover:bg-paper-2')
+                ? 'bg-navy text-cream'
+                : 'border border-rule text-navy hover:bg-cream-dark')
             }
             onClick={() => setViewMode('list')}
           >
@@ -235,8 +235,8 @@ export default function DiscoverPage() {
             className={
               'px-3 py-1 text-sm transition ' +
               (viewMode === 'graph'
-                ? 'bg-ink text-paper'
-                : 'border border-rule text-ink hover:bg-paper-2')
+                ? 'bg-navy text-cream'
+                : 'border border-rule text-navy hover:bg-cream-dark')
             }
             onClick={() => setViewMode('graph')}
           >
@@ -249,7 +249,7 @@ export default function DiscoverPage() {
           <section className="mt-10">
             <Suspense
               fallback={
-                <div className="py-16 text-center text-muted">
+                <div className="py-16 text-center text-grey-blue">
                   Loading graph…
                 </div>
               }
@@ -280,12 +280,12 @@ export default function DiscoverPage() {
                     position={[row.geolocation!.lat, row.geolocation!.lon]}
                   >
                     <Popup>
-                      <div className="font-display text-base text-ink">{row.name}</div>
+                      <div className="font-display text-base text-navy">{row.name}</div>
                       {row.primary_area ? (
-                        <div className="text-xs text-muted">{row.primary_area}</div>
+                        <div className="text-xs text-grey-blue">{row.primary_area}</div>
                       ) : null}
                       <a
-                        className="text-xs text-sage-700 underline"
+                        className="text-xs text-teal underline"
                         href={`/openorg/${row.org_id}`}
                       >
                         View profile
@@ -307,20 +307,20 @@ export default function DiscoverPage() {
               {pageCursor ? '+' : ''}
             </span>
             {firstPage.isFetching && !firstPage.isLoading ? (
-              <span className="text-muted">Updating…</span>
+              <span className="text-grey-blue">Updating…</span>
             ) : null}
           </div>
 
           {firstPage.isLoading ? (
-            <div className="py-16 text-center text-muted">Loading…</div>
+            <div className="py-16 text-center text-grey-blue">Loading…</div>
           ) : firstPage.isError ? (
             <div className="py-16 text-center text-red-700">
               Couldn't load profiles. Please try again.
             </div>
           ) : allRows.length === 0 ? (
             <div className="py-16 text-center">
-              <p className="font-display text-2xl text-ink">No matches.</p>
-              <p className="mt-2 text-sm text-muted">
+              <p className="font-display text-2xl text-navy">No matches.</p>
+              <p className="mt-2 text-sm text-grey-blue">
                 Try fewer filters, or a broader area.
               </p>
             </div>
@@ -338,22 +338,22 @@ export default function DiscoverPage() {
                   <div>
                     <a
                       href={`/openorg/${row.org_id}`}
-                      className="display-head text-2xl font-medium leading-tight text-ink hover:text-sage-700"
+                      className="display-head text-2xl font-medium leading-tight text-navy hover:text-teal"
                     >
                       {row.name}
                     </a>
                     {row.primary_area ? (
-                      <p className="mt-0.5 text-sm italic text-muted">
+                      <p className="mt-0.5 text-sm italic text-grey-blue">
                         {row.primary_area}
                       </p>
                     ) : null}
                     {row.summary ? (
-                      <p className="mt-2 max-w-prose text-sm leading-relaxed text-ink/90 line-clamp-3">
+                      <p className="mt-2 max-w-prose text-sm leading-relaxed text-navy/90 line-clamp-3">
                         {row.summary}
                       </p>
                     ) : null}
                     {row.themes.length > 0 ? (
-                      <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+                      <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-grey-blue">
                         {row.themes.slice(0, 6).map((t) => (
                           <li key={t} className="font-mono">
                             #{t}
@@ -367,14 +367,14 @@ export default function DiscoverPage() {
                     <span
                       className={
                         'kicker num ' +
-                        (row.source === 'local' ? 'text-sage-700' : 'text-muted')
+                        (row.source === 'local' ? 'text-teal' : 'text-grey-blue')
                       }
                     >
                       {row.source}
                     </span>
                     <a
                       href={row.profile_url}
-                      className="text-xs text-muted underline-offset-4 hover:text-ink hover:underline"
+                      className="text-xs text-grey-blue underline-offset-4 hover:text-navy hover:underline"
                     >
                       profile.json →
                     </a>
@@ -390,7 +390,7 @@ export default function DiscoverPage() {
                 type="button"
                 disabled={loadingMore}
                 onClick={handleLoadMore}
-                className="border border-rule bg-paper px-5 py-2 text-sm text-ink transition hover:bg-paper-2 disabled:opacity-50"
+                className="border border-rule bg-cream px-5 py-2 text-sm text-navy transition hover:bg-cream-dark disabled:opacity-50"
               >
                 {loadingMore ? 'Loading…' : 'Load more'}
               </button>

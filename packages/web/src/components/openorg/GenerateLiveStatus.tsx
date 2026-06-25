@@ -58,9 +58,9 @@ export default function GenerateLiveStatus({ status, onTimeout }: GenerateLiveSt
     const took = Math.max(1, Math.round(status.elapsed_ms / 1000));
     const preview = donePreview(status.payload);
     return (
-      <div className="border-l-2 border-sage-700/40 bg-sage-50/40 px-4 py-3">
-        <div className="kicker text-sage-900">✓ Draft ready</div>
-        <p className="mt-1 text-sm text-ink">
+      <div className="border-l-2 border-teal/40 bg-teal/10 px-4 py-3">
+        <div className="kicker text-navy">✓ Draft ready</div>
+        <p className="mt-1 text-sm text-navy">
           Took {took} seconds. {preview && <>{preview} found.</>}
         </p>
       </div>
@@ -69,14 +69,14 @@ export default function GenerateLiveStatus({ status, onTimeout }: GenerateLiveSt
 
   if (timedOut) {
     return (
-      <div className="border-l-2 border-rule bg-paper-2 px-4 py-3 text-sm text-ink">
+      <div className="border-l-2 border-rule bg-cream-dark px-4 py-3 text-sm text-navy">
         {t('generate.timeout')}
       </div>
     );
   }
 
   return (
-    <div className="border-l-2 border-rule bg-paper-2 px-4 py-3 text-sm text-ink transition-opacity duration-200">
+    <div className="border-l-2 border-rule bg-cream-dark px-4 py-3 text-sm text-navy transition-opacity duration-200">
       {status.message ?? 'Working…'}
     </div>
   );

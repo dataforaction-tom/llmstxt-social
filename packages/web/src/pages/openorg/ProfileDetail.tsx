@@ -90,7 +90,7 @@ export default function ProfileDetailPage() {
 
   if (!orgId) {
     return (
-      <div className="surface-paper min-h-screen">
+      <div className="surface-cream min-h-screen">
         <div className="p-6 text-red-700">Missing org_id in URL.</div>
       </div>
     );
@@ -98,17 +98,17 @@ export default function ProfileDetailPage() {
 
   if (profile.isLoading) {
     return (
-      <div className="surface-paper min-h-screen">
-        <div className="mx-auto max-w-4xl px-6 py-10 text-muted">Loading profile…</div>
+      <div className="surface-cream min-h-screen">
+        <div className="mx-auto max-w-4xl px-6 py-10 text-grey-blue">Loading profile…</div>
       </div>
     );
   }
   if (profile.isError || !profile.data) {
     return (
-      <div className="surface-paper min-h-screen">
+      <div className="surface-cream min-h-screen">
         <div className="mx-auto max-w-4xl px-6 py-10">
           <h1 className="display-head text-2xl font-medium">Profile not found</h1>
-          <p className="mt-3 text-sm text-muted">
+          <p className="mt-3 text-sm text-grey-blue">
             <code className="font-mono">{orgId}</code> isn't a published Open Org profile.
             It may be unpublished, claimed but not yet generated, or a charity number we
             don't have in the index.
@@ -136,10 +136,10 @@ export default function ProfileDetailPage() {
   const rawJsonUrl = `/open-org/${orgId}/profile.json`;
 
   return (
-    <div className="surface-paper min-h-screen">
+    <div className="surface-cream min-h-screen">
       <div className="mx-auto max-w-4xl px-6 py-10">
         <nav className="mb-6 text-xs">
-          <Link to="/openorg/discover" className="text-muted hover:text-ink">
+          <Link to="/openorg/discover" className="text-grey-blue hover:text-navy">
             ← Discover
           </Link>
         </nav>
@@ -150,12 +150,12 @@ export default function ProfileDetailPage() {
             {identity.name ?? orgId}
           </h1>
           {aka.length > 0 && (
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1 text-sm text-grey-blue">
               Also known as: {aka.join(', ')}
             </p>
           )}
-          <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted">
-            <code className="font-mono text-ink">{orgId}</code>
+          <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-grey-blue">
+            <code className="font-mono text-navy">{orgId}</code>
             {geography.primary_area && (
               <>
                 <span className="text-rule">·</span>
@@ -169,14 +169,14 @@ export default function ProfileDetailPage() {
                   href={identity.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:text-ink"
+                  className="underline hover:text-navy"
                 >
                   Website
                 </a>
               </>
             )}
             <span className="text-rule">·</span>
-            <a href={rawJsonUrl} className="underline hover:text-ink">
+            <a href={rawJsonUrl} className="underline hover:text-navy">
               View raw JSON
             </a>
           </p>
@@ -184,7 +184,7 @@ export default function ProfileDetailPage() {
 
         {mission.summary && (
           <Section title="Mission">
-            <p className="text-lg leading-relaxed text-ink">{mission.summary}</p>
+            <p className="text-lg leading-relaxed text-navy">{mission.summary}</p>
           </Section>
         )}
 
@@ -194,7 +194,7 @@ export default function ProfileDetailPage() {
               {themes.map((t) => (
                 <span
                   key={t}
-                  className="border border-rule bg-paper-2 px-2 py-0.5 text-xs text-ink"
+                  className="border border-rule bg-cream-dark px-2 py-0.5 text-xs text-navy"
                 >
                   {t}
                 </span>
@@ -205,7 +205,7 @@ export default function ProfileDetailPage() {
 
         {mission.theory_of_change && (
           <Section title="Theory of change">
-            <p className="text-base leading-relaxed text-ink">{mission.theory_of_change}</p>
+            <p className="text-base leading-relaxed text-navy">{mission.theory_of_change}</p>
           </Section>
         )}
 
@@ -214,14 +214,14 @@ export default function ProfileDetailPage() {
             <ul className="space-y-4">
               {programmes.map((p) => (
                 <li key={p.name} className="border-l-2 border-rule pl-4">
-                  <h3 className="font-medium text-ink">{p.name}</h3>
+                  <h3 className="font-medium text-navy">{p.name}</h3>
                   {p.description && (
-                    <p className="mt-1 text-sm leading-relaxed text-ink/85">
+                    <p className="mt-1 text-sm leading-relaxed text-navy/85">
                       {p.description}
                     </p>
                   )}
                   {(p.eligibility || p.location) && (
-                    <p className="mt-1 text-xs text-muted">
+                    <p className="mt-1 text-xs text-grey-blue">
                       {p.eligibility && <>Eligibility: {p.eligibility}</>}
                       {p.eligibility && p.location && ' · '}
                       {p.location && <>Location: {p.location}</>}
@@ -235,7 +235,7 @@ export default function ProfileDetailPage() {
 
         {beneficiaries.length > 0 && (
           <Section title="Beneficiaries">
-            <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
+            <ul className="list-disc space-y-1 pl-5 text-sm text-navy">
               {beneficiaries.map((b, i) => (
                 <li key={i}>{b}</li>
               ))}
@@ -246,13 +246,13 @@ export default function ProfileDetailPage() {
         {(evidence.beneficiaries_served_text || (evidence.outcomes?.length ?? 0) > 0) && (
           <Section title="Evidence">
             {evidence.beneficiaries_served_text && (
-              <p className="text-sm text-ink">
-                <span className="text-muted">Reach:</span>{' '}
+              <p className="text-sm text-navy">
+                <span className="text-grey-blue">Reach:</span>{' '}
                 {evidence.beneficiaries_served_text}
               </p>
             )}
             {evidence.outcomes && evidence.outcomes.length > 0 && (
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink">
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-navy">
                 {evidence.outcomes.map((o, i) => (
                   <li key={i}>{o}</li>
                 ))}
@@ -275,10 +275,10 @@ export default function ProfileDetailPage() {
 
         {(contact.email || contact.phone || contact.address) && (
           <Section title="Contact">
-            <dl className="grid gap-2 text-sm text-ink sm:grid-cols-[auto_1fr] sm:gap-x-4">
+            <dl className="grid gap-2 text-sm text-navy sm:grid-cols-[auto_1fr] sm:gap-x-4">
               {contact.email && (
                 <>
-                  <dt className="text-muted">Email</dt>
+                  <dt className="text-grey-blue">Email</dt>
                   <dd>
                     <a href={`mailto:${contact.email}`} className="underline">
                       {contact.email}
@@ -288,13 +288,13 @@ export default function ProfileDetailPage() {
               )}
               {contact.phone && (
                 <>
-                  <dt className="text-muted">Phone</dt>
+                  <dt className="text-grey-blue">Phone</dt>
                   <dd>{contact.phone}</dd>
                 </>
               )}
               {contact.address && (
                 <>
-                  <dt className="text-muted">Address</dt>
+                  <dt className="text-grey-blue">Address</dt>
                   <dd>{contact.address}</dd>
                 </>
               )}
@@ -331,24 +331,24 @@ function RecordList({
         return (
           <li key={item.slug} className="border-l-2 border-rule pl-4">
             <div className="flex flex-wrap items-baseline gap-x-3">
-              <h3 className="font-medium text-ink">
+              <h3 className="font-medium text-navy">
                 <a href={jsonHref} className="hover:underline">
                   {item.slug}
                 </a>
               </h3>
               {item.status && (
-                <span className="text-xs uppercase tracking-wider text-muted">
+                <span className="text-xs uppercase tracking-wider text-grey-blue">
                   {item.status}
                 </span>
               )}
             </div>
             {item.summary && (
-              <p className="mt-1 text-sm leading-relaxed text-ink/85">{item.summary}</p>
+              <p className="mt-1 text-sm leading-relaxed text-navy/85">{item.summary}</p>
             )}
             {item.themes.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-1">
                 {item.themes.map((t) => (
-                  <span key={t} className="text-xs text-muted">
+                  <span key={t} className="text-xs text-grey-blue">
                     #{t}
                   </span>
                 ))}

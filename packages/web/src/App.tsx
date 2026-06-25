@@ -147,8 +147,8 @@ export function AppRoutes() {
         element={
           <Suspense
             fallback={
-              <div className="surface-paper min-h-screen">
-                <div className="mx-auto max-w-6xl px-6 py-12 text-sm text-muted">
+              <div className="surface-cream min-h-screen">
+                <div className="mx-auto max-w-6xl px-6 py-12 text-sm text-grey-blue">
                   Loading…
                 </div>
               </div>

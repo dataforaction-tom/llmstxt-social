@@ -72,20 +72,20 @@ export default function IdeasPage() {
   const showLoadMore = Boolean(moreCursor ?? firstPage.data?.next_cursor);
 
   return (
-    <div className="surface-paper min-h-screen">
+    <div className="surface-cream min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-10">
         <header className="mb-8 border-b border-rule pb-6">
           <div className="kicker num">Public</div>
           <h1 className="display-head mt-2 text-3xl font-medium leading-tight sm:text-4xl">
             Ideas
           </h1>
-          <p className="mt-2 max-w-prose text-sm text-muted">
+          <p className="mt-2 max-w-prose text-sm text-grey-blue">
             Specific proposals published by organisations across the Open Org
             network. Filter by theme, status, or cost range to find the work
             that connects to your priorities.
           </p>
           <p className="mt-3 text-xs">
-            <Link to="/openorg/discover" className="underline text-muted hover:text-ink">
+            <Link to="/openorg/discover" className="underline text-grey-blue hover:text-navy">
               ← Browse organisations
             </Link>
           </p>
@@ -93,7 +93,7 @@ export default function IdeasPage() {
 
         <form
           onSubmit={handleApply}
-          className="mb-8 grid gap-4 border border-rule bg-paper-2 p-4 sm:grid-cols-2 lg:grid-cols-4"
+          className="mb-8 grid gap-4 border border-rule bg-cream-dark p-4 sm:grid-cols-2 lg:grid-cols-4"
         >
           <label className="flex flex-col text-xs">
             <span className="kicker mb-1">Search</span>
@@ -104,7 +104,7 @@ export default function IdeasPage() {
                 setPendingFilters((f) => ({ ...f, q: e.target.value || undefined }))
               }
               placeholder="org name, idea name…"
-              className="border border-rule bg-paper px-2 py-1 text-sm"
+              className="border border-rule bg-cream px-2 py-1 text-sm"
             />
           </label>
 
@@ -118,7 +118,7 @@ export default function IdeasPage() {
                   theme: e.target.value || undefined,
                 }))
               }
-              className="border border-rule bg-paper px-2 py-1 text-sm"
+              className="border border-rule bg-cream px-2 py-1 text-sm"
             >
               <option value="">Any theme</option>
               {(themesQuery.data ?? []).map((t) => (
@@ -139,7 +139,7 @@ export default function IdeasPage() {
                   status: e.target.value || undefined,
                 }))
               }
-              className="border border-rule bg-paper px-2 py-1 text-sm"
+              className="border border-rule bg-cream px-2 py-1 text-sm"
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -162,21 +162,21 @@ export default function IdeasPage() {
                 }))
               }
               placeholder="e.g. 100000"
-              className="border border-rule bg-paper px-2 py-1 text-sm"
+              className="border border-rule bg-cream px-2 py-1 text-sm"
             />
           </label>
 
           <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
             <button
               type="submit"
-              className="bg-ink px-4 py-1.5 text-sm font-medium text-paper hover:bg-sage-700"
+              className="bg-teal px-4 py-1.5 text-sm font-medium text-cream hover:bg-teal-light"
             >
               Apply
             </button>
             <button
               type="button"
               onClick={handleReset}
-              className="border border-rule px-4 py-1.5 text-sm text-ink hover:bg-paper-2"
+              className="border border-rule px-4 py-1.5 text-sm text-navy hover:bg-cream-dark"
             >
               Reset
             </button>
@@ -190,15 +190,15 @@ export default function IdeasPage() {
           </div>
 
           {firstPage.isLoading ? (
-            <div className="py-16 text-center text-muted">Loading…</div>
+            <div className="py-16 text-center text-grey-blue">Loading…</div>
           ) : firstPage.isError ? (
             <div className="py-16 text-center text-red-700">
               Couldn't load ideas. Please try again.
             </div>
           ) : allRows.length === 0 ? (
             <div className="py-16 text-center">
-              <p className="font-display text-2xl text-ink">No matches.</p>
-              <p className="mt-2 text-sm text-muted">
+              <p className="font-display text-2xl text-navy">No matches.</p>
+              <p className="mt-2 text-sm text-grey-blue">
                 Try fewer filters, or widen the cost range.
               </p>
             </div>
@@ -207,34 +207,34 @@ export default function IdeasPage() {
               {allRows.map((row) => (
                 <li key={`${row.org_id}-${row.slug}`} className="py-6">
                   <div className="flex flex-wrap items-baseline justify-between gap-3">
-                    <h2 className="display-head text-xl font-medium text-ink">
+                    <h2 className="display-head text-xl font-medium text-navy">
                       {row.slug}
                     </h2>
                     {row.status && (
-                      <span className="text-xs uppercase tracking-wider text-muted">
+                      <span className="text-xs uppercase tracking-wider text-grey-blue">
                         {row.status}
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-sm text-muted">
-                    <Link to={`/openorg/${row.org_id}`} className="hover:text-ink hover:underline">
+                  <p className="mt-1 text-sm text-grey-blue">
+                    <Link to={`/openorg/${row.org_id}`} className="hover:text-navy hover:underline">
                       {row.org_name}
                     </Link>
                     {row.primary_area ? ` · ${row.primary_area}` : ''}
                   </p>
                   {row.summary && (
-                    <p className="mt-2 max-w-prose text-sm leading-relaxed text-ink/90">
+                    <p className="mt-2 max-w-prose text-sm leading-relaxed text-navy/90">
                       {row.summary}
                     </p>
                   )}
                   <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
                     {row.themes.slice(0, 6).map((t) => (
-                      <span key={t} className="font-mono text-muted">
+                      <span key={t} className="font-mono text-grey-blue">
                         #{t}
                       </span>
                     ))}
                     {(row.cost_lower || row.cost_upper) && (
-                      <span className="text-muted">
+                      <span className="text-grey-blue">
                         {row.cost_currency ?? 'GBP'}{' '}
                         {row.cost_lower?.toLocaleString() ?? '?'}–
                         {row.cost_upper?.toLocaleString() ?? '?'}
@@ -242,7 +242,7 @@ export default function IdeasPage() {
                     )}
                     <a
                       href={row.idea_url}
-                      className="text-muted underline-offset-4 hover:text-ink hover:underline"
+                      className="text-grey-blue underline-offset-4 hover:text-navy hover:underline"
                     >
                       idea.json →
                     </a>
@@ -257,7 +257,7 @@ export default function IdeasPage() {
               <button
                 onClick={handleLoadMore}
                 disabled={loadingMore}
-                className="border border-rule bg-paper px-4 py-1.5 text-sm hover:bg-paper-2 disabled:opacity-50"
+                className="border border-rule bg-cream px-4 py-1.5 text-sm hover:bg-cream-dark disabled:opacity-50"
               >
                 {loadingMore ? 'Loading…' : 'Load more'}
               </button>

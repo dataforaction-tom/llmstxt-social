@@ -10,13 +10,13 @@ import { Link } from 'react-router-dom';
 
 export default function AboutPage() {
   return (
-    <div className="surface-paper min-h-screen">
+    <div className="surface-cream min-h-screen">
       <div className="mx-auto max-w-3xl px-6 py-12">
         <div className="kicker num">About</div>
         <h1 className="display-head mt-2 text-4xl font-medium leading-tight">
           Open Org
         </h1>
-        <p className="mt-4 max-w-prose text-lg text-ink/90">
+        <p className="mt-4 max-w-prose text-lg text-navy/90">
           Open Org is a way for charities and social-sector organisations to
           publish a machine-readable profile of who they are, what they do,
           and what they're trying to achieve. Profiles federate via the
@@ -24,7 +24,7 @@ export default function AboutPage() {
             href="https://murmurations.network"
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-1 underline hover:text-ink"
+            className="ml-1 underline hover:text-navy"
           >
             Murmurations
           </a>{' '}
@@ -83,7 +83,7 @@ export default function AboutPage() {
                 href="https://docs.hypercerts.org"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-1 underline hover:text-ink"
+                className="ml-1 underline hover:text-navy"
               >
                 Hypercerts
               </a>{' '}
@@ -101,7 +101,7 @@ export default function AboutPage() {
           <p className="mt-3">
             <Link
               to="/openorg/generate"
-              className="bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-sage-700"
+              className="bg-teal px-4 py-2 text-sm font-medium text-cream hover:bg-teal-light"
             >
               Generate your profile →
             </Link>
@@ -111,25 +111,25 @@ export default function AboutPage() {
         <Section title="Browse the network">
           <ul className="ml-5 list-disc space-y-1 text-base">
             <li>
-              <Link to="/openorg/discover" className="underline hover:text-ink">
+              <Link to="/openorg/discover" className="underline hover:text-navy">
                 Organisations
               </Link>
             </li>
             <li>
-              <Link to="/openorg/ideas" className="underline hover:text-ink">
+              <Link to="/openorg/ideas" className="underline hover:text-navy">
                 Ideas
               </Link>
             </li>
           </ul>
         </Section>
 
-        <p className="mt-12 text-xs text-muted">
+        <p className="mt-12 text-xs text-grey-blue">
           Built by Good Ship. Source at{' '}
           <a
             href="https://github.com/dataforaction-tom/llmstxt-social"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-ink"
+            className="underline hover:text-navy"
           >
             github.com/dataforaction-tom/llmstxt-social
           </a>
