@@ -59,6 +59,28 @@ def test_session_routes_carry_org_id_in_path():
     assert "{org_id}" in paths["finalize_session"]
 
 
+def test_get_session_route_does_not_collide_with_create_route():
+    """POST /{org_id}/create/{kind} and GET /{org_id}/create/{session_id}
+    share the same path *structure* (one path segment after ``create/``).
+    FastAPI parameter names don't affect routing — ``{kind}`` and
+    ``{session_id}`` both match any single segment — so the two routes are
+    distinguished only by HTTP method. Verify they have disjoint method sets
+    so a GET to the create path can't accidentally hit the POST handler and
+    vice versa.
+    """
+    from llmstxt_api.routes.open_org_creator import router
+
+    by_name = {route.name: route for route in router.routes}
+    create = by_name["create_session"]
+    get = by_name["get_session"]
+
+    # Disjoint method sets — no ambiguity.
+    assert "POST" in create.methods
+    assert "GET" in get.methods
+    assert "POST" not in get.methods
+    assert "GET" not in create.methods
+
+
 # ---------------------------------------------------------------------------
 # POST /create/{kind}
 # ---------------------------------------------------------------------------
