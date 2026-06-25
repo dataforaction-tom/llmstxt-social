@@ -352,6 +352,53 @@ def _import_validator():
     return ValidationError, validate_for_kind
 
 
+def _coerce_scalar_types(payload: Any, *, schema: dict, kind: str) -> dict:
+    """Coerce numeric/bool scalars to strings where the schema requires ``type: string``.
+
+    YAML parsers (pyyaml, js-yaml) read an unquoted ``1234567`` as an integer.
+    If the schema field is ``type: string``, validation fails. Rather than
+    forcing every user to quote their values, we coerce int/float/bool values
+    to strings in-place for paths the schema declares as strings.
+
+    This is a pragmatic, schema-driven coercion — it only touches leaf scalars
+    whose schema type is ``string`` and whose current Python type is not str.
+    """
+    if not isinstance(schema, dict):
+        return payload
+
+    def _walk(node: Any, node_schema: dict) -> Any:
+        if not isinstance(node_schema, dict):
+            return node
+        node_type = node_schema.get("type")
+        if node_type == "string" and not isinstance(node, str) and node is not None:
+            # Coerce int/float/bool to string. Bool → "true"/"false" to match
+            # YAML 1.1 conventions (not Python's "True"/"False").
+            if isinstance(node, bool):
+                return "true" if node else "false"
+            return str(node)
+        if node_type == "object" and isinstance(node, dict):
+            props = node_schema.get("properties", {})
+            for key, val in node.items():
+                if key in props:
+                    node[key] = _walk(val, props[key])
+            return node
+        if node_type == "array" and isinstance(node, list):
+            item_schema = node_schema.get("items", {})
+            if isinstance(item_schema, dict):
+                return [_walk(item, item_schema) for item in node]
+            return node
+        # Handle anyOf (used by registration in the profile schema)
+        if "anyOf" in node_schema and isinstance(node, dict):
+            props = node_schema.get("properties", {})
+            for key, val in node.items():
+                if key in props:
+                    node[key] = _walk(val, props[key])
+            return node
+        return node
+
+    return _walk(payload, schema)
+
+
 def markdown_to_json(md: str, *, kind: str) -> dict:
     """Convert a markdown document with YAML frontmatter into a validated payload.
 
@@ -381,6 +428,11 @@ def markdown_to_json(md: str, *, kind: str) -> dict:
             payload["priorities"] = priorities
 
     ValidationError, validate_for_kind = _import_validator()
+    # Coerce numeric/bool scalars to strings where the schema requires strings.
+    # This handles unquoted YAML values like `charity_commission_ew: 1234567`
+    # that pyyaml parses as integers.
+    from llmstxt_core.open_org.validator import load_schema
+    payload = _coerce_scalar_types(payload, schema=load_schema(kind), kind=kind)
     try:
         validate_for_kind(payload, kind=kind)
     except ValidationError as e:
