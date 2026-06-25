@@ -7,10 +7,11 @@
 ## TL;DR
 
 A full hardening pass across Open Org: 8 bugs fixed via TDD, design system aligned
-with the editorial palette (sage accents, hostname-aware Layout), a new D3
-force-directed graph discovery view, and installable Claude skills for
-`/org-strategy` and `/org-idea`. All gates green: **core 314 · API 216 · web 171 ·
-tsc + lint clean**. 12 commits on `fix/openorg-hardening`, pushed.
+with the **actual Good Ship brand** (navy/cream/teal/DM Sans — tokens extracted
+from good-ship.co.uk), a new D3 force-directed graph discovery view, and
+installable Claude skills for `/org-strategy` and `/org-idea`. All gates green:
+**core 314 · API 216 · web 171 · tsc + lint clean**. 14 commits on
+`fix/openorg-hardening`, pushed.
 
 ## What landed (12 commits, one per fix/feature)
 
@@ -63,21 +64,28 @@ tsc + lint clean**. 12 commits on `fix/openorg-hardening`, pushed.
    `_coerce_scalar_types` walks the parsed payload against the JSON Schema and
    coerces int/float/bool leaf values to strings for any path declared `type: string`.
 
-### Styling (1 commit)
+### Styling (2 commits)
 
 9. **`style(openorg): align design system with editorial palette + sage accents`** —
-   - Sage 50–900 scale + navy colour added to `tailwind.config.js`
-   - `Layout.tsx` made hostname-aware: detects `openorg.*` prefix, renders editorial
-     chrome (paper/ink nav, "Open Org" brand, Discover/About/Generate links,
-     `bg-paper-2` footer). Blue chrome unchanged for llmstxt.social.
-   - 11 `hover:bg-primary-700` → `hover:bg-sage-700` across all Open Org pages
-   - All `emerald` success states → `sage` equivalents (7 occurrences)
-   - `.editorial-preview a` colour → `sage-700`
-   - Assistant turn border/label in Create.tsx → sage
-   - Loading/error early-returns wrapped in `surface-paper` on 5 editor pages
-   - Body font → `theme('fontFamily.sans')` (Public Sans)
-   - `.btn-editorial` and `.btn-editorial-secondary` component classes added
-   - Remaining `primary-700` leaks in Discover.tsx and PublishStrip.tsx fixed
+   Initial pass: sage/navy tokens, hostname-aware Layout, 11 hover leaks fixed.
+   *(Superseded by commit 14 — kept for history.)*
+
+10. **`style(openorg): align with actual Good Ship brand tokens (navy/cream/teal/DM Sans)`** —
+    Replaced the initial editorial palette with the **actual Good Ship brand tokens**
+    extracted from good-ship.co.uk CSS custom properties:
+    - `paper #FAF7F2` → `cream #F5F0E8`
+    - `paper-2` → `cream-dark #EBE4D8`
+    - `ink #1A1814` → `navy #1B2A4A`
+    - `muted` → `grey-blue #8BA4B8`
+    - `sage` → `teal #2D8B7A` / `teal-light #3AA08D`
+    - Added `amber #D4993D`, `amber-light`, `coral #C75B3A`, `navy-light`, `paper-white #FEFCF9`
+    - `Public Sans` → `DM Sans` (body font — installed @fontsource-variable/dm-sans, removed public-sans)
+    - Buttons: teal bg with cream text (not ink bg)
+    - `.surface-paper` → `.surface-cream` + added `.surface-navy` for dark sections
+    - `.btn-editorial` → `bg-teal text-cream hover:bg-teal-light`
+    - GraphDiscovery node colours: orgs=navy, ideas=teal, strategies=amber
+    - Added navy-tinted shadows, brand border-radius (8px/16px), transition timing
+    - 36 files changed across all Open Org pages and components
 
 ### Visual discovery (2 commits)
 
