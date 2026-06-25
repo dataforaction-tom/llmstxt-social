@@ -265,14 +265,28 @@ def _pop_path(d: dict, path: tuple[str, ...]) -> Any:
 
 
 def _split_body_sections(body: str) -> list[tuple[str, str]]:
-    """Split a markdown body on ``## `` headings into ``[(heading, content), ...]``."""
-    parts = _HEADING_SPLIT_RE.split(body)
+    """Split a markdown body on ``## `` headings into ``[(heading, content), ...]``.
+
+    Fenced code blocks (``` ... ```) are masked before splitting so that
+    ``##`` headings *inside* code blocks are not mistaken for section headings.
+    """
+    # Mask fenced code blocks with same-length blank lines so column offsets
+    # are preserved and headings inside code blocks are invisible to the split.
+    masked = _FENCED_CODE_RE.sub(lambda m: "\n" * m.group(0).count("\n"), body)
+    parts = _HEADING_SPLIT_RE.split(masked)
     # parts[0] is anything before the first heading.
     # After that, parts alternates [heading, content, heading, content, ...].
+    # But the content slices refer to the masked body — we need the original
+    # body's content. So re-split using indices from the masked body.
+    # Strategy: find heading positions in masked body, then slice original body.
     sections: list[tuple[str, str]] = []
-    for i in range(1, len(parts) - 1, 2):
-        heading = parts[i].strip()
-        content = parts[i + 1].strip()
+    for match in _HEADING_SPLIT_RE.finditer(masked):
+        heading = match.group(1).strip()
+        start = match.end()
+        # Find the next heading start in the masked body, or end of body.
+        next_match = _HEADING_SPLIT_RE.search(masked, pos=start)
+        end = next_match.start() if next_match else len(masked)
+        content = body[start:end].strip()
         sections.append((heading, content))
     return sections
 
