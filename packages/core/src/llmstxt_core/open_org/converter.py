@@ -117,19 +117,32 @@ def parse_bold_items(body: str, *, body_field: str = "rationale") -> list[dict[s
     The bold title may span multiple lines; whitespace in the title is collapsed
     to single spaces. The body field name defaults to ``rationale`` (used by
     ``not_doing``); pass ``body_field="narrative"`` for tensions.
+
+    Items without a bold prefix (``- plain text``) are also accepted — the
+    whole line becomes the ``title`` and the body field is left empty. This
+    keeps the parser forgiving for human-edited markdown.
     """
-    chunks = _BOLD_ITEM_SPLIT_RE.split(body)
+    # Split on any bullet item start, then classify each chunk as bold or plain.
+    chunks = _PLAIN_ITEM_SPLIT_RE.split(body)
     out: list[dict[str, str]] = []
     # chunks[0] is anything before the first item; ignore.
     for chunk in chunks[1:]:
-        end = chunk.find("**")
-        if end == -1:
-            # Malformed — no closing **. Treat the whole chunk as the title.
-            title = _WHITESPACE_RE.sub(" ", chunk.strip())
-            rest = ""
+        text = chunk.strip()
+        if not text:
+            continue
+        if text.startswith("**"):
+            end = text.find("**", 2)
+            if end == -1:
+                # Malformed — no closing **. Treat the whole chunk as the title.
+                title = _WHITESPACE_RE.sub(" ", text)
+                rest = ""
+            else:
+                title = _WHITESPACE_RE.sub(" ", text[2:end].strip())
+                rest = _WHITESPACE_RE.sub(" ", text[end + 2:].strip())
         else:
-            title = _WHITESPACE_RE.sub(" ", chunk[:end].strip())
-            rest = _WHITESPACE_RE.sub(" ", chunk[end + 2:].strip())
+            # Plain item — no bold prefix. Whole text is the title.
+            title = _WHITESPACE_RE.sub(" ", text)
+            rest = ""
         out.append({"title": title, body_field: rest})
     return out
 
