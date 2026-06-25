@@ -424,18 +424,45 @@ class GraphNode(BaseModel):
     # idea/strategy-only
     org_id: str | None = None
     cost_range: list[int] | None = None
+    summary: str | None = None
+    # idea-only — place + connections are surfaced to the side panel
+    place: str | None = None
+    connections: list[dict] | None = None
+    # strategy-only — period + priorities count
+    period: dict | None = None
+    priorities_count: int | None = None
 
 
 class GraphEdge(BaseModel):
     source: str
     target: str
     type: str  # "org_idea" | "org_strategy" | "shared_theme" | "shared_area"
+              # | "strategy_idea" | "idea_idea_shared_theme"
+              # | "idea_idea_shared_place" | "idea_idea_explicit"
+              # | "strategy_strategy_shared_theme" | "idea_org_connection"
     weight: int | None = None
+    relationship: str | None = None
+    description: str | None = None
+
+
+class GraphCluster(BaseModel):
+    description: str
+    themes: list[str] = Field(default_factory=list)
+
+
+class GraphSummary(BaseModel):
+    total_nodes: int
+    total_edges: int
+    organisations: int = 0
+    ideas: int = 0
+    strategies: int = 0
+    clusters: list[GraphCluster] = Field(default_factory=list)
 
 
 class GraphPayload(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+    graph_summary: GraphSummary | None = None
 
 
 def _profile_themes(profile: OrgProfile) -> list[str]:
@@ -469,6 +496,32 @@ def _idea_name(idea: OrgIdea) -> str:
     return idea.slug
 
 
+def _idea_summary(idea: OrgIdea) -> str | None:
+    summary = (idea.idea_json or {}).get("summary")
+    return summary if isinstance(summary, str) and summary else None
+
+
+def _idea_place(idea: OrgIdea) -> str | None:
+    place = (idea.idea_json or {}).get("place") or {}
+    desc = place.get("description")
+    return desc if isinstance(desc, str) and desc else None
+
+
+def _idea_area_codes(idea: OrgIdea) -> set[str]:
+    place = (idea.idea_json or {}).get("place") or {}
+    codes = place.get("area_codes")
+    if not isinstance(codes, list):
+        return set()
+    return {str(c) for c in codes if isinstance(c, str) and c}
+
+
+def _idea_connections(idea: OrgIdea) -> list[dict]:
+    conns = (idea.idea_json or {}).get("connections")
+    if not isinstance(conns, list):
+        return []
+    return [c for c in conns if isinstance(c, dict)]
+
+
 def _idea_cost_range(idea: OrgIdea) -> list[int] | None:
     payload = idea.idea_json or {}
     cost = payload.get("indicative_cost") or {}
@@ -489,6 +542,21 @@ def _strategy_name(strategy: OrgStrategy) -> str:
     if isinstance(title, str) and title:
         return title
     return strategy.slug
+
+
+def _strategy_summary(strategy: OrgStrategy) -> str | None:
+    summary = (strategy.strategy_json or {}).get("summary")
+    return summary if isinstance(summary, str) and summary else None
+
+
+def _strategy_period(strategy: OrgStrategy) -> dict | None:
+    period = (strategy.strategy_json or {}).get("period")
+    return period if isinstance(period, dict) else None
+
+
+def _strategy_priorities_count(strategy: OrgStrategy) -> int | None:
+    priorities = (strategy.strategy_json or {}).get("priorities")
+    return len(priorities) if isinstance(priorities, list) else None
 
 
 def _strategy_themes(strategy: OrgStrategy) -> list[str]:
@@ -576,6 +644,9 @@ def _build_graph(
             themes=idea_themes,
             org_id=idea.org_id,
             cost_range=_idea_cost_range(idea),
+            summary=_idea_summary(idea),
+            place=_idea_place(idea),
+            connections=_idea_connections(idea) or None,
         ))
         edges.append(GraphEdge(
             source=idea.org_id,
@@ -583,6 +654,8 @@ def _build_graph(
             type="org_idea",
         ))
 
+    # Map strategy JSON id -> strategy node id, for strategy_idea edges.
+    strategy_json_id_to_node_id: dict[str, str] = {}
     strategy_themes_by_org: dict[str, list[str]] = {}
     for strategy in strategies:
         if strategy.org_id not in profile_org_ids:
@@ -591,18 +664,25 @@ def _build_graph(
         if not _matches_themes(strat_themes):
             continue
         strategy_themes_by_org.setdefault(strategy.org_id, []).extend(strat_themes)
+        node_id = f"strategy:{strategy.org_id}:{strategy.slug}"
         nodes.append(GraphNode(
-            id=f"strategy:{strategy.org_id}:{strategy.slug}",
+            id=node_id,
             type="strategy",
             name=_strategy_name(strategy),
             themes=strat_themes,
             org_id=strategy.org_id,
+            summary=_strategy_summary(strategy),
+            period=_strategy_period(strategy),
+            priorities_count=_strategy_priorities_count(strategy),
         ))
         edges.append(GraphEdge(
             source=strategy.org_id,
-            target=f"strategy:{strategy.org_id}:{strategy.slug}",
+            target=node_id,
             type="org_strategy",
         ))
+        json_id = (strategy.strategy_json or {}).get("id")
+        if isinstance(json_id, str) and json_id:
+            strategy_json_id_to_node_id[json_id] = node_id
 
     # Organisation nodes — must match theme filter (against profile themes OR
     # its ideas/strategies themes that survived filtering, so an org whose only
@@ -630,6 +710,7 @@ def _build_graph(
 
     # Org-org edges: shared themes and shared area.
     org_nodes = [n for n in nodes if n.type == "organisation"]
+    org_node_ids = {n.id for n in org_nodes}
     for i, a in enumerate(org_nodes):
         a_themes = set(a.themes)
         a_area = a.area
@@ -644,10 +725,174 @@ def _build_graph(
                     source=a.id, target=b.id, type="shared_area", weight=1,
                 ))
 
+    # --- semantic connections ------------------------------------------------
+    # Collect idea/strategy node ids by (org_id, slug) for cross-referencing.
+    idea_node_ids = {n.id for n in nodes if n.type == "idea"}
+    strategy_node_ids = {n.id for n in nodes if n.type == "strategy"}
+
+    # Flat list of idea ORM objects that survived filtering (paired with node id).
+    surviving_ideas: list[tuple[str, OrgIdea]] = []
+    for org_id, org_ideas in ideas_by_org.items():
+        for idea in org_ideas:
+            node_id = f"idea:{idea.org_id}:{idea.slug}"
+            if node_id in idea_node_ids:
+                surviving_ideas.append((node_id, idea))
+
+    surviving_strategies: list[tuple[str, OrgStrategy]] = []
+    for strategy in strategies:
+        if strategy.org_id not in profile_org_ids:
+            continue
+        node_id = f"strategy:{strategy.org_id}:{strategy.slug}"
+        if node_id in strategy_node_ids:
+            surviving_strategies.append((node_id, strategy))
+
+    # a) Strategy → Idea edges (via idea.linked_strategy_id → strategy JSON id)
+    for idea_node_id, idea in surviving_ideas:
+        linked_id = (idea.idea_json or {}).get("linked_strategy_id")
+        if not isinstance(linked_id, str) or not linked_id:
+            continue
+        strat_node_id = strategy_json_id_to_node_id.get(linked_id)
+        if strat_node_id and strat_node_id in strategy_node_ids:
+            edges.append(GraphEdge(
+                source=strat_node_id,
+                target=idea_node_id,
+                type="strategy_idea",
+            ))
+
+    # b) Idea → Idea shared theme edges (different orgs only)
+    for i, (a_id, a_idea) in enumerate(surviving_ideas):
+        a_themes = set(a_idea.themes or [])
+        for b_id, b_idea in surviving_ideas[i + 1:]:
+            if a_idea.org_id == b_idea.org_id:
+                continue
+            shared = a_themes & set(b_idea.themes or [])
+            if shared:
+                edges.append(GraphEdge(
+                    source=a_id, target=b_id,
+                    type="idea_idea_shared_theme", weight=len(shared),
+                ))
+
+    # c) Idea → Idea shared place edges (different orgs; description or area_codes)
+    for i, (a_id, a_idea) in enumerate(surviving_ideas):
+        a_desc = (_idea_place(a_idea) or "").lower() or None
+        a_codes = _idea_area_codes(a_idea)
+        for b_id, b_idea in surviving_ideas[i + 1:]:
+            if a_idea.org_id == b_idea.org_id:
+                continue
+            b_desc = (_idea_place(b_idea) or "").lower() or None
+            b_codes = _idea_area_codes(b_idea)
+            matched_place: str | None = None
+            if a_desc and b_desc and a_desc == b_desc:
+                matched_place = _idea_place(a_idea)
+            elif a_codes and b_codes and (a_codes & b_codes):
+                # Area codes overlap but no human-readable description — use a
+                # representative label from whichever idea has one, else the
+                # shared area code.
+                matched_place = (
+                    _idea_place(a_idea) or _idea_place(b_idea)
+                    or sorted(a_codes & b_codes)[0]
+                )
+            if matched_place:
+                edges.append(GraphEdge(
+                    source=a_id, target=b_id,
+                    type="idea_idea_shared_place",
+                    description=f"Both in {matched_place}",
+                ))
+
+    # d) Idea → Org explicit connection edges (idea.connections[].org_id)
+    for idea_node_id, idea in surviving_ideas:
+        for conn in _idea_connections(idea):
+            org_id = conn.get("org_id")
+            rel = conn.get("relationship")
+            if isinstance(org_id, str) and org_id in org_node_ids and org_id != idea.org_id:
+                edges.append(GraphEdge(
+                    source=idea_node_id,
+                    target=org_id,
+                    type="idea_org_connection",
+                    relationship=rel if isinstance(rel, str) else None,
+                ))
+
+    # e) Strategy → Strategy shared theme edges (different orgs only)
+    for i, (a_id, a_strat) in enumerate(surviving_strategies):
+        a_themes = set(a_strat.themes or [])
+        for b_id, b_strat in surviving_strategies[i + 1:]:
+            if a_strat.org_id == b_strat.org_id:
+                continue
+            shared = a_themes & set(b_strat.themes or [])
+            if shared:
+                edges.append(GraphEdge(
+                    source=a_id, target=b_id,
+                    type="strategy_strategy_shared_theme", weight=len(shared),
+                ))
+
     # Sort for deterministic output.
     nodes.sort(key=lambda n: n.id)
     edges.sort(key=lambda e: (e.source, e.target, e.type))
-    return GraphPayload(nodes=nodes, edges=edges)
+
+    # --- graph summary --------------------------------------------------------
+    graph_summary = _build_graph_summary(nodes, edges)
+
+    return GraphPayload(nodes=nodes, edges=edges, graph_summary=graph_summary)
+
+
+def _build_graph_summary(
+    nodes: list[GraphNode], edges: list[GraphEdge]
+) -> GraphSummary:
+    """Aggregate counts + connected-component clusters (≥2 nodes)."""
+    org_count = sum(1 for n in nodes if n.type == "organisation")
+    idea_count = sum(1 for n in nodes if n.type == "idea")
+    strategy_count = sum(1 for n in nodes if n.type == "strategy")
+
+    # Union-Find for connected components (undirected — direction ignored).
+    parent: dict[str, str] = {n.id: n.id for n in nodes}
+
+    def find(x: str) -> str:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: str, b: str) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    for e in edges:
+        if e.source in parent and e.target in parent:
+            union(e.source, e.target)
+
+    components: dict[str, list[GraphNode]] = {}
+    for n in nodes:
+        root = find(n.id)
+        components.setdefault(root, []).append(n)
+
+    clusters: list[GraphCluster] = []
+    for comp_nodes in components.values():
+        if len(comp_nodes) < 2:
+            continue
+        orgs = sum(1 for n in comp_nodes if n.type == "organisation")
+        ideas = sum(1 for n in comp_nodes if n.type == "idea")
+        themes_in_cluster: list[str] = sorted({
+            t for n in comp_nodes for t in (n.themes or [])
+        })
+        description = (
+            f"{orgs} organisation{'s' if orgs != 1 else ''}, "
+            f"{ideas} idea{'s' if ideas != 1 else ''}"
+            f" around {', '.join(themes_in_cluster) if themes_in_cluster else 'no themes'}"
+        )
+        clusters.append(GraphCluster(description=description, themes=themes_in_cluster))
+
+    # Deterministic order: by size desc, then description.
+    clusters.sort(key=lambda c: (-len(c.themes), c.description))
+
+    return GraphSummary(
+        total_nodes=len(nodes),
+        total_edges=len(edges),
+        organisations=org_count,
+        ideas=idea_count,
+        strategies=strategy_count,
+        clusters=clusters,
+    )
 
 
 __all__ = [
@@ -656,6 +901,8 @@ __all__ = [
     "GraphPayload",
     "GraphNode",
     "GraphEdge",
+    "GraphCluster",
+    "GraphSummary",
     "IdeaPage",
     "IdeaRow",
     "discover",

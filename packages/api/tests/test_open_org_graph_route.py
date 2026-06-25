@@ -65,9 +65,27 @@ def _strategy(
     themes: list[str] | None = None,
     status: str = "active",
     title: str | None = None,
+    summary: str | None = None,
+    strategy_id: str | None = None,
+    priorities: list[dict] | None = None,
+    period: dict | None = None,
 ):
     from llmstxt_api.open_org_models import OrgStrategy
 
+    payload: dict = {
+        "schema_version": "open-org-strategy/v0.1",
+        "id": strategy_id or slug,
+        "status": status,
+        "themes": themes or ["education"],
+    }
+    if title:
+        payload["title"] = title
+    if summary:
+        payload["summary"] = summary
+    if priorities is not None:
+        payload["priorities"] = priorities
+    if period is not None:
+        payload["period"] = period
     return OrgStrategy(
         id=uuid.uuid4(),
         org_id=org_id,
@@ -75,13 +93,7 @@ def _strategy(
         published=True,
         status=status,
         themes=themes or ["education"],
-        strategy_json={
-            "schema_version": "open-org-strategy/v0.1",
-            "id": slug,
-            "status": status,
-            "themes": themes or ["education"],
-            **({"title": title} if title else {}),
-        },
+        strategy_json=payload,
     )
 
 
@@ -94,6 +106,10 @@ def _idea(
     title: str | None = None,
     cost_lower: int | None = None,
     cost_upper: int | None = None,
+    summary: str | None = None,
+    place: dict | None = None,
+    connections: list[dict] | None = None,
+    linked_strategy_id: str | None = None,
 ):
     from llmstxt_api.open_org_models import OrgIdea
 
@@ -105,6 +121,14 @@ def _idea(
     }
     if title:
         idea_json["title"] = title
+    if summary:
+        idea_json["summary"] = summary
+    if place is not None:
+        idea_json["place"] = place
+    if connections is not None:
+        idea_json["connections"] = connections
+    if linked_strategy_id is not None:
+        idea_json["linked_strategy_id"] = linked_strategy_id
     if cost_lower is not None or cost_upper is not None:
         idea_json["indicative_cost"] = {
             "lower": cost_lower,
@@ -319,3 +343,324 @@ async def test_idea_node_includes_cost_range():
     body = _body(await graph(themes=None, limit=100, db=db))
     idea_node = next(n for n in body["nodes"] if n["type"] == "idea")
     assert idea_node["cost_range"] == [80_000, 120_000]
+
+
+# ---------------------------------------------------------------------------
+# Semantic connection tests (Task 1)
+# ---------------------------------------------------------------------------
+
+
+async def test_strategy_to_idea_edge_via_linked_strategy_id():
+    """An idea with linked_strategy_id matching a strategy JSON id creates a
+    strategy_idea edge from the strategy node to the idea node."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Alpha"),
+            _local(org_id="GB-CHC-2", name="Beta"),
+        ],
+        ideas=[
+            # Org 2's idea links to org 1's strategy by JSON id
+            _idea(
+                org_id="GB-CHC-2",
+                slug="shared-lunch",
+                linked_strategy_id="strat-2025",
+            ),
+        ],
+        strategies=[
+            _strategy(
+                org_id="GB-CHC-1",
+                slug="2025-2028",
+                strategy_id="strat-2025",
+                title="2025-2028 Strategy",
+            ),
+        ],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    edge_types = {(e["source"], e["target"], e["type"]) for e in body["edges"]}
+    assert (
+        "strategy:GB-CHC-1:2025-2028",
+        "idea:GB-CHC-2:shared-lunch",
+        "strategy_idea",
+    ) in edge_types
+
+
+async def test_idea_idea_shared_theme_edge_with_weight():
+    """Two ideas from different orgs sharing at least one theme get an
+    idea_idea_shared_theme edge with weight = shared theme count."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Alpha"),
+            _local(org_id="GB-CHC-2", name="Beta"),
+        ],
+        ideas=[
+            _idea(org_id="GB-CHC-1", slug="kitchen", themes=["food_access", "health"]),
+            _idea(org_id="GB-CHC-2", slug="pantry", themes=["food_access", "mental_health"]),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    shared = [
+        e for e in body["edges"]
+        if e["type"] == "idea_idea_shared_theme"
+        and {e["source"], e["target"]} == {
+            "idea:GB-CHC-1:kitchen",
+            "idea:GB-CHC-2:pantry",
+        }
+    ]
+    assert len(shared) == 1
+    assert shared[0]["weight"] == 1  # only food_access is shared
+
+
+async def test_idea_idea_shared_theme_excludes_same_org_ideas():
+    """Ideas from the same org don't get idea_idea_shared_theme edges."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[_local(org_id="GB-CHC-1", name="Alpha")],
+        ideas=[
+            _idea(org_id="GB-CHC-1", slug="a", themes=["food_access"]),
+            _idea(org_id="GB-CHC-1", slug="b", themes=["food_access"]),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    shared = [e for e in body["edges"] if e["type"] == "idea_idea_shared_theme"]
+    assert shared == []
+
+
+async def test_idea_idea_shared_place_edge_with_description():
+    """Two ideas from different orgs in the same place (matching description,
+    case-insensitive) get an idea_idea_shared_place edge with description."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Alpha"),
+            _local(org_id="GB-CHC-2", name="Beta"),
+        ],
+        ideas=[
+            _idea(
+                org_id="GB-CHC-1",
+                slug="kitchen",
+                place={"description": "Great Yarmouth"},
+            ),
+            _idea(
+                org_id="GB-CHC-2",
+                slug="pantry",
+                place={"description": "great yarmouth"},
+            ),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    shared = [
+        e for e in body["edges"]
+        if e["type"] == "idea_idea_shared_place"
+        and {e["source"], e["target"]} == {
+            "idea:GB-CHC-1:kitchen",
+            "idea:GB-CHC-2:pantry",
+        }
+    ]
+    assert len(shared) == 1
+    assert shared[0]["description"] == "Both in Great Yarmouth"
+
+
+async def test_idea_idea_shared_place_via_area_codes_overlap():
+    """Two ideas from different orgs with overlapping area_codes get an
+    idea_idea_shared_place edge."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Alpha"),
+            _local(org_id="GB-CHC-2", name="Beta"),
+        ],
+        ideas=[
+            _idea(
+                org_id="GB-CHC-1",
+                slug="a",
+                place={"area_codes": ["E06000010"]},
+            ),
+            _idea(
+                org_id="GB-CHC-2",
+                slug="b",
+                place={"area_codes": ["E06000010", "E06000011"]},
+            ),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    shared = [e for e in body["edges"] if e["type"] == "idea_idea_shared_place"]
+    assert len(shared) == 1
+
+
+async def test_idea_org_connection_edge_with_relationship_label():
+    """An idea with a connection to a published org gets an idea_org_connection
+    edge from the idea node to the org node, labelled with the relationship."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Alpha"),
+            _local(org_id="GB-CHC-2", name="Beta"),
+        ],
+        ideas=[
+            _idea(
+                org_id="GB-CHC-1",
+                slug="kitchen",
+                connections=[
+                    {"org_name": "Beta", "org_id": "GB-CHC-2", "relationship": "complementary"},
+                ],
+            ),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    conn = [
+        e for e in body["edges"]
+        if e["type"] == "idea_org_connection"
+        and e["source"] == "idea:GB-CHC-1:kitchen"
+        and e["target"] == "GB-CHC-2"
+    ]
+    assert len(conn) == 1
+    assert conn[0]["relationship"] == "complementary"
+
+
+async def test_idea_org_connection_ignores_non_published_orgs():
+    """A connection to an org_id that isn't in the graph produces no edge."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[_local(org_id="GB-CHC-1", name="Alpha")],
+        ideas=[
+            _idea(
+                org_id="GB-CHC-1",
+                slug="kitchen",
+                connections=[
+                    {"org_name": "Ghost", "org_id": "GB-CHC-999", "relationship": "collaborating"},
+                ],
+            ),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    assert [e for e in body["edges"] if e["type"] == "idea_org_connection"] == []
+
+
+async def test_strategy_strategy_shared_theme_edge_with_weight():
+    """Two strategies from different orgs with shared themes get a
+    strategy_strategy_shared_theme edge with weight = shared count."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Alpha"),
+            _local(org_id="GB-CHC-2", name="Beta"),
+        ],
+        ideas=[],
+        strategies=[
+            _strategy(org_id="GB-CHC-1", slug="s1", themes=["food_access", "health"]),
+            _strategy(org_id="GB-CHC-2", slug="s2", themes=["food_access", "education"]),
+        ],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    shared = [
+        e for e in body["edges"]
+        if e["type"] == "strategy_strategy_shared_theme"
+        and {e["source"], e["target"]} == {
+            "strategy:GB-CHC-1:s1",
+            "strategy:GB-CHC-2:s2",
+        }
+    ]
+    assert len(shared) == 1
+    assert shared[0]["weight"] == 1  # only food_access
+
+
+async def test_idea_node_carries_summary_field():
+    """An idea node's summary comes from idea_json['summary']."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[_local(org_id="GB-CHC-1", name="Alpha")],
+        ideas=[
+            _idea(org_id="GB-CHC-1", slug="kitchen", summary="A community kitchen."),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    idea_node = next(n for n in body["nodes"] if n["type"] == "idea")
+    assert idea_node["summary"] == "A community kitchen."
+
+
+async def test_strategy_node_carries_summary_field():
+    """A strategy node's summary comes from strategy_json['summary']."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[_local(org_id="GB-CHC-1", name="Alpha")],
+        ideas=[],
+        strategies=[
+            _strategy(org_id="GB-CHC-1", slug="2025", summary="Three-year plan."),
+        ],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    strat_node = next(n for n in body["nodes"] if n["type"] == "strategy")
+    assert strat_node["summary"] == "Three-year plan."
+
+
+async def test_graph_summary_field_counts_nodes_and_edges():
+    """The graph payload includes a summary with total counts by type and
+    a clusters list."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Alpha", themes=["food_access"]),
+            _local(org_id="GB-CHC-2", name="Beta", themes=["food_access"]),
+        ],
+        ideas=[
+            _idea(org_id="GB-CHC-1", slug="k1", themes=["food_access"]),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=None, limit=100, db=db))
+    summary = body["graph_summary"]
+    assert summary["total_nodes"] == len(body["nodes"])
+    assert summary["total_edges"] == len(body["edges"])
+    assert summary["organisations"] == 2
+    assert summary["ideas"] == 1
+    assert summary["strategies"] == 0
+    # The two orgs + idea form a connected cluster
+    assert isinstance(summary["clusters"], list)
+    assert len(summary["clusters"]) >= 1
+    cluster = summary["clusters"][0]
+    assert "description" in cluster
+    assert "themes" in cluster
+
+
+async def test_theme_filter_still_works_with_new_edge_types():
+    """The theme filter still excludes nodes and edges for non-matching
+    themes, even with the new semantic edges."""
+    from llmstxt_api.routes.open_org_discovery import graph
+
+    db = _stub_db(
+        profiles=[
+            _local(org_id="GB-CHC-1", name="Food Org", themes=["food_access"]),
+            _local(org_id="GB-CHC-2", name="Edu Org", themes=["education"]),
+        ],
+        ideas=[
+            _idea(org_id="GB-CHC-1", slug="kitchen", themes=["food_access"]),
+            _idea(org_id="GB-CHC-2", slug="tutoring", themes=["education"]),
+        ],
+        strategies=[],
+    )
+    body = _body(await graph(themes=["food_access"], limit=100, db=db))
+    node_ids = {n["id"] for n in body["nodes"]}
+    assert "idea:GB-CHC-1:kitchen" in node_ids
+    assert "idea:GB-CHC-2:tutoring" not in node_ids
+    # No idea_idea edges because only one idea survived the filter
+    assert [e for e in body["edges"] if e["type"].startswith("idea_idea")] == []
