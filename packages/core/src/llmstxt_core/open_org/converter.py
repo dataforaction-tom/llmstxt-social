@@ -265,12 +265,158 @@ def _render_bold_items_narrative(value):
     return render_bold_items(value, body_field="narrative")
 
 
+# --- evidence section (profile) --------------------------------------------
+# Evidence items are rendered as ### {evidence_id}: {title} subsections inside
+# a ## Evidence body section. The subsection body is free-text description
+# followed by YAML-style metadata bullets:
+#   - **type:** evaluation
+#   - **date:** 2024-06-01
+#   - **url:** https://example.org/report.pdf
+#   - **themes:** food_access, social_prescribing
+#   - **outcomes:}
+#     - 500 meals served per month
+#     - 40% reduction in loneliness scores
+
+_EVIDENCE_SUBHEAD_RE = re.compile(r"(?m)^### (.+?)$")
+_EVIDENCE_ID_TITLE_RE = re.compile(r"^([^:]+):\s*(.*)$")
+
+
+def _split_evidence_subsections(body: str) -> list[tuple[str, str, str]]:
+    """Split the ## Evidence body on ``### `` headings.
+
+    Returns ``[(evidence_id, title, subsection_body), ...]``.
+    """
+    masked = _FENCED_CODE_RE.sub(lambda m: "\n" * m.group(0).count("\n"), body)
+    sections: list[tuple[str, str, str]] = []
+    for match in _EVIDENCE_SUBHEAD_RE.finditer(masked):
+        heading = match.group(1).strip()
+        id_title = _EVIDENCE_ID_TITLE_RE.match(heading)
+        if not id_title:
+            # No colon in heading — treat the whole heading as the id, empty title.
+            evidence_id = heading
+            title = ""
+        else:
+            evidence_id = id_title.group(1).strip()
+            title = id_title.group(2).strip()
+        start = match.end()
+        next_match = _EVIDENCE_SUBHEAD_RE.search(masked, pos=start)
+        end = next_match.start() if next_match else len(masked)
+        sub_body = body[start:end].strip()
+        sections.append((evidence_id, title, sub_body))
+    return sections
+
+
+def _parse_evidence_metadata(sub_body: str) -> tuple[str, dict[str, Any]]:
+    """Extract description text and metadata from an evidence subsection body.
+
+    The metadata lines are ``- **key:** value`` bullets. ``themes`` is a
+    comma-separated string; ``outcomes`` is a nested bullet list.
+    Returns ``(description, metadata_dict)``.
+    """
+    lines = sub_body.splitlines()
+    desc_lines: list[str] = []
+    metadata: dict[str, Any] = {}
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        # Detect metadata bullet: - **key:** value
+        m = re.match(r"^-\s+\*\*([^*]+):\*\*\s*(.*)$", stripped)
+        if m:
+            key = m.group(1).strip()
+            value = m.group(2).strip()
+            if key == "themes":
+                metadata["themes"] = [
+                    t.strip() for t in value.split(",") if t.strip()
+                ]
+            elif key == "outcomes":
+                outcomes: list[str] = []
+                # If value is non-empty, capture inline value.
+                if value:
+                    outcomes.append(value)
+                # Collect nested bullet items (- item) that follow.
+                j = i + 1
+                while j < len(lines):
+                    nested = lines[j].strip()
+                    if nested.startswith("- ") and not re.match(
+                        r"^-\s+\*\*([^*]+):\*\*", nested
+                    ):
+                        outcomes.append(nested[2:].strip())
+                        j += 1
+                    else:
+                        break
+                metadata["outcomes"] = outcomes
+                i = j
+                continue
+            elif key == "type":
+                metadata["evidence_type"] = value
+            else:
+                metadata[key] = value
+            i += 1
+            continue
+        desc_lines.append(line)
+        i += 1
+    description = "\n".join(desc_lines).strip()
+    return description, metadata
+
+
+def parse_evidence(body: str) -> list[dict[str, Any]]:
+    """Parse a ``## Evidence`` body section into a list of evidence item dicts."""
+    subsections = _split_evidence_subsections(body)
+    out: list[dict[str, Any]] = []
+    for evidence_id, title, sub_body in subsections:
+        description, metadata = _parse_evidence_metadata(sub_body)
+        item: dict[str, Any] = {"evidence_id": evidence_id, "title": title}
+        if description:
+            item["description"] = description
+        # Ordered insertion for stable round-trip.
+        for key in ("evidence_type", "date", "url", "themes", "outcomes"):
+            if key in metadata and metadata[key] not in (None, "", []):
+                item[key] = metadata[key]
+        out.append(item)
+    return out
+
+
+def render_evidence(items: list[dict[str, Any]]) -> str:
+    """Render evidence items as ``### {evidence_id}: {title}`` subsections."""
+    chunks: list[str] = []
+    for item in items:
+        evidence_id = item.get("evidence_id", "")
+        title = item.get("title", "")
+        heading = f"### {evidence_id}: {title}".rstrip()
+        lines: list[str] = [heading]
+        desc = item.get("description", "")
+        if desc:
+            lines.append("")
+            lines.append(desc)
+        meta_lines: list[str] = []
+        if "evidence_type" in item:
+            meta_lines.append(f"- **type:** {item['evidence_type']}")
+        if "date" in item:
+            meta_lines.append(f"- **date:** {item['date']}")
+        if "url" in item:
+            meta_lines.append(f"- **url:** {item['url']}")
+        if "themes" in item and item["themes"]:
+            meta_lines.append(f"- **themes:** {', '.join(item['themes'])}")
+        if "outcomes" in item and item["outcomes"]:
+            meta_lines.append("- **outcomes:**")
+            for o in item["outcomes"]:
+                meta_lines.append(f"  - {o}")
+        if meta_lines:
+            lines.append("")
+            lines.extend(meta_lines)
+        chunks.append("\n".join(lines))
+    return "\n\n".join(chunks)
+
+
 _BODY_SECTIONS: dict[str, list[tuple[str, tuple[str, ...], Any, Any]]] = {
     "profile": [
         ("Mission", ("mission", "summary"), parse_text, render_text),
         ("Theory of change", ("mission", "theory_of_change"), parse_text, render_text),
         ("Culture", ("culture", "narrative"), parse_text, render_text),
         ("Values", ("values",), parse_bullet_list, render_bullet_list),
+        # Evidence is a top-level array with ### subsections — handled specially
+        # below via the _SPECIAL_SECTIONS mechanism.
     ],
     "strategy": [
         ("Summary", ("summary",), parse_text, render_text),
@@ -427,6 +573,10 @@ def markdown_to_json(md: str, *, kind: str) -> dict:
         if priorities:
             payload["priorities"] = priorities
 
+    # Evidence section: ### subsections inside ## Evidence — parsed specially.
+    if kind == "profile" and "Evidence" in sections_by_heading:
+        payload["evidence"] = parse_evidence(sections_by_heading["Evidence"])
+
     ValidationError, validate_for_kind = _import_validator()
     # Coerce numeric/bool scalars to strings where the schema requires strings.
     # This handles unquoted YAML values like `charity_commission_ew: 1234567`
@@ -497,6 +647,16 @@ def json_to_markdown(payload: dict, *, kind: str) -> str:
         priorities = _pop_path(working, ("priorities",))
         if priorities:
             body_chunks.append(render_priorities(priorities))
+
+    # Evidence is rendered as ## Evidence with ### subsections.
+    if kind == "profile":
+        evidence = _pop_path(working, ("evidence",))
+        if evidence is not None:
+            rendered = render_evidence(evidence)
+            if rendered:
+                body_chunks.append(f"## Evidence\n\n{rendered}")
+            else:
+                body_chunks.append("## Evidence\n")
 
     yaml_str = yaml.dump(
         working,

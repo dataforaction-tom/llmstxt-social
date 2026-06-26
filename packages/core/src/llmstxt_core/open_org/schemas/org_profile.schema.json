@@ -177,6 +177,33 @@
     "values": {
       "type": "array",
       "items": {"type": "string"}
+    },
+    "evidence": {
+      "description": "Structured evidence items — evaluations, outcome data, programme delivery evidence, learning reflections.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["evidence_id", "title"],
+        "properties": {
+          "evidence_id": {"type": "string", "minLength": 1},
+          "title": {"type": "string", "minLength": 1},
+          "description": {"type": "string"},
+          "evidence_type": {
+            "type": "string",
+            "enum": ["evaluation", "outcome_data", "annual_report", "case_study", "learning_reflection", "external_research", "other"]
+          },
+          "date": {"type": "string", "format": "date"},
+          "url": {"type": "string", "format": "uri"},
+          "themes": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "outcomes": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
+      }
     }
   }
 }
