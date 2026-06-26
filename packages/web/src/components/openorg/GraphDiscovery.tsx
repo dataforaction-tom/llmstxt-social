@@ -297,7 +297,12 @@ export default function GraphDiscovery() {
   // --- visible links (explicit-only filter) --------------------------------
   const visibleLinks = useMemo(() => {
     if (!explicitOnly) return simLinks;
-    return simLinks.filter((l) => !EDGE_STROKE[l.type].derived);
+    // Unknown edge types (newer backend than bundle) can't be classified as
+    // explicit, so hide them in explicit-only mode rather than crashing.
+    return simLinks.filter((l) => {
+      const style = EDGE_STROKE[l.type];
+      return style ? !style.derived : false;
+    });
   }, [simLinks, explicitOnly]);
 
   // --- detail link ---------------------------------------------------------
@@ -472,6 +477,10 @@ export default function GraphDiscovery() {
                 const t = link.target as SimNode;
                 if (s.x == null || s.y == null || t.x == null || t.y == null) return null;
                 const style = EDGE_STROKE[link.type];
+                // Forward-compat: the backend may ship a new semantic edge type
+                // before this bundle knows about it. Skip unknown types instead
+                // of crashing on style.stroke (see fix/openorg-hardening).
+                if (!style) return null;
                 const dim = isEdgeDimmed(s.id, t.id);
                 return (
                   <line

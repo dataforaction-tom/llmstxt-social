@@ -369,6 +369,34 @@ describe('GraphDiscovery', () => {
     expect(Array.from(edgeLabels).some((l) => l.textContent?.includes('complementary'))).toBe(true);
   });
 
+  it('does not crash when the API returns an unknown edge type (forward-compat)', () => {
+    // Version skew: the backend can ship a new semantic edge type before the
+    // frontend bundle knows about it. An unknown type must degrade gracefully
+    // (edge skipped) rather than throwing on EDGE_STROKE[type].stroke.
+    graphDataValue = {
+      ...mockGraphData,
+      edges: [
+        ...mockGraphData.edges,
+        {
+          source: 'GB-CHC-1',
+          target: 'GB-CHC-2',
+          // a type not present in EDGE_STROKE
+          type: 'future_edge_type' as never,
+        },
+      ],
+    };
+    const { container } = renderComponent();
+    // Renders without throwing; known edges still present, unknown one skipped.
+    expect(container.querySelector('svg')).toBeInTheDocument();
+    const types = new Set(
+      Array.from(container.querySelectorAll('svg line[data-edge-type]')).map((l) =>
+        l.getAttribute('data-edge-type'),
+      ),
+    );
+    expect(types.has('org_idea')).toBe(true);
+    expect(types.has('future_edge_type')).toBe(false);
+  });
+
   it('legend shows all edge type swatches', () => {
     renderComponent();
     const legend = screen.getByTestId('graph-legend');
