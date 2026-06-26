@@ -1,169 +1,182 @@
-# Handoff — Open Org hardening, styling, graph discovery, Claude skills
+# Handoff — Open Org hardening + essay-vision features
 
-> Session ended: 2026-06-25
+> Session ended: 2026-06-25 (session 2)
 > Branch: `fix/openorg-hardening` (off `master`) — **pushed to origin, PR not yet opened** (gh CLI not authenticated)
-> Resumes at: **open the PR**, then **rebuild prod image + deploy**
+> Resumes at: **fix Discover.test.tsx leaflet mock**, commit ideas-first discovery, then **open the PR**
 
 ## TL;DR
 
-A full hardening pass across Open Org: 8 bugs fixed via TDD, design system aligned
-with the **actual Good Ship brand** (navy/cream/teal/DM Sans — tokens extracted
-from good-ship.co.uk), a new D3 force-directed graph discovery view, and
-installable Claude skills for `/org-strategy` and `/org-idea`. All gates green:
-**core 314 · API 216 · web 171 · tsc + lint clean**. 14 commits on
-`fix/openorg-hardening`, pushed.
+Session 1 hardened Open Org (8 bugs, brand alignment, graph discovery, Claude skills). Session 2 tackled the essay's vision gaps: **funder signalling**, **evidence layer**, **profile evolution**, **cluster insights**, and **ideas-first discovery**. 22 commits on `fix/openorg-hardening`, pushed. All gates green except the new `Discover.test.tsx` which has a leaflet mock issue.
 
-## What landed (12 commits, one per fix/feature)
+## What landed this session (8 new commits, 20→22 total on branch)
 
-### Bug fixes (8 commits)
+### 1. Semantic edge visualisation (commit 5)
+Six edge types in the graph API: `strategy_idea`, `idea_idea_shared_theme`, `idea_idea_shared_place`, `idea_org_connection`, `strategy_strategy_shared_theme`, `idea_idea_explicit`. Distinct visual styling per type, arrowheads, hover labels, "show only explicit" toggle.
 
-1. **`fix(api): ignore extra env vars in Settings model`** — Pydantic-settings v2
-   defaults to `extra='forbid'`. The real `.env` has `POSTGRES_PASSWORD`,
-   `VITE_STRIPE_PUBLIC_KEY`, `RESEND_FROM_EMAIL` (for docker-compose/frontend) which
-   crashed `Settings()` instantiation. This blocked **all** API test collection
-   (204 tests unreachable). Fix: `extra="ignore"` in `model_config`. Regression test
-   added.
+### 2. Cluster insights (commit 6)
+Graph summary now surfaces meaningful cluster descriptions — org names, ideas summary, places, dominant themes, human-readable sentences like *"2 organisations (Riverside Trust, Beta Trust) and 1 idea around food_access, health in Great Yarmouth"*. Clickable cluster cards dim non-cluster nodes. Cluster colour-coding toggle. API 234 (+6), Web 187 (+5).
 
-2. **`fix(openorg-creator): emit SSE error event when LLM stream throws mid-turn`** —
-   The `event_stream` async generator had no try/except around the LLM stream
-   iteration. If the provider threw mid-turn (network error, 5xx, malformed
-   response), the exception escaped after 200+headers were sent — the browser's
-   EventSource saw an abrupt end with no error event. Fix: wrapped in try/except,
-   emit `event: error` SSE frame with the message before returning.
+### 3. Profile evolution (commit 7)
+Three new features:
+- **Version history API** — `GET /open-org/{org_id}/history` returns chronological timeline across profile + strategies + ideas. Per-record history endpoints too.
+- **Timeline on profile detail** — vertical timeline showing the org's trajectory.
+- **Status badges** — ideas and strategies show coloured status badges + created/updated timestamps.
+- API 245 (+11), Web 191 (+4).
 
-3. **`fix(openorg-creator): extract DOCX tables, headers, and footers`** — Only
-   `document.paragraphs` was read. Strategy documents commonly contain tables
-   (budgets, timelines) — that content was silently lost. Fix: added table cell
-   extraction and header/footer paragraph extraction.
+### 4. Funder signalling + evidence layer (commit 8 — combined)
 
-4. **`test(openorg-creator): verify create/get route method disjointness`** —
-   Verified that `POST /{org_id}/create/{kind}` and `GET /{org_id}/create/{session_id}`
-   don't collide (disjoint HTTP methods). Regression test added.
+**Funder signalling:**
+- `OrgSignal` model + Alembic migration (`org_signals` table)
+- `POST /api/open-org/ideas/{org_id}/{slug}/signal` — public, all fields optional
+- `GET /api/open-org/ideas/{org_id}/{slug}/signals` — list signals on one idea
+- `GET /api/open-org/{org_id}/signals` — aggregated signals for an org
+- `SignalButton` component with form (name, email, message — all optional)
+- `FunderInterestSection` on profile detail with expandable per-idea rows
+- Interest count badge on Ideas page cards
+- 11 API tests + 4 web tests
 
-5. **`fix(openorg): mask fenced code blocks before splitting body sections`** —
-   `##` headings inside ```` ``` ```` blocks were incorrectly parsed as schema
-   sections, leaking code-block text into JSON fields. Fix: mask fenced code blocks
-   (replacing with blank lines) before scanning for headings, then slice content
-   from the original body using positions from the masked body.
+**Evidence layer:**
+- Top-level `evidence` array in `org_profile.schema.json` (evidence_id, title, description, evidence_type, date, url, themes, outcomes)
+- Converter: `parse_evidence()` / `render_evidence()` for `## Evidence` section with `### {evidence_id}: {title}` subsections
+- Evidence section on ProfileDetail with coloured type badges, themes, outcomes, URL links
+- Evidence template with guided comments in `openorgTemplates.ts`
+- 11 converter tests + 5 ProfileDetail evidence tests
+- Existing `mission.evidence_summary` stub kept for backward compat
 
-6. **`fix(openorg): parse and render strategy priorities from body sections`** —
-   `## Priority 1: Title` headings were silently dropped during markdown→JSON
-   conversion — there was no entry in the body-section parser for priorities. Fix:
-   added `parse_priorities`/`render_priorities` with a regex to detect priority
-   headings. Wired into both `markdown_to_json` and `json_to_markdown`.
+### 5. Ideas-first discovery (commits pending — API done, frontend in progress)
 
-7. **`fix(openorg): parse plain (non-bold) items in not_doing/tensions sections`** —
-   `parse_bold_items` only split on `^- **` (bold-prefixed items), silently dropping
-   any bullet without a bold prefix. Fix: split on any bullet item (`^- `), classify
-   each chunk as bold or plain. Plain items become the `title` with empty body field.
+**API (committed in working tree, not yet committed to git):**
+- `GET /api/open-org/discover/ideas/summary` — returns `{total_ideas, total_orgs, themes_breakdown, status_breakdown}`
+- `sort` query param on `GET /api/open-org/discover/ideas`: `signals` (most interest first), `recent`, `status` (maturity order)
+- 8 new API tests (264 total API tests pass)
 
-8. **`fix(openorg): coerce unquoted numeric YAML scalars to strings per schema`** —
-   YAML parsers read `charity_commission_ew: 1234567` (unquoted) as an integer,
-   failing the schema's `type: string` constraint. The previous quoting fix only
-   handled the output direction; input was still broken. Fix:
-   `_coerce_scalar_types` walks the parsed payload against the JSON Schema and
-   coerces int/float/bool leaf values to strings for any path declared `type: string`.
+**Frontend (written, not yet committed — test has a bug):**
+- `Discover.tsx` rewritten: Ideas view is the default (not Organisations)
+- Hero summary: "N ideas from M organisations across K themes"
+- Theme chips with counts from summary (multi-select, client-side refinement)
+- Place filter, status filter, sort dropdown
+- Idea cards with signal count, status badge, cost range, org name
+- `Discover.test.tsx` created (7 tests) but **hangs vitest** — root cause: `vi.mock('leaflet')` factory was missing `default` export key, causing `L.Icon.Default.mergeOptions` to crash at module load. Fix identified (add `default: { Icon: { Default: { mergeOptions: () => {} } } }` to mock) but not yet verified.
 
-### Styling (2 commits)
+## All commits on branch (22 total)
 
-9. **`style(openorg): align design system with editorial palette + sage accents`** —
-   Initial pass: sage/navy tokens, hostname-aware Layout, 11 hover leaks fixed.
-   *(Superseded by commit 14 — kept for history.)*
+```
+07477c0 feat(openorg): add funder signalling and evidence layer
+96f55e4 feat(openorg): add evidence layer to profile schema and converter
+4038c17 feat(openorg): show profile evolution — version history timeline and status badges
+4b43f03 feat(openorg): surface meaningful cluster insights in graph discovery
+94b8751 feat(openorg): add semantic edge visualisation to graph discovery
+5578502 feat(openorg): add semantic connections to graph API
+15b801f docs: update HANDOFF for Good Ship brand alignment
+fbf9bab style(openorg): align with actual Good Ship brand tokens
+56b88a3 docs: update STATE.md and HANDOFF.md for hardening session
+1aa6070 feat(openorg): add Claude skills for /org-strategy and /org-idea
+c4249a0 feat(openorg): add force-directed graph discovery view
+29f9968 feat(openorg): add graph data API endpoint for discovery visualisation
+d4c68a4 style(openorg): align design system with editorial palette + sage accents
+2df0e23 fix(openorg): coerce unquoted numeric YAML scalars to strings per schema
+0cc7a47 test(openorg-creator): verify create/get route method disjointness
+677abff fix(openorg): parse plain (non-bold) items in not_doing/tensions sections
+6615c47 fix(openorg-creator): extract DOCX tables, headers, and footers
+08cb770 fix(openorg): parse and render strategy priorities from body sections
+769be06 fix(openorg-creator): emit SSE error event when LLM stream throws mid-turn
+f0be6fa fix(openorg): mask fenced code blocks before splitting body sections
+a5656ac fix(api): ignore extra env vars in Settings model
+```
 
-10. **`style(openorg): align with actual Good Ship brand tokens (navy/cream/teal/DM Sans)`** —
-    Replaced the initial editorial palette with the **actual Good Ship brand tokens**
-    extracted from good-ship.co.uk CSS custom properties:
-    - `paper #FAF7F2` → `cream #F5F0E8`
-    - `paper-2` → `cream-dark #EBE4D8`
-    - `ink #1A1814` → `navy #1B2A4A`
-    - `muted` → `grey-blue #8BA4B8`
-    - `sage` → `teal #2D8B7A` / `teal-light #3AA08D`
-    - Added `amber #D4993D`, `amber-light`, `coral #C75B3A`, `navy-light`, `paper-white #FEFCF9`
-    - `Public Sans` → `DM Sans` (body font — installed @fontsource-variable/dm-sans, removed public-sans)
-    - Buttons: teal bg with cream text (not ink bg)
-    - `.surface-paper` → `.surface-cream` + added `.surface-navy` for dark sections
-    - `.btn-editorial` → `bg-teal text-cream hover:bg-teal-light`
-    - GraphDiscovery node colours: orgs=navy, ideas=teal, strategies=amber
-    - Added navy-tinted shadows, brand border-radius (8px/16px), transition timing
-    - 36 files changed across all Open Org pages and components
+## Uncommitted working tree state
 
-### Visual discovery (2 commits)
+```
+M packages/api/src/llmstxt_api/routes/open_org_discovery.py   (ideas summary + sort param)
+M packages/api/tests/test_open_org_idea_browser.py            (8 new tests)
+M packages/web/src/api/openorg.ts                             (IdeasSummary, fetchIdeasSummary, useIdeasSummary, IdeaSort, IdeaFilters)
+M packages/web/src/pages/openorg/Discover.tsx                 (rewritten — ideas-first default)
+?? packages/web/src/pages/openorg/Discover.test.tsx           (7 tests, hangs vitest)
+```
 
-10. **`feat(openorg): add graph data API endpoint for discovery visualisation`** —
-    `GET /api/open-org/graph?themes=food_access,health&limit=100` returns nodes
-    (organisations, ideas, strategies) and edges (org_idea, org_strategy,
-    shared_theme, shared_area). Supports theme filtering and limit. 8+ TDD tests.
+## How to resume
 
-11. **`feat(openorg): add force-directed graph discovery view`** —
-    `GraphDiscovery.tsx` (429 lines) using D3-force:
-    - Nodes coloured by type: navy (orgs), sage (ideas), orange (strategies)
-    - Node sizing by income band / cost range
-    - Edges coloured/styled by type (solid, dashed, dotted)
-    - Hover: highlight connected nodes + dim unconnected
-    - Click: side panel with entity details + link to detail page
-    - Zoom/pan via D3 zoom behaviour
-    - Theme filter checkboxes
-    - Discover page toggle between List+Map and Graph views
-    - 5 Vitest tests
+### Step 1: Fix Discover.test.tsx
 
-### Claude skills (1 commit)
+The leaflet mock factory needs the `default` export key so that `import L from 'leaflet'` gets the mocked object:
 
-12. **`feat(openorg): add Claude skills for /org-strategy and /org-idea`** —
-    Installable SKILL.md files for consultants and power users. Full conversational
-    flows matching the spec (7 steps for strategy, 5 for idea), JSON schema
-    references, 30-theme vocabulary, heading-to-field mapping, example output
-    templates. README.md with installation instructions.
+```typescript
+vi.mock('leaflet', () => ({
+  default: { Icon: { Default: { mergeOptions: () => {} } } },
+  Icon: { Default: { mergeOptions: () => {} } },
+}));
+```
+
+Also mock the marker image imports:
+```typescript
+vi.mock('leaflet/dist/images/marker-icon.png', () => ({ default: 'marker-icon.png' }));
+vi.mock('leaflet/dist/images/marker-icon-2x.png', () => ({ default: 'marker-icon-2x.png' }));
+vi.mock('leaflet/dist/images/marker-shadow.png', () => ({ default: 'marker-shadow.png' }));
+```
+
+The `useIdeasFirstPage` mock should filter results by theme to make the theme-chip click test pass:
+```typescript
+useIdeasFirstPage: (filters: { theme?: string }) => ({
+  data: {
+    results: (ideasPageValue?.results ?? []).filter(
+      (r: { themes: string[] }) => !filters?.theme || r.themes.includes(filters.theme),
+    ),
+    next_cursor: null,
+  },
+  isLoading: false, isError: false, isFetching: false,
+}),
+```
+
+After fixing, run:
+```bash
+cd packages/web && npx vitest run src/pages/openorg/Discover.test.tsx
+```
+
+If it still hangs, the issue may be vitest's collection phase trying to resolve leaflet CSS. Check `vitest.config.ts` — the `server.deps.inline: ['leaflet', 'react-leaflet']` option was tried but may not be needed once the mock factory is correct.
+
+### Step 2: Commit ideas-first discovery
+
+```bash
+git add packages/api/src/llmstxt_api/routes/open_org_discovery.py \
+        packages/api/tests/test_open_org_idea_browser.py \
+        packages/web/src/api/openorg.ts \
+        packages/web/src/pages/openorg/Discover.tsx \
+        packages/web/src/pages/openorg/Discover.test.tsx
+git commit -m "feat(openorg): make ideas the default discovery view"
+git push origin fix/openorg-hardening
+```
+
+### Step 3: Run full verification
+
+```bash
+# Python (from repo root)
+.venv/bin/python -m pytest packages/core/tests/ -q    # 325 passed
+.venv/bin/python -m pytest packages/api/tests/ -q     # 264 passed
+
+# Web (from packages/web)
+npx tsc --noEmit                                        # clean
+npx vitest run                                          # 207+ passed (200 + 7 Discover)
+npm run lint                                            # clean
+```
 
 ## Deploy notes
 
-- **Rebuild the prod image before deploy** — `config.py` imports `openai` at boot
-  (provider abstraction), and the web package now has `d3` as a dependency. A stale
-  image will crash.
-- New env vars in `.env.example` already documented (`LLM_PROVIDER`, `LLM_MODEL`,
-  `OPENROUTER_*`, `OLLAMA_*`).
-- `packages/core` edits need a test-stack container restart (uvicorn `--reload`
-  doesn't watch `/app/core`).
-- D3 adds ~50KB to the web bundle, but GraphDiscovery is lazy-loaded so it only
-  loads when the user switches to graph view.
+- **Rebuild the prod image before deploy** — `config.py` imports `openai` at boot (provider abstraction), web package has `d3` + `@fontsource-variable/dm-sans` dependencies. A stale image will crash.
+- New env vars in `.env.example` already documented (`LLM_PROVIDER`, `LLM_MODEL`, `OPENROUTER_*`, `OLLAMA_*`).
+- `packages/core` edits need a test-stack container restart (uvicorn `--reload` doesn't watch `/app/core`).
+- D3 adds ~50KB to the web bundle, but GraphDiscovery is lazy-loaded.
 
-## Flagged, not fixed (low-severity / decisions)
+## Flagged, not fixed
 
-- Cross-product SSO cookie can't span `llmstxt.social` + `good-ship.co.uk` (product
-  decision — documented in CLAUDE.md).
-- Rate-limit real-client-IP behind Cloudflare/Caddy — verify `trusted_proxies` from
-  a real external client.
-- Cosmetic: idea/strategy cards show raw slugs as titles; `/discover/ideas`
-  `area_code` filter is a no-op.
-- Editor polish PR 7 (keyboard + motion polish) — still outstanding from the
-  original editor-polish plan.
+- Cross-product SSO cookie can't span `llmstxt.social` + `good-ship.co.uk` (product decision — documented in CLAUDE.md).
+- Rate-limit real-client-IP behind Cloudflare/Caddy — verify `trusted_proxies` from a real external client.
+- Cosmetic: idea/strategy cards show raw slugs as titles; `/discover/ideas` `area_code` filter is a no-op.
+- Editor polish PR 7 (keyboard + motion polish) — still outstanding.
 - Murmurations schema not yet registered upstream.
 - `gh` CLI not authenticated on this machine — PR needs to be opened manually.
-
-## Branch cleanup
-
-6 stale local branches deleted:
-- `editor-polish-pr1-bridge`, `editor-polish-pr2-fields`, `editor-polish-pr3-shell`,
-  `editor-polish-pr4-publish`, `openorg-editor-polish-design`,
-  `feat/openorg-area-code-search`
-
-All were superseded by merged PRs (#18–#21). Remote stale branches
-(`origin/fix/openorg-editor-local-test-pass`,
-`origin/fix/openorg-providers-and-bug-sweep`) may still exist — deletion attempt
-returned "remote ref does not exist" which likely means they were already cleaned
-up via the GitHub UI.
-
-## How to verify
-
-```bash
-# Python (run from repo root)
-.venv/bin/python -m pytest packages/core/tests/ -q          # 314 passed
-.venv/bin/python -m pytest packages/api/tests/ -q           # 216 passed
-
-# Web (run from packages/web)
-npx tsc --noEmit                                             # clean
-npx vitest run                                               # 171 passed
-npm run lint                                                 # clean
-```
+- `Discover.test.tsx` hangs vitest (leaflet mock issue — see "How to resume" above).
+- `vitest.config.ts` was temporarily modified with `server.deps.inline` — reverted, should not be needed.
+- `Discover.minimal.test.tsx` temp file was deleted.
 
 ## Outstanding user actions
 
@@ -173,3 +186,9 @@ npm run lint                                                 # clean
 4. **Resend domain verification** for `hello@openorg.good-ship.co.uk`
 5. **Prod image rebuild + deploy**
 6. **Editor polish PR 7** (keyboard + motion polish)
+
+## Remaining essay-vision gaps (not started)
+
+- **#4 Access control / audit trail** — Phase 2 per spec. OrgVersion audit trail exists; proper tiered access control is Phase 2.
+- **#5 Local agent / evidence integration** — Phase 2 per spec.
+- **#7 Funder-facing view** — Ideas-first discovery partly addresses this. A dedicated funder-perspective lens could be built on top of the graph + signals data.
