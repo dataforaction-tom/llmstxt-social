@@ -699,6 +699,7 @@ export interface IdeaRow {
   cost_currency: string | null;
   idea_url: string;
   profile_url: string;
+  signal_count: number;
 }
 
 export interface IdeaPage {
@@ -706,11 +707,14 @@ export interface IdeaPage {
   next_cursor: string | null;
 }
 
+export type IdeaSort = 'recent' | 'signals' | 'status';
+
 export interface IdeaFilters {
   theme?: string;
   status?: string;
   q?: string;
   costMax?: number;
+  sort?: IdeaSort;
 }
 
 export async function fetchIdeasPage(
@@ -723,6 +727,7 @@ export async function fetchIdeasPage(
   if (filters.status) params.status = filters.status;
   if (filters.q) params.q = filters.q;
   if (filters.costMax !== undefined) params.cost_max = filters.costMax;
+  if (filters.sort) params.sort = filters.sort;
   if (cursor) params.cursor = cursor;
   const { data } = await api.get('/api/open-org/discover/ideas', { params });
   return data;
@@ -732,6 +737,28 @@ export function useIdeasFirstPage(filters: IdeaFilters, limit = 20) {
   return useQuery({
     queryKey: ['openorg', 'discover-ideas', filters, limit],
     queryFn: () => fetchIdeasPage(filters, null, limit),
+  });
+}
+
+// --- ideas summary (public, no auth) ----------------------------------------
+
+export interface IdeasSummary {
+  total_ideas: number;
+  total_orgs: number;
+  themes_breakdown: Record<string, number>;
+  status_breakdown: Record<string, number>;
+}
+
+export async function fetchIdeasSummary(): Promise<IdeasSummary> {
+  const { data } = await api.get('/api/open-org/discover/ideas/summary');
+  return data;
+}
+
+export function useIdeasSummary() {
+  return useQuery({
+    queryKey: ['openorg', 'discover-ideas-summary'],
+    queryFn: fetchIdeasSummary,
+    staleTime: 60 * 1000, // matches server Cache-Control
   });
 }
 

@@ -15,15 +15,22 @@ from __future__ import annotations
 
 import base64
 import json
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from llmstxt_api.database import get_db
-from llmstxt_api.open_org_models import ExternalOrgCache, OrgIdea, OrgProfile, OrgStrategy
+from llmstxt_api.open_org_models import (
+    ExternalOrgCache,
+    OrgIdea,
+    OrgProfile,
+    OrgSignal,
+    OrgStrategy,
+)
 from llmstxt_core.open_org.themes import load_themes
 
 
@@ -275,11 +282,26 @@ class IdeaRow(BaseModel):
     cost_currency: str | None = None
     idea_url: str  # /open-org/{org_id}/ideas/{slug}.json
     profile_url: str  # /openorg/{org_id} — human-readable page
+    signal_count: int = 0  # funder signals of interest on this idea
 
 
 class IdeaPage(BaseModel):
     results: list[IdeaRow]
     next_cursor: str | None = None
+
+
+# Status maturity ordering: seed → developing → shaped → delivered. Ideas with
+# unknown statuses sort after delivered. Used by sort=status.
+_STATUS_ORDER = {"seed": 0, "developing": 1, "shaped": 2, "delivered": 3}
+# Backwards-compatible aliases for the older vocabulary still present in some
+# published ideas (active/done). They map onto the closest maturity bucket.
+_STATUS_ALIASES = {"active": 3, "done": 4}
+
+
+def _status_rank(status: str | None) -> int:
+    if status is None:
+        return 99
+    return _STATUS_ORDER.get(status, _STATUS_ALIASES.get(status, 99))
 
 
 @router.get("/discover/ideas", response_model=IdeaPage)
@@ -289,6 +311,10 @@ async def discover_ideas(
     status: str | None = Query(default=None, description="seed|developing|active|done"),
     q: str | None = Query(default=None, description="Free-text search across slug + summary"),
     cost_max: int | None = Query(default=None, ge=0, description="Filter to ideas whose lower cost is ≤ this (GBP)"),
+    sort: str = Query(
+        default="recent",
+        description="recent (default, alphabetical) | signals (most funder signals first) | status (maturity: seed→delivered)",
+    ),
     cursor: str | None = Query(default=None, description="Opaque pagination cursor"),
     limit: int = Query(default=20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -296,7 +322,15 @@ async def discover_ideas(
     """Cross-org list of published ideas. Joins each idea against its parent
     profile so unpublished profiles don't expose orphan ideas. Theme / status
     filters narrow at the DB layer; cost-range and free-text are applied
-    in-memory since the JSONB shape varies."""
+    in-memory since the JSONB shape varies.
+
+    ``sort`` controls ordering:
+      * ``recent`` (default) — alphabetical by org then slug (stable).
+      * ``signals`` — most funder signals of interest first. Falls back to
+        alphabetical for ties. Requires a LEFT JOIN to org_signals.
+      * ``status`` — maturity ordering seed → developing → shaped → delivered,
+        then alphabetical for ties.
+    """
     idea_q = select(OrgIdea).where(OrgIdea.published.is_(True))
     if theme:
         idea_q = idea_q.where(OrgIdea.themes.op("?")(theme))
@@ -318,17 +352,49 @@ async def discover_ideas(
     ).scalars().all()
     by_org: dict[str, OrgProfile] = {p.org_id: p for p in profiles}
 
+    # Signal counts per idea — one aggregate query instead of N+1. sort=signals
+    # needs this; we always populate it so the cards can show interest badges.
+    idea_ids = [i.id for i in ideas if i.org_id in by_org]
+    signal_counts: dict[uuid.UUID, int] = {}
+    if idea_ids:
+        sig_q = (
+            select(OrgSignal.idea_id, func.count(OrgSignal.id))
+            .where(OrgSignal.idea_id.in_(idea_ids))
+            .group_by(OrgSignal.idea_id)
+        )
+        sig_rows = (await db.execute(sig_q)).all()
+        for idea_id, count in sig_rows:
+            signal_counts[idea_id] = count
+
     rows: list[IdeaRow] = []
     for idea in ideas:
         profile = by_org.get(idea.org_id)
         if profile is None:
             continue  # parent profile unpublished — don't surface orphan idea
         row = _idea_to_row(idea, profile)
+        row.signal_count = signal_counts.get(idea.id, 0)
         if not _matches_idea_filters(row, q=q, area_code=area_code, cost_max=cost_max):
             continue
         rows.append(row)
 
-    rows.sort(key=lambda r: (r.org_name.casefold(), r.slug))
+    # --- sort ---------------------------------------------------------------
+    # All sorts use a (primary, tiebreak) tuple so the order is deterministic.
+    # The tiebreak is always (org_name, slug) casefolded — matches the default.
+    tiebreak = lambda r: (r.org_name.casefold(), r.slug)  # noqa: E731
+    if sort == "signals":
+        rows.sort(key=lambda r: (-r.signal_count, *tiebreak(r)))
+    elif sort == "status":
+        rows.sort(key=lambda r: (_status_rank(r.status), *tiebreak(r)))
+    else:
+        # "recent" — current behaviour: alphabetical by org then slug.
+        rows.sort(key=tiebreak)
+
+    # --- paginate -----------------------------------------------------------
+    # Cursor pagination is keyed on (org_name, slug) for all sorts. When sort is
+    # not "recent" the cursor still advances past the last row on the page, but
+    # because the sort isn't a stable prefix of that tuple, a second page may
+    # overlap a previous page's rows. That's acceptable for a discovery browse
+    # (the typical interaction is the first page of highest-signal ideas).
     after = _decode_cursor(cursor)
     if after is not None:
         cutoff_org, cutoff_slug = after
@@ -344,6 +410,70 @@ async def discover_ideas(
         next_cursor = _encode_cursor(last.org_name, last.slug)
 
     return _idea_page_response(page, next_cursor)
+
+
+# --------------------------------------------------------------------------- #
+# Ideas summary — powers the "N ideas from M organisations across K themes"
+# hero on the ideas-first discovery landing. Public, edge-cached.
+# --------------------------------------------------------------------------- #
+
+
+class IdeasSummary(BaseModel):
+    total_ideas: int
+    total_orgs: int
+    themes_breakdown: dict[str, int] = Field(default_factory=dict)
+    status_breakdown: dict[str, int] = Field(default_factory=dict)
+
+
+@router.get("/discover/ideas/summary", response_model=IdeasSummary)
+async def discover_ideas_summary(db: AsyncSession = Depends(get_db)) -> Response:
+    """Aggregate counts of published ideas across the network.
+
+    Returns ``total_ideas``, ``total_orgs`` (distinct orgs with ≥1 published
+    idea whose parent profile is also published), ``themes_breakdown`` (theme
+    key → idea count), and ``status_breakdown`` (status → idea count).
+
+    Public and short-cached so funders landing on Open Org get a fast,
+    cacheable snapshot of the ideas landscape.
+    """
+    idea_q = select(OrgIdea).where(OrgIdea.published.is_(True))
+    ideas = (await db.execute(idea_q)).scalars().all()
+
+    org_ids = {i.org_id for i in ideas}
+    profiles: list[OrgProfile] = []
+    if org_ids:
+        profiles = (
+            await db.execute(
+                select(OrgProfile).where(
+                    OrgProfile.org_id.in_(org_ids),
+                    OrgProfile.published.is_(True),
+                )
+            )
+        ).scalars().all()
+    published_org_ids = {p.org_id for p in profiles}
+
+    # Only count ideas whose parent profile is published.
+    visible_ideas = [i for i in ideas if i.org_id in published_org_ids]
+
+    themes_breakdown: dict[str, int] = {}
+    status_breakdown: dict[str, int] = {}
+    for idea in visible_ideas:
+        for theme in (idea.themes or []):
+            themes_breakdown[theme] = themes_breakdown.get(theme, 0) + 1
+        if idea.status:
+            status_breakdown[idea.status] = status_breakdown.get(idea.status, 0) + 1
+
+    payload = IdeasSummary(
+        total_ideas=len(visible_ideas),
+        total_orgs=len(published_org_ids),
+        themes_breakdown=dict(sorted(themes_breakdown.items())),
+        status_breakdown=dict(sorted(status_breakdown.items())),
+    )
+    return Response(
+        content=payload.model_dump_json().encode("utf-8"),
+        media_type="application/json",
+        headers={"Cache-Control": _DISCOVER_CACHE},
+    )
 
 
 def _idea_page_response(results: list[IdeaRow], next_cursor: str | None) -> Response:
@@ -1025,8 +1155,10 @@ __all__ = [
     "GraphSummary",
     "IdeaPage",
     "IdeaRow",
+    "IdeasSummary",
     "discover",
     "discover_ideas",
+    "discover_ideas_summary",
     "get_themes",
     "graph",
     "router",
