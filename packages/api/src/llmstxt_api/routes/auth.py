@@ -113,6 +113,24 @@ def _resolve_frontend_base(http_request: Request | None) -> str:
     return settings.frontend_url
 
 
+def _email_branding(base_url: str) -> dict:
+    """Subject / from / html for the login email, branded by host."""
+    is_openorg = "openorg." in base_url
+    if is_openorg:
+        return {
+            "from_email": settings.openorg_from_email,
+            "subject": "Your Open Org login link",
+            "product": "Open Org",
+            "accent": "#2D8B7A",
+        }
+    return {
+        "from_email": settings.from_email,
+        "subject": "Your llms.txt login link",
+        "product": "llms.txt",
+        "accent": "#6366f1",
+    }
+
+
 @router.post("/auth/magic-link", response_model=MagicLinkResponse)
 async def send_magic_link(
     request: MagicLinkRequest,
@@ -170,19 +188,20 @@ async def send_magic_link(
         )
 
     # Send email
+    brand = _email_branding(_resolve_frontend_base(http_request))
     try:
         resend.Emails.send({
-            "from": settings.from_email,
+            "from": brand["from_email"],
             "to": [email],
-            "subject": "Your llms.txt login link",
+            "subject": brand["subject"],
             "html": f"""
                 <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2 style="color: #6366f1;">Log in to llms.txt</h2>
-                    <p>Click the button below to log in to your account. This link expires in {MAGIC_LINK_EXPIRY_MINUTES} minutes.</p>
+                    <h2 style="color: {brand['accent']};">Log in to {brand['product']}</h2>
+                    <p>Click the button below to log in. This link expires in {MAGIC_LINK_EXPIRY_MINUTES} minutes.</p>
                     <a href="{magic_link}"
-                       style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px;
+                       style="display: inline-block; background: {brand['accent']}; color: white; padding: 12px 24px;
                               text-decoration: none; border-radius: 8px; margin: 16px 0;">
-                        Log in to llms.txt
+                        Log in to {brand['product']}
                     </a>
                     <p style="color: #666; font-size: 14px;">
                         If you didn't request this link, you can safely ignore this email.
@@ -194,7 +213,6 @@ async def send_magic_link(
             """,
         })
     except Exception as e:
-        # Log error but don't expose details to user
         print(f"Failed to send magic link email: {e}")
         raise HTTPException(status_code=500, detail="Failed to send email. Please try again.")
 

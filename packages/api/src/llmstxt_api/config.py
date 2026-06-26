@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     # Resend
     resend_api_key: str
     from_email: str = "llmstxt <onboarding@resend.dev>"
+    # From-address for Open Org magic-link emails (must be a Resend-verified
+    # domain). Used when the login originates from the Open Org host.
+    openorg_from_email: str = "Open Org <hello@openorg.good-ship.co.uk>"
 
     # Security
     secret_key: str
