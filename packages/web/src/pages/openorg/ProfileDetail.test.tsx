@@ -70,6 +70,25 @@ const FULL_PROFILE = {
       outcomes: ['85% report improved wellbeing'],
     },
   },
+  evidence: [
+    {
+      evidence_id: 'eval-2024',
+      title: 'Annual Evaluation',
+      description: 'We evaluated the befriending programme across three sites.',
+      evidence_type: 'evaluation',
+      date: '2024-06-01',
+      url: 'https://riverside.example/eval-2024.pdf',
+      themes: ['food_access', 'social_prescribing'],
+      outcomes: ['500 meals served per month', '40% reduction in loneliness scores'],
+    },
+    {
+      evidence_id: 'case-001',
+      title: 'Kitchen case study',
+      evidence_type: 'case_study',
+      date: '2024-03-15',
+      outcomes: ['80% retention'],
+    },
+  ],
 };
 
 describe('ProfileDetailPage', () => {
@@ -114,7 +133,7 @@ describe('ProfileDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText('2025-2028')).toBeInTheDocument();
     });
-    expect(screen.getByText('kitchen-network')).toBeInTheDocument();
+    expect(screen.getAllByText('kitchen-network').length).toBeGreaterThan(0);
     expect(screen.getByText(/active/i)).toBeInTheDocument();
   });
 
@@ -189,7 +208,7 @@ describe('ProfileDetailPage', () => {
     renderAt('GB-CHC-1');
 
     await waitFor(() => {
-      expect(screen.getByText('kitchen-network')).toBeInTheDocument();
+      expect(screen.getAllByText('kitchen-network').length).toBeGreaterThan(0);
     });
     const badge = screen.getByText('developing');
     expect(badge).toBeInTheDocument();
@@ -216,5 +235,76 @@ describe('ProfileDetailPage', () => {
     });
     const badge = screen.getByText('active');
     expect(badge.className).toContain('text-teal');
+  });
+
+  // --- evidence section ----------------------------------------------------
+
+  it('renders evidence items when present', async () => {
+    fetchPublicProfile.mockResolvedValue(FULL_PROFILE);
+    renderAt('GB-CHC-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Annual Evaluation')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Kitchen case study')).toBeInTheDocument();
+    expect(
+      screen.getByText('We evaluated the befriending programme across three sites.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('food_access')).toBeInTheDocument();
+    expect(screen.getByText('500 meals served per month')).toBeInTheDocument();
+    expect(screen.getByText('40% reduction in loneliness scores')).toBeInTheDocument();
+  });
+
+  it('shows a link for evidence items with a URL', async () => {
+    fetchPublicProfile.mockResolvedValue(FULL_PROFILE);
+    renderAt('GB-CHC-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Annual Evaluation')).toBeInTheDocument();
+    });
+    const link = screen.getByText('View evidence →').closest('a');
+    expect(link).toHaveAttribute('href', 'https://riverside.example/eval-2024.pdf');
+  });
+
+  it('does not show a link for evidence items without a URL', async () => {
+    fetchPublicProfile.mockResolvedValue(FULL_PROFILE);
+    renderAt('GB-CHC-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Kitchen case study')).toBeInTheDocument();
+    });
+    // Only one evidence item has a URL (eval-2024), so only one "View evidence →" link.
+    const links = screen.getAllByText('View evidence →');
+    expect(links).toHaveLength(1);
+  });
+
+  it('renders evidence type badge with correct colour class', async () => {
+    fetchPublicProfile.mockResolvedValue(FULL_PROFILE);
+    renderAt('GB-CHC-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Annual Evaluation')).toBeInTheDocument();
+    });
+    const badges = screen.getAllByTestId('evidence-type-badge');
+    // eval-2024 → evaluation → teal
+    expect(badges[0].className).toContain('text-teal');
+    // case-001 → case_study → coral
+    expect(badges[1].className).toContain('text-coral');
+  });
+
+  it('does not render an Evidence section when no evidence items', async () => {
+    fetchPublicProfile.mockResolvedValue({
+      ...FULL_PROFILE,
+      evidence: [],
+    });
+    renderAt('GB-CHC-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Riverside Community Trust')).toBeInTheDocument();
+    });
+    // "Evidence" kicker should not appear (Evidence summary is renamed separately).
+    // The Evidence summary section still shows because FULL_PROFILE has evidence_summary.
+    // So we check for absence of the evidence item titles.
+    expect(screen.queryByText('Annual Evaluation')).not.toBeInTheDocument();
   });
 });

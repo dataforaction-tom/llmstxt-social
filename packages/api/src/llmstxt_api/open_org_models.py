@@ -273,6 +273,35 @@ class ExternalOrgCache(Base):
     )
 
 
+class OrgSignal(Base):
+    """A funder signalling interest in an org's published idea.
+
+    Phase 1 only has ``signal_type='interest'`` but the column is a string enum
+    so we can expand to ``collaboration``, ``match``, etc. without a migration.
+
+    ``org_id`` is denormalized for easy per-org lookup without a join. All
+    funder fields are optional — a funder can signal anonymously.
+    """
+
+    __tablename__ = "org_signals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    idea_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("org_ideas.id"), nullable=True
+    )
+    org_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    signal_type: Mapped[str] = mapped_column(String(20), nullable=False, default="interest")
+    funder_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    funder_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_org_signals_org_id", "org_id"),
+        Index("ix_org_signals_idea_id", "idea_id"),
+    )
+
+
 __all__ = [
     "OrgProfile",
     "OrgStrategy",
@@ -282,4 +311,5 @@ __all__ = [
     "CreatorSession",
     "LlmUsage",
     "ExternalOrgCache",
+    "OrgSignal",
 ]

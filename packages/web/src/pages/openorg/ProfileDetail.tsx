@@ -8,6 +8,7 @@
  * via the "View raw" link for power users.
  */
 
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -15,9 +16,13 @@ import {
   fetchPublicOrgHistory,
   fetchPublicProfile,
   fetchPublicStrategies,
+  fetchOrgSignals,
+  useIdeaSignals,
   type PublicHistoryEntry,
   type PublicRecordSummary,
+  type SignalOut,
 } from '../../api/openorg';
+import SignalButton from '../../components/openorg/SignalButton';
 
 interface Geography {
   primary_area?: string;
@@ -43,6 +48,17 @@ interface EvidenceSummary {
   outcomes?: string[];
 }
 
+interface EvidenceItem {
+  evidence_id: string;
+  title: string;
+  description?: string;
+  evidence_type?: string;
+  date?: string;
+  url?: string;
+  themes?: string[];
+  outcomes?: string[];
+}
+
 interface Mission {
   summary?: string;
   themes?: string[];
@@ -65,6 +81,7 @@ interface Identity {
 interface PublicProfile {
   identity?: Identity;
   mission?: Mission;
+  evidence?: EvidenceItem[];
 }
 
 export default function ProfileDetailPage() {
@@ -92,6 +109,12 @@ export default function ProfileDetailPage() {
   const history = useQuery({
     queryKey: ['openorg', 'public-history', orgId],
     queryFn: () => fetchPublicOrgHistory(orgId),
+    enabled: Boolean(orgId),
+    retry: false,
+  });
+  const signals = useQuery({
+    queryKey: ['openorg', 'org-signals', orgId],
+    queryFn: () => fetchOrgSignals(orgId),
     enabled: Boolean(orgId),
     retry: false,
   });
@@ -137,7 +160,8 @@ export default function ProfileDetailPage() {
   const geography = identity.geography ?? {};
   const contact = identity.contact ?? {};
   const programmes = mission.programmes ?? [];
-  const evidence = mission.evidence_summary ?? {};
+  const evidenceSummary = mission.evidence_summary ?? {};
+  const evidenceItems = data.evidence ?? [];
   const themes = mission.themes ?? [];
   const beneficiaries = mission.beneficiaries ?? [];
   const aka = identity.also_known_as ?? [];
@@ -251,21 +275,31 @@ export default function ProfileDetailPage() {
           </Section>
         )}
 
-        {(evidence.beneficiaries_served_text || (evidence.outcomes?.length ?? 0) > 0) && (
-          <Section title="Evidence">
-            {evidence.beneficiaries_served_text && (
+        {(evidenceSummary.beneficiaries_served_text || (evidenceSummary.outcomes?.length ?? 0) > 0) && (
+          <Section title="Evidence summary">
+            {evidenceSummary.beneficiaries_served_text && (
               <p className="text-sm text-navy">
                 <span className="text-grey-blue">Reach:</span>{' '}
-                {evidence.beneficiaries_served_text}
+                {evidenceSummary.beneficiaries_served_text}
               </p>
             )}
-            {evidence.outcomes && evidence.outcomes.length > 0 && (
+            {evidenceSummary.outcomes && evidenceSummary.outcomes.length > 0 && (
               <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-navy">
-                {evidence.outcomes.map((o, i) => (
+                {evidenceSummary.outcomes.map((o, i) => (
                   <li key={i}>{o}</li>
                 ))}
               </ul>
             )}
+          </Section>
+        )}
+
+        {evidenceItems.length > 0 && (
+          <Section title="Evidence">
+            <ul className="space-y-6">
+              {evidenceItems.map((item) => (
+                <EvidenceItemCard key={item.evidence_id} item={item} />
+              ))}
+            </ul>
           </Section>
         )}
 
@@ -311,6 +345,12 @@ export default function ProfileDetailPage() {
         )}
 
         <TimelineSection entries={history.data ?? []} />
+
+        <FunderInterestSection
+          orgId={orgId}
+          ideas={ideas.data ?? []}
+          signals={signals.data ?? []}
+        />
       </div>
     </div>
   );
@@ -410,6 +450,81 @@ function StatusBadge({
   );
 }
 
+// --- evidence type badges --------------------------------------------------
+
+const EVIDENCE_TYPE_CLASSES: Record<string, string> = {
+  evaluation: 'bg-teal/15 text-teal',
+  outcome_data: 'bg-amber/15 text-amber',
+  annual_report: 'bg-navy/15 text-navy',
+  case_study: 'bg-coral/15 text-coral',
+  learning_reflection: 'bg-grey-blue/15 text-grey-blue',
+  external_research: 'bg-teal/10 text-teal',
+  other: 'bg-grey-blue/10 text-grey-blue',
+};
+
+function EvidenceTypeBadge({ type }: { type: string }) {
+  const className = EVIDENCE_TYPE_CLASSES[type] ?? 'bg-grey-blue/10 text-grey-blue';
+  return (
+    <span
+      className={`rounded-brand px-2 py-0.5 text-xs uppercase tracking-wider ${className}`}
+      data-testid="evidence-type-badge"
+    >
+      {type}
+    </span>
+  );
+}
+
+function EvidenceItemCard({ item }: { item: EvidenceItem }) {
+  const themes = item.themes ?? [];
+  const outcomes = item.outcomes ?? [];
+  return (
+    <li className="border-l-2 border-rule pl-4">
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <h3 className="font-medium text-navy">{item.title}</h3>
+        {item.evidence_type && <EvidenceTypeBadge type={item.evidence_type} />}
+      </div>
+      {item.date && (
+        <p className="mt-0.5 text-xs text-grey-blue">{item.date}</p>
+      )}
+      {item.description && (
+        <p className="mt-1 text-sm leading-relaxed text-navy/85">{item.description}</p>
+      )}
+      {themes.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {themes.map((t) => (
+            <span
+              key={t}
+              className="border border-rule bg-cream-dark px-2 py-0.5 text-xs text-navy"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+      {outcomes.length > 0 && (
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-navy">
+          {outcomes.map((o, i) => (
+            <li key={i}>{o}</li>
+          ))}
+        </ul>
+      )}
+      {item.url && (
+        <p className="mt-2 text-sm">
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-navy"
+          >
+            View evidence →
+          </a>
+        </p>
+      )}
+    </li>
+  );
+}
+
+
 // --- timeline (Part B) -----------------------------------------------------
 
 function TimelineSection({ entries }: { entries: PublicHistoryEntry[] }) {
@@ -455,4 +570,67 @@ function formatDate(iso: string): string {
     month: 'short',
     day: 'numeric',
   });
+}
+
+// --- funder interest (Phase 1 transparency) -------------------------------
+
+function FunderInterestSection({
+  orgId,
+  ideas,
+  signals,
+}: {
+  orgId: string;
+  ideas: PublicRecordSummary[];
+  signals: SignalOut[];
+}) {
+  if (ideas.length === 0 && signals.length === 0) return null;
+  const total = signals.length;
+  return (
+    <Section title="Funder interest">
+      <p className="text-sm text-grey-blue">
+        {total === 0
+          ? 'No funders have signalled interest yet — but they can.'
+          : `${total} signal${total === 1 ? '' : 's'} of interest from funders.`}
+      </p>
+      {ideas.map((idea) => (
+        <IdeaSignalRow key={idea.slug} orgId={orgId} slug={idea.slug} />
+      ))}
+    </Section>
+  );
+}
+
+function IdeaSignalRow({ orgId, slug }: { orgId: string; slug: string }) {
+  const { data } = useIdeaSignals(orgId, slug, true);
+  const count = data?.length ?? 0;
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="mt-3 border-l-2 border-rule pl-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="font-medium text-navy">{slug}</h3>
+        <span className="text-xs text-grey-blue">
+          {count} signal{count === 1 ? '' : 's'}
+        </span>
+      </div>
+      {expanded && (data?.length ?? 0) > 0 && (
+        <ul className="mt-2 space-y-1 text-xs text-navy">
+          {data!.map((s) => (
+            <li key={s.id}>
+              <span className="font-medium">{s.funder_name ?? 'Anonymous'}</span>
+              {s.message && <span className="text-grey-blue"> — {s.message}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {count > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-xs text-grey-blue underline hover:text-navy"
+        >
+          {expanded ? 'Hide' : 'Show'} signals
+        </button>
+      )}
+      <SignalButton orgId={orgId} slug={slug} />
+    </div>
+  );
 }

@@ -19,6 +19,7 @@ from llmstxt_api.open_org_models import (  # noqa: E402, F401
     OrgAdmin,
     OrgIdea,
     OrgProfile,
+    OrgSignal,
     OrgStrategy,
     OrgVersion,
 )

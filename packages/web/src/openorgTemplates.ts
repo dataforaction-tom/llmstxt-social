@@ -84,3 +84,68 @@ export type TemplateKind = 'strategy' | 'idea';
 export function templateFor(kind: TemplateKind): string {
   return kind === 'strategy' ? NEW_STRATEGY_TEMPLATE : NEW_IDEA_TEMPLATE;
 }
+
+/**
+ * Profile markdown template with guided comments.
+ *
+ * Used by the editor when an organisation first claims/generates a profile.
+ * Comments are stripped on save by the server-side converter.
+ */
+export const NEW_PROFILE_TEMPLATE = `---
+schema_version: open-org/v0.1
+
+identity:
+  name: ""                       # your organisation's name
+  registration:
+    charity_commission_ew: ""     # your CC number (or companies_house / oscr / ccni / other)
+  geography:
+    primary_area: ""             # e.g. "Great Yarmouth"
+  website: ""
+  founded: ""
+
+mission:
+  summary: ""                    # 1-2 sentences on what you do
+  themes:                         # pick from the controlled vocabulary
+    - food_access
+  beneficiaries:
+    - ""
+---
+
+
+## Mission
+
+<!-- One or two sentences on what your organisation does and who it serves. -->
+
+## Theory of change
+
+<!-- How do your activities lead to the change you want to see? -->
+
+## Culture
+
+<!-- How do you work? What's it like inside the organisation? -->
+
+## Values
+
+<!-- 3-5 bullets — the principles that guide your decisions. -->
+
+- Everyone deserves connection
+- Listen before you act
+
+## Evidence
+
+<!-- List your evidence items here. Each one gets a ### heading.
+     Evidence types: evaluation, outcome_data, annual_report, case_study, learning_reflection, external_research, other
+     This is what you've done and learned — the longitudinal track record
+     that funders can browse instead of reading a one-shot application. -->
+
+### eval-2024: [Title]
+
+<!-- What did you evaluate? What did you find? -->
+
+- **type:** evaluation
+- **date:** 2024-06-01
+- **themes:** food_access, social_prescribing
+- **outcomes:**
+  - 500 meals served per month
+  - 40% reduction in loneliness scores
+`;

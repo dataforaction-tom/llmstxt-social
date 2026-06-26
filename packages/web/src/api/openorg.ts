@@ -735,6 +735,62 @@ export function useIdeasFirstPage(filters: IdeaFilters, limit = 20) {
   });
 }
 
+// --- funder signals (public, no auth) -----------------------------------
+
+export interface SignalBody {
+  funder_name: string | null;
+  funder_email: string | null;
+  message: string | null;
+}
+
+export interface SignalOut {
+  id: string;
+  idea_id: string | null;
+  org_id: string;
+  signal_type: string;
+  funder_name: string | null;
+  funder_email: string | null;
+  message: string | null;
+  created_at: string;
+}
+
+export async function signalIdea(
+  orgId: string,
+  slug: string,
+  body: SignalBody,
+): Promise<SignalOut> {
+  const { data } = await api.post(`/api/open-org/ideas/${orgId}/${slug}/signal`, body);
+  return data;
+}
+
+export async function fetchSignals(orgId: string, slug: string): Promise<SignalOut[]> {
+  const { data } = await api.get(`/api/open-org/ideas/${orgId}/${slug}/signals`);
+  return data;
+}
+
+export async function fetchOrgSignals(orgId: string): Promise<SignalOut[]> {
+  const { data } = await api.get(`/api/open-org/${orgId}/signals`);
+  return data;
+}
+
+export function useIdeaSignals(orgId: string, slug: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['openorg', 'idea-signals', orgId, slug],
+    queryFn: () => fetchSignals(orgId, slug),
+    enabled: enabled && Boolean(orgId && slug),
+    retry: false,
+  });
+}
+
+export function useOrgSignals(orgId: string) {
+  return useQuery({
+    queryKey: ['openorg', 'org-signals', orgId],
+    queryFn: () => fetchOrgSignals(orgId),
+    enabled: Boolean(orgId),
+    retry: false,
+  });
+}
+
 // --- chat creator (Step 8) ---------------------------------------------
 
 export type CreatorKind = 'strategy' | 'idea';

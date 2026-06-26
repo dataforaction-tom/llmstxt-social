@@ -14,9 +14,24 @@ import {
   fetchIdeasPage,
   useIdeasFirstPage,
   useThemes,
+  useIdeaSignals,
   type IdeaFilters,
   type IdeaRow,
 } from '../../api/openorg';
+
+function IdeaInterestBadge({ orgId, slug }: { orgId: string; slug: string }) {
+  const { data } = useIdeaSignals(orgId, slug, true);
+  const count = data?.length ?? 0;
+  if (count === 0) return null;
+  return (
+    <span
+      className="rounded-full bg-teal/15 px-2 py-0.5 text-xs text-teal"
+      title={`${count} funder signal${count === 1 ? '' : 's'} of interest`}
+    >
+      {count} interested
+    </span>
+  );
+}
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Any status' },
@@ -210,11 +225,14 @@ export default function IdeasPage() {
                     <h2 className="display-head text-xl font-medium text-navy">
                       {row.slug}
                     </h2>
-                    {row.status && (
-                      <span className="text-xs uppercase tracking-wider text-grey-blue">
-                        {row.status}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {row.status && (
+                        <span className="text-xs uppercase tracking-wider text-grey-blue">
+                          {row.status}
+                        </span>
+                      )}
+                      <IdeaInterestBadge orgId={row.org_id} slug={row.slug} />
+                    </div>
                   </div>
                   <p className="mt-1 text-sm text-grey-blue">
                     <Link to={`/openorg/${row.org_id}`} className="hover:text-navy hover:underline">
