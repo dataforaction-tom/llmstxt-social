@@ -4,7 +4,7 @@ import secrets
 import uuid
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Response, Cookie
+from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, Request
 from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,10 +87,37 @@ async def require_auth(
     return user
 
 
+def _allowed_origins() -> set[str]:
+    configured = {
+        o.strip()
+        for o in settings.magic_link_origin_allowlist.split(",")
+        if o.strip()
+    }
+    if settings.environment == "development":
+        configured |= {
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://openorg.localhost:3000",
+        }
+    return configured
+
+
+def _resolve_frontend_base(http_request: Request | None) -> str:
+    """Pick the SPA base URL for the magic link. Uses the request Origin only
+    if it is on the allowlist; otherwise falls back to the configured
+    frontend_url. Never returns an unvalidated host."""
+    if http_request is not None:
+        origin = http_request.headers.get("origin")
+        if origin and origin in _allowed_origins():
+            return origin
+    return settings.frontend_url
+
+
 @router.post("/auth/magic-link", response_model=MagicLinkResponse)
 async def send_magic_link(
     request: MagicLinkRequest,
     db: AsyncSession = Depends(get_db),
+    http_request: Request = None,  # type: ignore[assignment]  # FastAPI injects Request; None only in direct unit-test calls
 ):
     """
     Send a magic link to the user's email.
@@ -120,8 +147,9 @@ async def send_magic_link(
     db.add(magic_token)
     await db.commit()
 
-    # Build magic link URL
-    magic_link = f"{settings.frontend_url}/auth/verify?token={token}"
+    # Build magic link URL — base is the validated request Origin or the
+    # configured frontend_url fallback; never an unvalidated host.
+    magic_link = f"{_resolve_frontend_base(http_request)}/auth/verify?token={token}"
 
     # Dev mode: skip Resend so the developer doesn't need verified-domain
     # deliverability to click through locally. The link is logged so it can

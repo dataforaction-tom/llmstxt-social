@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
     environment: str = "development"
 
+    # Comma-separated origins allowed to set the magic-link base URL (one
+    # FastAPI process serves multiple hostnames). Anything not listed falls
+    # back to frontend_url — never reflect an unvalidated Origin into a login
+    # link (host-header injection / token phishing).
+    magic_link_origin_allowlist: str = (
+        "https://llmstxt.social,https://openorg.good-ship.co.uk"
+    )
+
     # Rate Limiting (free tier)
     free_tier_daily_limit: int = 10
 
