@@ -10,7 +10,7 @@
  * and an "explicit only" toggle that hides derived edges.
  */
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import * as d3 from 'd3';
 import {
@@ -217,26 +217,28 @@ export default function GraphDiscovery() {
   transformRef.current = transform;
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const zoom = d3
-      .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.25, 4])
-      // Don't start a pan when the gesture begins on a node — node drag owns
-      // that interaction. Wheel-zoom and background drags still pan.
-      .filter((event: Event) => {
-        const target = event.target as Element | null;
-        if (target?.closest?.('[data-node]')) return false;
-        const e = event as MouseEvent;
-        return (!e.ctrlKey || event.type === 'wheel') && !e.button;
-      })
-      .on('zoom', (event) => setTransform(event.transform));
-    zoomRef.current = zoom;
-    d3.select(svg).call(zoom);
-    return () => {
-      d3.select(svg).on('.zoom', null);
-    };
+  // Attach d3-zoom via a callback ref rather than an effect. The <svg> is
+  // rendered conditionally (only once graph data has loaded), so an effect with
+  // empty deps would run while the svg is still absent and never re-bind. A
+  // callback ref fires exactly when the element mounts.
+  const registerSvg = useCallback((node: SVGSVGElement | null) => {
+    svgRef.current = node;
+    if (!node) return;
+    if (!zoomRef.current) {
+      zoomRef.current = d3
+        .zoom<SVGSVGElement, unknown>()
+        .scaleExtent([0.25, 4])
+        // Don't start a pan when the gesture begins on a node — node drag owns
+        // that interaction. Wheel-zoom and background drags still pan.
+        .filter((event: Event) => {
+          const target = event.target as Element | null;
+          if (target?.closest?.('[data-node]')) return false;
+          const e = event as MouseEvent;
+          return (!e.ctrlKey || event.type === 'wheel') && !e.button;
+        })
+        .on('zoom', (event) => setTransform(event.transform));
+    }
+    d3.select(node).call(zoomRef.current);
   }, []);
 
   // --- zoom controls (buttons) --------------------------------------------
@@ -590,7 +592,7 @@ export default function GraphDiscovery() {
               </button>
             </div>
           <svg
-            ref={svgRef}
+            ref={registerSvg}
             width={WIDTH}
             height={HEIGHT}
             className="block w-full border border-rule"
