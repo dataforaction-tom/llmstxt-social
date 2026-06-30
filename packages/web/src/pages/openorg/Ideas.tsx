@@ -223,7 +223,12 @@ export default function IdeasPage() {
                 <li key={`${row.org_id}-${row.slug}`} className="py-6">
                   <div className="flex flex-wrap items-baseline justify-between gap-3">
                     <h2 className="display-head text-xl font-medium text-navy">
-                      {row.slug}
+                      <Link
+                        to={`/openorg/${row.org_id}/ideas/${row.slug}`}
+                        className="hover:text-teal"
+                      >
+                        {row.slug}
+                      </Link>
                     </h2>
                     <div className="flex items-center gap-3">
                       {row.status && (
@@ -258,12 +263,12 @@ export default function IdeasPage() {
                         {row.cost_upper?.toLocaleString() ?? '?'}
                       </span>
                     )}
-                    <a
-                      href={row.idea_url}
+                    <Link
+                      to={`/openorg/${row.org_id}/ideas/${row.slug}`}
                       className="text-grey-blue underline-offset-4 hover:text-navy hover:underline"
                     >
-                      idea.json →
-                    </a>
+                      View idea →
+                    </Link>
                   </div>
                 </li>
               ))}

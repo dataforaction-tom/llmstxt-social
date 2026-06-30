@@ -28,9 +28,9 @@ import {
   StatusBadge,
   ThemeChips,
   TimelineSection,
-  formatDate,
   type EvidenceItem,
 } from '../../components/openorg/detail';
+import { formatDate } from '../../components/openorg/detailFormat';
 
 interface Geography {
   primary_area?: string;

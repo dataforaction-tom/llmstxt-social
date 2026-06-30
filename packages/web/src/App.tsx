@@ -14,6 +14,8 @@ import EditStrategyPage from './pages/openorg/EditStrategy';
 import EditIdeaPage from './pages/openorg/EditIdea';
 import CreatePage from './pages/openorg/Create';
 import ProfileDetailPage from './pages/openorg/ProfileDetail';
+import IdeaDetailPage from './pages/openorg/IdeaDetail';
+import StrategyDetailPage from './pages/openorg/StrategyDetail';
 import IdeasPage from './pages/openorg/Ideas';
 import AboutPage from './pages/openorg/About';
 import NewRecordPage from './pages/openorg/NewRecord';
@@ -161,6 +163,16 @@ export function AppRoutes() {
       <Route path="/openorg/ideas" element={<IdeasPage />} />
       <Route path="/openorg/about" element={<AboutPage />} />
       <Route path="/openorg/generate" element={<OpenOrgGeneratePage />} />
+      {/* Public idea/strategy detail pages — more specific than
+          /openorg/:orgId, so react-router ranks them first. */}
+      <Route
+        path="/openorg/:orgId/ideas/:slug"
+        element={<IdeaDetailPage />}
+      />
+      <Route
+        path="/openorg/:orgId/strategies/:slug"
+        element={<StrategyDetailPage />}
+      />
       {/* Public profile detail page — must come AFTER the static routes
           (/openorg/discover, /openorg/ideas) so react-router doesn't match
           :orgId against those names. */}

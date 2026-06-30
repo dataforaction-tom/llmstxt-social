@@ -401,7 +401,12 @@ function IdeasLandscape() {
             >
               <div className="flex items-baseline justify-between gap-2">
                 <h3 className="display-head text-lg font-medium leading-tight text-navy">
-                  {row.slug}
+                  <Link
+                    to={`/openorg/${row.org_id}/ideas/${row.slug}`}
+                    className="hover:text-teal"
+                  >
+                    {row.slug}
+                  </Link>
                 </h3>
                 {row.status && (
                   <span
@@ -454,12 +459,12 @@ function IdeasLandscape() {
                     </span>
                   )}
                 </div>
-                <a
-                  href={row.idea_url}
+                <Link
+                  to={`/openorg/${row.org_id}/ideas/${row.slug}`}
                   className="text-grey-blue underline-offset-4 hover:text-navy hover:underline"
                 >
-                  idea.json →
-                </a>
+                  View idea →
+                </Link>
               </div>
             </li>
           ))}
