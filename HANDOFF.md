@@ -1,12 +1,20 @@
 # Handoff — Open Org hardening + essay-vision features
 
-> Session ended: 2026-06-25 (session 2)
-> Branch: `fix/openorg-hardening` (off `master`) — **pushed to origin, PR not yet opened** (gh CLI not authenticated)
-> Resumes at: **fix Discover.test.tsx leaflet mock**, commit ideas-first discovery, then **open the PR**
+> Session ended: 2026-06-26 (session 3)
+> Branch: `fix/openorg-hardening` (off `master`) — **pushed, PR open, all gates green**
+> Resumes at: **deploy** (prod image rebuild + Tunnel route + Resend verify), then Murmurations upstream PR and editor-polish PR 7
 
 ## TL;DR
 
-Session 1 hardened Open Org (8 bugs, brand alignment, graph discovery, Claude skills). Session 2 tackled the essay's vision gaps: **funder signalling**, **evidence layer**, **profile evolution**, **cluster insights**, and **ideas-first discovery**. 22 commits on `fix/openorg-hardening`, pushed. All gates green except the new `Discover.test.tsx` which has a leaflet mock issue.
+Session 1 hardened Open Org (8 bugs, brand alignment, graph discovery, Claude skills). Session 2 tackled the essay's vision gaps: **funder signalling**, **evidence layer**, **profile evolution**, **cluster insights**, and **ideas-first discovery**. Session 3 closed out the loose ends: the `Discover.test.tsx` leaflet mock is fixed, ideas-first discovery is committed, and magic-link auth is now **request-aware** (base URL derived from a validated `Origin`, Open Org email branding by host). The branch is **green on every gate** (core 325 · API 274 · web 208 · tsc · lint) and the **PR is open**. The only thing left before openorg.good-ship.co.uk goes live is deployment — all user actions.
+
+## Session 3 (2026-06-26)
+
+- **Ideas-first discovery committed** (`4f9a54f`) — leaflet mock fixed; `Discover.test.tsx` green; the session-2 blocker is gone.
+- **Request-aware magic links** (`6eeb72e`) — `/auth/magic-link` builds the link from the request `Origin`, validated against `MAGIC_LINK_ORIGIN_ALLOWLIST` (exact match), falling back to `FRONTEND_URL`. One shared FastAPI process now sends correct login links for both products without repointing `FRONTEND_URL`.
+- **Open Org email branding by host** (`11b27f8`) — magic-link emails use Open Org branding + `hello@openorg.good-ship.co.uk` sender when the request comes from the openorg host.
+- **Tests + docs** (`e7ff6e4`, `6125e71`) — origin-allowlist bypass pinned, endpoint branding wiring tested (+10 API tests → 274), `.env.example` + CLAUDE.md updated.
+- **Lint fix** — `themeChips` inlined into its `useMemo` to clear the only outstanding exhaustive-deps warning.
 
 ## What landed this session (8 new commits, 20→22 total on branch)
 
@@ -86,76 +94,26 @@ a5656ac fix(api): ignore extra env vars in Settings model
 
 ## Uncommitted working tree state
 
+Branch is clean of feature work — everything above is committed and pushed.
+
 ```
-M packages/api/src/llmstxt_api/routes/open_org_discovery.py   (ideas summary + sort param)
-M packages/api/tests/test_open_org_idea_browser.py            (8 new tests)
-M packages/web/src/api/openorg.ts                             (IdeasSummary, fetchIdeasSummary, useIdeasSummary, IdeaSort, IdeaFilters)
-M packages/web/src/pages/openorg/Discover.tsx                 (rewritten — ideas-first default)
-?? packages/web/src/pages/openorg/Discover.test.tsx           (7 tests, hangs vitest)
+M packages/web/public/sitemap.xml   (unrelated llmstxt.social route/date churn from another session — left out of this PR)
 ```
 
 ## How to resume
 
-### Step 1: Fix Discover.test.tsx
+The branch is feature-complete and green. The remaining work is **deployment** (all user actions — see below) plus two follow-ups (Murmurations upstream PR, editor-polish PR 7).
 
-The leaflet mock factory needs the `default` export key so that `import L from 'leaflet'` gets the mocked object:
-
-```typescript
-vi.mock('leaflet', () => ({
-  default: { Icon: { Default: { mergeOptions: () => {} } } },
-  Icon: { Default: { mergeOptions: () => {} } },
-}));
-```
-
-Also mock the marker image imports:
-```typescript
-vi.mock('leaflet/dist/images/marker-icon.png', () => ({ default: 'marker-icon.png' }));
-vi.mock('leaflet/dist/images/marker-icon-2x.png', () => ({ default: 'marker-icon-2x.png' }));
-vi.mock('leaflet/dist/images/marker-shadow.png', () => ({ default: 'marker-shadow.png' }));
-```
-
-The `useIdeasFirstPage` mock should filter results by theme to make the theme-chip click test pass:
-```typescript
-useIdeasFirstPage: (filters: { theme?: string }) => ({
-  data: {
-    results: (ideasPageValue?.results ?? []).filter(
-      (r: { themes: string[] }) => !filters?.theme || r.themes.includes(filters.theme),
-    ),
-    next_cursor: null,
-  },
-  isLoading: false, isError: false, isFetching: false,
-}),
-```
-
-After fixing, run:
-```bash
-cd packages/web && npx vitest run src/pages/openorg/Discover.test.tsx
-```
-
-If it still hangs, the issue may be vitest's collection phase trying to resolve leaflet CSS. Check `vitest.config.ts` — the `server.deps.inline: ['leaflet', 'react-leaflet']` option was tried but may not be needed once the mock factory is correct.
-
-### Step 2: Commit ideas-first discovery
-
-```bash
-git add packages/api/src/llmstxt_api/routes/open_org_discovery.py \
-        packages/api/tests/test_open_org_idea_browser.py \
-        packages/web/src/api/openorg.ts \
-        packages/web/src/pages/openorg/Discover.tsx \
-        packages/web/src/pages/openorg/Discover.test.tsx
-git commit -m "feat(openorg): make ideas the default discovery view"
-git push origin fix/openorg-hardening
-```
-
-### Step 3: Run full verification
+### Re-run the full verification gate
 
 ```bash
 # Python (from repo root)
 .venv/bin/python -m pytest packages/core/tests/ -q    # 325 passed
-.venv/bin/python -m pytest packages/api/tests/ -q     # 264 passed
+.venv/bin/python -m pytest packages/api/tests/ -q     # 274 passed
 
 # Web (from packages/web)
 npx tsc --noEmit                                        # clean
-npx vitest run                                          # 207+ passed (200 + 7 Discover)
+npx vitest run                                          # 208 passed
 npm run lint                                            # clean
 ```
 
@@ -173,18 +131,16 @@ npm run lint                                            # clean
 - Cosmetic: idea/strategy cards show raw slugs as titles; `/discover/ideas` `area_code` filter is a no-op.
 - Editor polish PR 7 (keyboard + motion polish) — still outstanding.
 - Murmurations schema not yet registered upstream.
-- `gh` CLI not authenticated on this machine — PR needs to be opened manually.
-- `Discover.test.tsx` hangs vitest (leaflet mock issue — see "How to resume" above).
-- `vitest.config.ts` was temporarily modified with `server.deps.inline` — reverted, should not be needed.
-- `Discover.minimal.test.tsx` temp file was deleted.
+- Rate-limit real-client-IP behind Cloudflare/Caddy — verify `trusted_proxies` from a real external client.
+- Cosmetic: idea/strategy cards show raw slugs as titles; `/discover/ideas` `area_code` filter is a no-op.
 
 ## Outstanding user actions
 
-1. **Open PR** → https://github.com/dataforaction-tom/llmstxt-social/pull/new/fix/openorg-hardening
+1. ~~**Open PR**~~ — ✅ opened 2026-06-26 (session 3)
 2. **Murmurations schema upstream PR** — schema at `deploy/murmurations/`
 3. **Cloudflare Tunnel route** for `openorg.good-ship.co.uk`
 4. **Resend domain verification** for `hello@openorg.good-ship.co.uk`
-5. **Prod image rebuild + deploy**
+5. **Prod image rebuild + deploy** — stale image lacks `openai` + D3 + `@fontsource-variable/dm-sans` deps and will crash on boot
 6. **Editor polish PR 7** (keyboard + motion polish)
 
 ## Remaining essay-vision gaps (not started)

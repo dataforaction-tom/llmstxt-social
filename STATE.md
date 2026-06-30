@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-06-25 (session 2)
+> Last updated: 2026-06-26 (session 3)
 > See `HANDOFF.md` for the full session wrap-up and resume instructions.
 
 ## System state diagram
@@ -15,9 +15,10 @@ stateDiagram-v2
     Deploying --> Live: Caddy + Tunnel routes openorg.good-ship.co.uk
     Live --> Hardening: bug sweep + styling + graph discovery + Claude skills
     Hardening --> Vision: funder signalling, evidence layer, profile evolution, cluster insights, ideas-first discovery
-    Vision --> [*]: branch pushed, PR pending, ideas-first discovery test in progress
+    Vision --> Auth: request-aware magic links + Open Org email branding by host
+    Auth --> [*]: branch green (325/274/208), PR open, awaiting deploy
 
-    note right of Vision: ← WE ARE HERE (22 commits on fix/openorg-hardening, pushed; ideas-first discovery API done, frontend test pending)
+    note right of Auth: ← WE ARE HERE (fix/openorg-hardening green on all gates, PR open; deploy is the remaining user action)
 ```
 
 ## Component status
@@ -44,19 +45,20 @@ stateDiagram-v2
 | 17 | Profile evolution | ✅ Done | Version history API (org/strategy/idea), timeline on profile detail, status badges, created/updated timestamps |
 | 18 | Funder signalling | ✅ Done | OrgSignal model, 3 API endpoints, SignalButton component, FunderInterestSection, interest badge on Ideas page |
 | 19 | Evidence layer | ✅ Done | Top-level `evidence` array in profile schema, converter parse/render, Evidence section on ProfileDetail, editor template with guided comments |
-| 20 | Ideas-first discovery | 🔧 In progress | API done (summary endpoint + sort param). Frontend Discover.tsx rewritten. Test file has leaflet mock issue — `vi.mock('leaflet')` needs `default` export key. API tests pass (264). Frontend test pending fix. |
+| 20 | Ideas-first discovery | ✅ Done | API (summary endpoint + sort param) + rewritten Discover.tsx (ideas-first default, hero summary, theme chips, place/status/sort filters). Leaflet mock fixed; Discover.test.tsx green. |
+| 21 | Request-aware magic links | ✅ Done | `/auth/magic-link` derives the base URL from the request `Origin` validated against `MAGIC_LINK_ORIGIN_ALLOWLIST` (exact match), falling back to `FRONTEND_URL`. Open Org branding + `hello@openorg.good-ship.co.uk` sender selected by host. One shared FastAPI process now sends correct links for both products. |
 
 Status markers: ⏳ not started · 🔧 in progress · ✅ done · 🚫 blocked · ⚠️ needs attention
 
-## Test counts (2026-06-25 session 2)
+## Test counts (2026-06-26 session 3)
 
 | Suite | Count | Notes |
 |-------|-------|-------|
-| Core (pytest) | 325 | Was 314; +11 evidence converter tests |
-| API (pytest) | 264 | Was 216; +11 funder signal tests, +8 ideas summary/sort tests, +29 other new tests |
-| Web (vitest) | 200 | Was 171; +5 cluster tests, +4 evolution tests, +5 evidence tests, +4 signal tests, +11 other. Discover.test.tsx not yet passing (pending leaflet mock fix) |
+| Core (pytest) | 325 | Evidence converter + edge-case suites included |
+| API (pytest) | 274 | Was 264; +10 magic-link origin/branding tests (session 3) |
+| Web (vitest) | 208 | Discover.test.tsx now green (leaflet mock fixed) |
 | tsc | clean | |
-| eslint | clean | |
+| eslint | clean | `themeChips` inlined into useMemo to clear exhaustive-deps warning |
 
 ## Data flow (target)
 
@@ -96,7 +98,7 @@ flowchart LR
 
 ## Outstanding user actions
 
-- **Open PR** for `fix/openorg-hardening` → https://github.com/dataforaction-tom/llmstxt-social/pull/new/fix/openorg-hardening
+- ~~**Open PR** for `fix/openorg-hardening`~~ — ✅ opened 2026-06-26 (session 3)
 - **Murmurations schema upstream PR** — schema drafted at `deploy/murmurations/`
 - **Cloudflare Tunnel route** for `openorg.good-ship.co.uk`
 - **Resend domain verification** for `hello@openorg.good-ship.co.uk`
@@ -118,4 +120,4 @@ Assessed against [the essay](https://tomcw.xyz/the-grant-application-is-dead-wha
 | 7 | No funder-facing view | ⏳ Not started. Ideas-first discovery partly addresses this. |
 | 8 | No temporal dimension | ✅ Partly done — timeline shows change over time |
 | 9 | Cluster insights not described meaningfully | ✅ Done — org names, ideas summary, places, dominant themes, human-readable descriptions |
-| 10 | Ideas not centred in discovery | 🔧 In progress — API done, frontend written, test pending |
+| 10 | Ideas not centred in discovery | ✅ Done — ideas-first default view, hero summary, theme chips, filters, sort |
