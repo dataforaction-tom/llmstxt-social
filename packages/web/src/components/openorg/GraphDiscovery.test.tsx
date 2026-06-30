@@ -245,6 +245,20 @@ describe('GraphDiscovery', () => {
     expect(clusteredCircle!.getAttribute('opacity')).not.toBe('0.25');
   });
 
+  it('renders zoom + fit + reset view controls', () => {
+    renderComponent();
+    expect(screen.getByRole('button', { name: /zoom in/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /zoom out/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /fit to view/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reset view/i })).toBeInTheDocument();
+  });
+
+  it('tags nodes as draggable targets via data-node', () => {
+    const { container } = renderComponent();
+    const draggable = container.querySelector('g[data-node="GB-CHC-1"]');
+    expect(draggable).not.toBeNull();
+  });
+
   it('renders the Clusters toggle button, off by default', () => {
     renderComponent();
     const toggle = screen.getByRole('button', { name: /clusters/i });
@@ -316,7 +330,7 @@ describe('GraphDiscovery', () => {
     const ideaCircle = container.querySelector('svg circle[data-id="idea:GB-CHC-1:kitchen"]');
     fireEvent.click(ideaCircle!);
     const ideaLink = screen.getByRole('link', { name: /view idea/i });
-    expect(ideaLink).toHaveAttribute('href', '/openorg/GB-CHC-1?idea=kitchen');
+    expect(ideaLink).toHaveAttribute('href', '/openorg/GB-CHC-1/ideas/kitchen');
   });
 
   it('strategy node side panel has a link to the strategy detail page', () => {
@@ -324,7 +338,10 @@ describe('GraphDiscovery', () => {
     const stratCircle = container.querySelector('svg circle[data-id="strategy:GB-CHC-1:2025-2028"]');
     fireEvent.click(stratCircle!);
     const stratLink = screen.getByRole('link', { name: /view strategy/i });
-    expect(stratLink).toHaveAttribute('href', '/openorg/GB-CHC-1?strategy=2025-2028');
+    expect(stratLink).toHaveAttribute(
+      'href',
+      '/openorg/GB-CHC-1/strategies/2025-2028',
+    );
   });
 
   it('filter toggle button is present and starts off', () => {

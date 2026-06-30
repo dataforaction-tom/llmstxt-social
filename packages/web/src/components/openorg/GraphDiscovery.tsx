@@ -10,7 +10,7 @@
  * and an "explicit only" toggle that hides derived edges.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import * as d3 from 'd3';
 import {
@@ -181,6 +181,10 @@ export default function GraphDiscovery() {
 
     const sim = d3
       .forceSimulation<SimNode>(simNodes)
+      // Higher velocity decay damps the layout so it glides to rest instead of
+      // jittering; a gentle alpha decay lets it settle gracefully on load.
+      .velocityDecay(0.45)
+      .alphaDecay(0.035)
       .force(
         'link',
         d3
@@ -209,6 +213,8 @@ export default function GraphDiscovery() {
 
   // --- zoom + pan ----------------------------------------------------------
   const [transform, setTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
+  const transformRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  transformRef.current = transform;
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   useEffect(() => {
@@ -217,6 +223,14 @@ export default function GraphDiscovery() {
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.25, 4])
+      // Don't start a pan when the gesture begins on a node — node drag owns
+      // that interaction. Wheel-zoom and background drags still pan.
+      .filter((event: Event) => {
+        const target = event.target as Element | null;
+        if (target?.closest?.('[data-node]')) return false;
+        const e = event as MouseEvent;
+        return (!e.ctrlKey || event.type === 'wheel') && !e.button;
+      })
       .on('zoom', (event) => setTransform(event.transform));
     zoomRef.current = zoom;
     d3.select(svg).call(zoom);
@@ -224,6 +238,90 @@ export default function GraphDiscovery() {
       d3.select(svg).on('.zoom', null);
     };
   }, []);
+
+  // --- zoom controls (buttons) --------------------------------------------
+  function zoomBy(factor: number) {
+    const svg = svgRef.current;
+    if (!svg || !zoomRef.current) return;
+    d3.select(svg).transition().duration(200).call(zoomRef.current.scaleBy, factor);
+  }
+  function resetZoom() {
+    const svg = svgRef.current;
+    if (!svg || !zoomRef.current) return;
+    d3.select(svg)
+      .transition()
+      .duration(300)
+      .call(zoomRef.current.transform, d3.zoomIdentity);
+  }
+  function fitToView() {
+    const svg = svgRef.current;
+    if (!svg || !zoomRef.current || simNodes.length === 0) return;
+    const xs = simNodes.map((n) => n.x ?? WIDTH / 2);
+    const ys = simNodes.map((n) => n.y ?? HEIGHT / 2);
+    const pad = 40;
+    const minX = Math.min(...xs) - pad;
+    const maxX = Math.max(...xs) + pad;
+    const minY = Math.min(...ys) - pad;
+    const maxY = Math.max(...ys) + pad;
+    const w = Math.max(maxX - minX, 1);
+    const h = Math.max(maxY - minY, 1);
+    const scale = Math.min(4, Math.max(0.25, Math.min(WIDTH / w, HEIGHT / h)));
+    const tx = WIDTH / 2 - scale * (minX + maxX) / 2;
+    const ty = HEIGHT / 2 - scale * (minY + maxY) / 2;
+    d3.select(svg)
+      .transition()
+      .duration(400)
+      .call(
+        zoomRef.current.transform,
+        d3.zoomIdentity.translate(tx, ty).scale(scale),
+      );
+  }
+
+  // --- node dragging -------------------------------------------------------
+  // Pointer-based drag that pins a node where it's dropped (fx/fy). Double-
+  // click releases the pin back to the simulation. We convert pointer client
+  // coords into graph space by inverting the current zoom transform.
+  const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
+
+  function clientToGraph(clientX: number, clientY: number): [number, number] {
+    const svg = svgRef.current;
+    if (!svg) return [0, 0];
+    const rect = svg.getBoundingClientRect();
+    const scaleX = rect.width ? WIDTH / rect.width : 1;
+    const scaleY = rect.height ? HEIGHT / rect.height : 1;
+    const px = (clientX - rect.left) * scaleX;
+    const py = (clientY - rect.top) * scaleY;
+    return transformRef.current.invert([px, py]) as [number, number];
+  }
+
+  function onNodePointerDown(node: SimNode, e: ReactPointerEvent<Element>) {
+    e.stopPropagation();
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    dragRef.current = { id: node.id, moved: false };
+    simulationRef.current?.alphaTarget(0.3).restart();
+    node.fx = node.x;
+    node.fy = node.y;
+  }
+  function onNodePointerMove(node: SimNode, e: ReactPointerEvent<Element>) {
+    if (dragRef.current?.id !== node.id) return;
+    dragRef.current.moved = true;
+    const [gx, gy] = clientToGraph(e.clientX, e.clientY);
+    node.fx = gx;
+    node.fy = gy;
+    forceTick((t) => t + 1);
+  }
+  function onNodePointerUp(node: SimNode, e: ReactPointerEvent<Element>) {
+    if (dragRef.current?.id !== node.id) return;
+    (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
+    simulationRef.current?.alphaTarget(0);
+    // fx/fy left set → node stays pinned where it was dropped.
+  }
+  function releasePin(node: SimNode) {
+    node.fx = null;
+    node.fy = null;
+    simulationRef.current?.alphaTarget(0.3).restart();
+    window.setTimeout(() => simulationRef.current?.alphaTarget(0), 600);
+  }
 
   // --- hover neighbourhood -------------------------------------------------
   const connectedIds = useMemo(() => {
@@ -309,14 +407,9 @@ export default function GraphDiscovery() {
   function detailUrl(node: SimNode): string {
     if (node.type === 'organisation') return `/openorg/${node.id}`;
     if (node.org_id) {
-      if (node.type === 'idea') {
-        const slug = node.id.split(':').slice(2).join(':');
-        return `/openorg/${node.org_id}?idea=${slug}`;
-      }
-      if (node.type === 'strategy') {
-        const slug = node.id.split(':').slice(2).join(':');
-        return `/openorg/${node.org_id}?strategy=${slug}`;
-      }
+      const slug = node.id.split(':').slice(2).join(':');
+      if (node.type === 'idea') return `/openorg/${node.org_id}/ideas/${slug}`;
+      if (node.type === 'strategy') return `/openorg/${node.org_id}/strategies/${slug}`;
     }
     return '#';
   }
@@ -437,6 +530,13 @@ export default function GraphDiscovery() {
           </div>
         )}
 
+        {!graphQuery.isLoading && !graphQuery.isError && simNodes.length > 0 && (
+          <p className="mb-2 text-xs text-grey-blue">
+            Drag nodes to rearrange · double-click to release · scroll to zoom ·
+            click a node to focus its connections.
+          </p>
+        )}
+
         {graphQuery.isLoading ? (
           <div className="flex h-[600px] items-center justify-center border border-rule text-grey-blue">
             Loading graph…
@@ -450,12 +550,55 @@ export default function GraphDiscovery() {
             No data to visualise.
           </div>
         ) : (
+          <div className="relative">
+            {/* zoom + view controls */}
+            <div
+              data-testid="graph-controls"
+              className="absolute right-3 top-3 z-10 flex flex-col overflow-hidden rounded-brand border border-rule bg-cream/90 shadow-sm backdrop-blur"
+            >
+              <button
+                type="button"
+                aria-label="Zoom in"
+                onClick={() => zoomBy(1.3)}
+                className="px-2.5 py-1.5 text-navy transition hover:bg-cream-dark"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                aria-label="Zoom out"
+                onClick={() => zoomBy(1 / 1.3)}
+                className="border-t border-rule px-2.5 py-1.5 text-navy transition hover:bg-cream-dark"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                aria-label="Fit to view"
+                onClick={fitToView}
+                className="border-t border-rule px-2.5 py-1.5 text-xs text-navy transition hover:bg-cream-dark"
+              >
+                Fit
+              </button>
+              <button
+                type="button"
+                aria-label="Reset view"
+                onClick={resetZoom}
+                className="border-t border-rule px-2.5 py-1.5 text-xs text-navy transition hover:bg-cream-dark"
+              >
+                Reset
+              </button>
+            </div>
           <svg
             ref={svgRef}
             width={WIDTH}
             height={HEIGHT}
-            className="block border border-rule bg-cream"
-            style={{ cursor: 'grab' }}
+            className="block w-full border border-rule"
+            style={{ cursor: 'grab', touchAction: 'none' }}
+            onClick={() => {
+              setSelectedNode(null);
+              setHighlightedClusterIdx(null);
+            }}
           >
             <defs>
               <marker
@@ -467,9 +610,23 @@ export default function GraphDiscovery() {
                 markerHeight="6"
                 orient="auto-start-reverse"
               >
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#666" />
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#7C8DA0" />
               </marker>
+              <radialGradient id="graphBg" cx="50%" cy="42%" r="75%">
+                <stop offset="0%" stopColor="#FBF7EE" />
+                <stop offset="100%" stopColor="#F0E9DA" />
+              </radialGradient>
+              <filter id="nodeShadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow
+                  dx="0"
+                  dy="1"
+                  stdDeviation="1.5"
+                  floodColor="#1B2A4A"
+                  floodOpacity="0.18"
+                />
+              </filter>
             </defs>
+            <rect width={WIDTH} height={HEIGHT} fill="url(#graphBg)" />
             <g transform={transform.toString()}>
               {/* edges */}
               {visibleLinks.map((link, i) => {
@@ -532,18 +689,45 @@ export default function GraphDiscovery() {
                 if (node.x == null || node.y == null) return null;
                 const r = nodeRadius(node);
                 const dim = isDimmed(node.id);
+                const focused =
+                  hoveredId === node.id || selectedNode?.id === node.id;
+                const pinned = node.fx != null && node.fy != null;
                 return (
                   <g
                     key={node.id}
+                    data-node={node.id}
                     transform={`translate(${node.x},${node.y})`}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: 'grab' }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      // Suppress the click that ends a drag gesture.
+                      if (dragRef.current?.moved) {
+                        dragRef.current = null;
+                        return;
+                      }
                       setSelectedNode(node);
                     }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      releasePin(node);
+                    }}
+                    onPointerDown={(e) => onNodePointerDown(node, e)}
+                    onPointerMove={(e) => onNodePointerMove(node, e)}
+                    onPointerUp={(e) => onNodePointerUp(node, e)}
                     onMouseEnter={() => setHoveredId(node.id)}
                     onMouseLeave={() => setHoveredId(null)}
                   >
+                    {/* pinned indicator — a faint dashed ring */}
+                    {pinned && (
+                      <circle
+                        r={r + 4}
+                        fill="none"
+                        stroke="#2D8B7A"
+                        strokeWidth={1}
+                        strokeDasharray="2 3"
+                        opacity={dim ? 0.2 : 0.7}
+                      />
+                    )}
                     <circle
                       data-id={node.id}
                       r={r}
@@ -552,17 +736,24 @@ export default function GraphDiscovery() {
                           ? clusterColour(node.cluster_id)
                           : COLOURS[node.type]
                       }
-                      stroke="#fff"
-                      strokeWidth={1.5}
+                      stroke={focused ? '#2D8B7A' : '#fff'}
+                      strokeWidth={focused ? 3 : 1.5}
                       opacity={dim ? 0.25 : 1}
+                      filter="url(#nodeShadow)"
+                      style={{ transition: 'opacity 200ms ease, stroke 150ms ease' }}
                     />
                     <text
-                      x={r + 4}
+                      x={r + 5}
                       y={4}
                       fontSize={11}
+                      fontWeight={focused ? 600 : 400}
                       fill="#1B2A4A"
-                      opacity={dim ? 0.3 : 1}
-                      style={{ pointerEvents: 'none', userSelect: 'none' }}
+                      opacity={dim ? 0.3 : 0.92}
+                      style={{
+                        pointerEvents: 'none',
+                        userSelect: 'none',
+                        transition: 'opacity 200ms ease',
+                      }}
                     >
                       {node.name}
                     </text>
@@ -571,6 +762,7 @@ export default function GraphDiscovery() {
               })}
             </g>
           </svg>
+          </div>
         )}
 
         {/* legend */}
