@@ -221,10 +221,10 @@ function IdeasLandscape() {
   }
 
   const summary: IdeasSummary | undefined = summaryQuery.data;
-  const themeChips = themesQuery.data ?? [];
   // Use the summary breakdown for chip counts when available; fall back to
   // the theme vocabulary (no counts).
   const themeChipData = useMemo(() => {
+    const themeChips = themesQuery.data ?? [];
     if (summary && Object.keys(summary.themes_breakdown).length > 0) {
       return themeChips
         .map((t) => ({ ...t, count: summary.themes_breakdown[t.key] ?? 0 }))
@@ -232,7 +232,7 @@ function IdeasLandscape() {
         .sort((a, b) => b.count - a.count);
     }
     return themeChips.map((t) => ({ ...t, count: 0 }));
-  }, [themeChips, summary]);
+  }, [themesQuery.data, summary]);
 
   return (
     <section className="mt-2" data-testid="ideas-landscape">
