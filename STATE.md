@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-06-26 (session 3)
+> Last updated: 2026-06-30 (session 4)
 > See `HANDOFF.md` for the full session wrap-up and resume instructions.
 
 ## System state diagram
@@ -16,9 +16,10 @@ stateDiagram-v2
     Live --> Hardening: bug sweep + styling + graph discovery + Claude skills
     Hardening --> Vision: funder signalling, evidence layer, profile evolution, cluster insights, ideas-first discovery
     Vision --> Auth: request-aware magic links + Open Org email branding by host
-    Auth --> [*]: branch green (325/274/208), PR open, awaiting deploy
+    Auth --> Surfaces: rendered idea/strategy pages + interactive graph + rich seed data
+    Surfaces --> [*]: branch green (325/275/216), all pushed to PR #22, awaiting deploy
 
-    note right of Auth: ← WE ARE HERE (fix/openorg-hardening green on all gates, PR open; deploy is the remaining user action)
+    note right of Surfaces: ← WE ARE HERE (fix/openorg-hardening green on all gates, PR #22 fully pushed; deploy is the remaining user action)
 ```
 
 ## Component status
@@ -47,18 +48,21 @@ stateDiagram-v2
 | 19 | Evidence layer | ✅ Done | Top-level `evidence` array in profile schema, converter parse/render, Evidence section on ProfileDetail, editor template with guided comments |
 | 20 | Ideas-first discovery | ✅ Done | API (summary endpoint + sort param) + rewritten Discover.tsx (ideas-first default, hero summary, theme chips, place/status/sort filters). Leaflet mock fixed; Discover.test.tsx green. |
 | 21 | Request-aware magic links | ✅ Done | `/auth/magic-link` derives the base URL from the request `Origin` validated against `MAGIC_LINK_ORIGIN_ALLOWLIST` (exact match), falling back to `FRONTEND_URL`. Open Org branding + `hello@openorg.good-ship.co.uk` sender selected by host. One shared FastAPI process now sends correct links for both products. |
+| 22 | Idea & strategy detail pages | ✅ Done | Rendered routes `/openorg/:orgId/ideas/:slug` + `/strategies/:slug`, shared `components/openorg/detail.tsx`. Cards/lists/graph link here; raw JSON kept as a link. Titles surfaced through discovery + list summaries. |
+| 23 | Interactive graph | ✅ Done | Node dragging (pin/release), zoom +/−/Fit/Reset controls bound via callback ref, click-to-focus neighbours, smoother physics, brand-aligned visual polish. |
+| 24 | Rich demo seed data | ✅ Done | `packages/api/scripts/seed_openorg_demo.py` (idempotent) enriches 17 ideas + 7 strategies with schema-valid content; structured rendering in `StrategyDetail`/`IdeaDetail`. |
 
 Status markers: ⏳ not started · 🔧 in progress · ✅ done · 🚫 blocked · ⚠️ needs attention
 
-## Test counts (2026-06-26 session 3)
+## Test counts (2026-06-30 session 4)
 
 | Suite | Count | Notes |
 |-------|-------|-------|
-| Core (pytest) | 325 | Evidence converter + edge-case suites included |
-| API (pytest) | 274 | Was 264; +10 magic-link origin/branding tests (session 3) |
-| Web (vitest) | 208 | Discover.test.tsx now green (leaflet mock fixed) |
+| Core (pytest) | 325 | Unchanged this session |
+| API (pytest) | 275 | Was 274; +1 idea-title test |
+| Web (vitest) | 216 | Was 208; +6 detail-page tests, +2 graph controls/drag tests |
 | tsc | clean | |
-| eslint | clean | `themeChips` inlined into useMemo to clear exhaustive-deps warning |
+| eslint | clean | |
 
 ## Data flow (target)
 

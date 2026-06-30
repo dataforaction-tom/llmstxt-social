@@ -1,12 +1,23 @@
 # Handoff — Open Org hardening + essay-vision features
 
-> Session ended: 2026-06-26 (session 3)
-> Branch: `fix/openorg-hardening` (off `master`) — **pushed, PR open, all gates green**
+> Session ended: 2026-06-30 (session 4)
+> Branch: `fix/openorg-hardening` (off `master`) — **all pushed to PR #22, all gates green**
 > Resumes at: **deploy** (prod image rebuild + Tunnel route + Resend verify), then Murmurations upstream PR and editor-polish PR 7
 
 ## TL;DR
 
-Session 1 hardened Open Org (8 bugs, brand alignment, graph discovery, Claude skills). Session 2 tackled the essay's vision gaps: **funder signalling**, **evidence layer**, **profile evolution**, **cluster insights**, and **ideas-first discovery**. Session 3 closed out the loose ends: the `Discover.test.tsx` leaflet mock is fixed, ideas-first discovery is committed, and magic-link auth is now **request-aware** (base URL derived from a validated `Origin`, Open Org email branding by host). The branch is **green on every gate** (core 325 · API 274 · web 208 · tsc · lint) and the **PR is open**. The only thing left before openorg.good-ship.co.uk goes live is deployment — all user actions.
+Session 1 hardened Open Org (8 bugs, brand alignment, graph discovery, Claude skills). Session 2 tackled the essay's vision gaps: **funder signalling**, **evidence layer**, **profile evolution**, **cluster insights**, and **ideas-first discovery**. Session 3 made magic-link auth **request-aware** and committed ideas-first discovery. Session 4 added **rendered idea & strategy detail pages**, a fully interactive **graph** (drag, zoom controls, click-to-focus, polish), **titles** in lists/cards, and **rich demo seed data** — plus fixed a dev proxy gap and a graph zoom-binding bug. The branch is **green on every gate** (core 325 · API 275 · web 216 · tsc · lint) and **PR #22 is open with everything pushed**. The only thing left before openorg.good-ship.co.uk goes live is deployment — all user actions.
+
+## Session 4 (2026-06-30)
+
+All committed and pushed to PR #22 (`79d59a8` is the tip).
+
+- **Dev `/open-org` proxy fix** (`e8723e0`) — the public API routes live at `/open-org/*` (federation-friendly), but Vite only proxied `/api/*`, so profile/idea/strategy/history fetches fell through to the SPA fallback and the detail pages errored in dev. Added `/open-org` to the Vite proxy (prod is unaffected — FastAPI serves both from one origin).
+- **Rendered idea & strategy detail pages** (`635ae40`, `3f26e41`) — new routes `/openorg/:orgId/ideas/:slug` and `/openorg/:orgId/strategies/:slug`, styled like the org profile. Extracted shared presentation into `components/openorg/detail.tsx` + `detailFormat.ts` (ProfileDetail reuses them). Idea/strategy cards + profile lists + graph node panels now link to these pages; the raw `.json` survives as a "view raw JSON" link.
+- **Graph interaction + polish** (`39246c1`, `66beb44`) — drag nodes to reposition (pin/double-click-release), on-screen zoom **+/−/Fit/Reset** controls, click-to-focus neighbours, smoother physics (velocity/alpha damping), soft node shadows, teal focus rings, background vignette, pinned-node indicator.
+- **Graph zoom-binding fix** (`79d59a8`) — zoom/pan was bound in a `useEffect([])` that ran before the conditional `<svg>` existed, so it never attached on a cold load (only survived via HMR). Moved binding to a **callback ref** so it attaches when the svg mounts.
+- **Titles in lists/cards** (`821fc9c`) — `title` now flows through the discovery idea rows and public list summaries (API `_record_summary` + `IdeaRow`); cards/lists show the real title, falling back to slug. +1 API test.
+- **Rich demo seed data** (`66beb44`) — `packages/api/scripts/seed_openorg_demo.py` enriches all 17 ideas + 7 strategies with schema-valid content (idempotent; validates + regenerates markdown). `StrategyDetail` renders the structured relationships/funding-mix/learning shapes; `IdeaDetail` shows the evidence base. See the **Demo seed data** section below for how to run it.
 
 ## Session 3 (2026-06-26)
 
