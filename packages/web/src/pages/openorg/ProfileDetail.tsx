@@ -362,7 +362,7 @@ function RecordList({
             <div className="flex flex-wrap items-baseline gap-x-3">
               <h3 className="font-medium text-navy">
                 <Link to={detailHref} className="hover:underline">
-                  {item.slug}
+                  {item.title ?? item.slug}
                 </Link>
               </h3>
               {item.status && (

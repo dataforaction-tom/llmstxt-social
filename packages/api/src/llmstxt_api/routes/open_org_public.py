@@ -330,14 +330,20 @@ def _record_summary(
     updated_at: object | None = None,
 ) -> dict:
     summary_text = ""
+    title_text = ""
     if isinstance(record_json, dict):
         candidate = record_json.get("summary")
         if isinstance(candidate, str):
             summary_text = candidate.strip()[:280]
+        title_candidate = record_json.get("title")
+        if isinstance(title_candidate, str):
+            title_text = title_candidate.strip()
     entry: dict = {
         "slug": slug,
         "themes": list(themes or []),
     }
+    if title_text:
+        entry["title"] = title_text
     if status:
         entry["status"] = status
     if summary_text:

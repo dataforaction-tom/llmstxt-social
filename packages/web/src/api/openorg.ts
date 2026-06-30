@@ -116,6 +116,7 @@ export async function fetchPublicIdea(
 export interface PublicRecordSummary {
   slug: string;
   themes: string[];
+  title?: string;
   status?: string;
   summary?: string;
   created_at?: string;
@@ -690,6 +691,7 @@ export interface IdeaRow {
   org_id: string;
   org_name: string;
   slug: string;
+  title: string | null;
   summary: string | null;
   themes: string[];
   status: string | null;

@@ -13,6 +13,7 @@ from unittest import mock
 
 def _idea(*, org_id: str, slug: str, themes: list[str] | None = None,
           status: str = "developing", summary: str | None = None,
+          title: str | None = None,
           cost_lower: int | None = None, cost_upper: int | None = None):
     from llmstxt_api.open_org_models import OrgIdea
 
@@ -22,6 +23,8 @@ def _idea(*, org_id: str, slug: str, themes: list[str] | None = None,
         "status": status,
         "themes": themes or ["education"],
     }
+    if title:
+        idea_json["title"] = title
     if summary:
         idea_json["summary"] = summary
     if cost_lower is not None or cost_upper is not None:
@@ -399,6 +402,28 @@ async def test_idea_row_carries_signal_count():
     import json
     body = json.loads(response.body)
     assert body["results"][0]["signal_count"] == 5
+
+
+async def test_idea_row_carries_title():
+    from llmstxt_api.routes.open_org_discovery import discover_ideas
+
+    idea = _idea(
+        org_id="GB-CHC-1",
+        slug="esol-evenings",
+        title="ESOL Evening Classes",
+    )
+    profile = _profile(org_id="GB-CHC-1", name="Riverside")
+    profile.profile_json = {"identity": {"name": "Riverside"}}
+
+    db = _stub_db(ideas=[idea], profiles=[profile])
+
+    response = await discover_ideas(
+        theme=None, area_code=None, status=None, q=None,
+        cost_max=None, sort="recent", cursor=None, limit=20, db=db,
+    )
+    import json
+    body = json.loads(response.body)
+    assert body["results"][0]["title"] == "ESOL Evening Classes"
 
 
 # --------------------------------------------------------------------------- #

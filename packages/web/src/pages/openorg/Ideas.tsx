@@ -227,7 +227,7 @@ export default function IdeasPage() {
                         to={`/openorg/${row.org_id}/ideas/${row.slug}`}
                         className="hover:text-teal"
                       >
-                        {row.slug}
+                        {row.title ?? row.slug}
                       </Link>
                     </h2>
                     <div className="flex items-center gap-3">

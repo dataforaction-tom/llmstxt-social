@@ -405,7 +405,7 @@ function IdeasLandscape() {
                     to={`/openorg/${row.org_id}/ideas/${row.slug}`}
                     className="hover:text-teal"
                   >
-                    {row.slug}
+                    {row.title ?? row.slug}
                   </Link>
                 </h3>
                 {row.status && (

@@ -273,6 +273,7 @@ class IdeaRow(BaseModel):
     org_id: str
     org_name: str
     slug: str
+    title: str | None = None
     summary: str | None = None
     themes: list[str] = Field(default_factory=list)
     status: str | None = None
@@ -492,6 +493,7 @@ def _idea_to_row(idea: OrgIdea, profile: OrgProfile) -> IdeaRow:
     geography = identity.get("geography") or {}
 
     summary = idea_payload.get("summary") if isinstance(idea_payload.get("summary"), str) else None
+    title = idea_payload.get("title") if isinstance(idea_payload.get("title"), str) else None
 
     cost = idea_payload.get("indicative_cost") or {}
     cost_lower = cost.get("lower") if isinstance(cost.get("lower"), int) else None
@@ -502,6 +504,7 @@ def _idea_to_row(idea: OrgIdea, profile: OrgProfile) -> IdeaRow:
         org_id=idea.org_id,
         org_name=identity.get("name") or idea.org_id,
         slug=idea.slug,
+        title=title,
         summary=summary[:280] if summary else None,
         themes=list(idea.themes or []),
         status=idea.status,
