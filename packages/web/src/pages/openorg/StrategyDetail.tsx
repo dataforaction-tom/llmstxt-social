@@ -45,16 +45,27 @@ interface Tension {
   narrative?: string;
 }
 
+interface Partnership {
+  name: string;
+  direction?: string;
+  narrative?: string;
+}
+
 interface Relationships {
-  partnerships?: string;
+  partnerships?: Partnership[];
   ecosystem_position?: string;
   community_mandate?: string;
 }
 
 interface ResourceModel {
-  current_funding_mix?: string;
+  current_funding_mix?: Record<string, number>;
   sustainability_direction?: string;
-  resourcing_gaps?: string;
+  resourcing_gaps?: string[];
+}
+
+interface LessonEntry {
+  lesson: string;
+  source?: string;
 }
 
 interface PublicStrategy {
@@ -67,9 +78,17 @@ interface PublicStrategy {
   priorities?: Priority[];
   not_doing?: NotDoing[];
   tensions?: Tension[];
-  learning?: { what_changed?: string };
+  learning?: { what_changed?: LessonEntry[] };
   relationships?: Relationships;
   resource_model?: ResourceModel;
+}
+
+/** Humanise an enum-ish token like "2_3_years" → "2–3 years". */
+function humanizeToken(token: string): string {
+  return token
+    .replace(/_/g, ' ')
+    .replace(/(\d)\s(\d)/, '$1–$2')
+    .replace(/^\w/, (c) => c.toUpperCase());
 }
 
 export default function StrategyDetailPage() {
@@ -127,7 +146,10 @@ export default function StrategyDetailPage() {
   const notDoing = data.not_doing ?? [];
   const tensions = data.tensions ?? [];
   const period = data.period ?? {};
-  const periodLabel = [period.start, period.end].filter(Boolean).join('–');
+  const periodLabel = [period.start, period.end]
+    .filter((d): d is string => Boolean(d))
+    .map((d) => d.slice(0, 4))
+    .join('–');
   const rawJsonUrl = `/open-org/${orgId}/strategies/${slug}.json`;
 
   return (
@@ -149,7 +171,7 @@ export default function StrategyDetailPage() {
           </h1>
           <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-grey-blue">
             {periodLabel && <span>{periodLabel}</span>}
-            {period.horizon && <span>· {period.horizon} horizon</span>}
+            {period.horizon && <span>· {humanizeToken(period.horizon)} horizon</span>}
             <span className="text-rule">·</span>
             <a href={rawJsonUrl} className="underline hover:text-navy">
               View raw JSON
@@ -239,11 +261,18 @@ export default function StrategyDetailPage() {
           </Section>
         )}
 
-        {data.learning?.what_changed && (
+        {(data.learning?.what_changed?.length ?? 0) > 0 && (
           <Section title="Learning">
-            <p className="text-base leading-relaxed text-navy">
-              {data.learning.what_changed}
-            </p>
+            <ul className="space-y-3">
+              {data.learning!.what_changed!.map((entry, i) => (
+                <li key={i} className="border-l-2 border-rule pl-4">
+                  <p className="text-base leading-relaxed text-navy">{entry.lesson}</p>
+                  {entry.source && (
+                    <p className="mt-0.5 text-xs text-grey-blue">Source: {entry.source}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
           </Section>
         )}
 
@@ -272,29 +301,86 @@ function DefinitionRows({ rows }: { rows: [string, string | undefined][] }) {
 }
 
 function RelationshipsSection({ rel }: { rel: Relationships }) {
-  const rows: [string, string | undefined][] = [
-    ['Partnerships', rel.partnerships],
-    ['Ecosystem position', rel.ecosystem_position],
-    ['Community mandate', rel.community_mandate],
-  ];
-  if (rows.every(([, v]) => !v)) return null;
+  const partnerships = rel.partnerships ?? [];
+  if (
+    partnerships.length === 0 &&
+    !rel.ecosystem_position &&
+    !rel.community_mandate
+  ) {
+    return null;
+  }
   return (
     <Section title="Relationships">
-      <DefinitionRows rows={rows} />
+      {partnerships.length > 0 && (
+        <ul className="mb-3 space-y-2">
+          {partnerships.map((p, i) => (
+            <li key={i} className="border-l-2 border-rule pl-4 text-sm">
+              <span className="font-medium text-navy">{p.name}</span>
+              {p.direction && (
+                <span className="ml-2 text-xs uppercase tracking-wider text-grey-blue">
+                  {humanizeToken(p.direction)}
+                </span>
+              )}
+              {p.narrative && (
+                <p className="mt-0.5 text-navy/85">{p.narrative}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <DefinitionRows
+        rows={[
+          ['Ecosystem position', rel.ecosystem_position],
+          ['Community mandate', rel.community_mandate],
+        ]}
+      />
     </Section>
   );
 }
 
 function ResourceSection({ rm }: { rm: ResourceModel }) {
-  const rows: [string, string | undefined][] = [
-    ['Funding mix', rm.current_funding_mix],
-    ['Sustainability', rm.sustainability_direction],
-    ['Resourcing gaps', rm.resourcing_gaps],
-  ];
-  if (rows.every(([, v]) => !v)) return null;
+  const fundingMix = rm.current_funding_mix ?? {};
+  const fundingEntries = Object.entries(fundingMix);
+  const gaps = rm.resourcing_gaps ?? [];
+  if (
+    fundingEntries.length === 0 &&
+    !rm.sustainability_direction &&
+    gaps.length === 0
+  ) {
+    return null;
+  }
   return (
     <Section title="Resource model">
-      <DefinitionRows rows={rows} />
+      {fundingEntries.length > 0 && (
+        <div className="mb-3">
+          <p className="text-sm text-grey-blue">Funding mix</p>
+          <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-navy">
+            {fundingEntries
+              .sort((a, b) => b[1] - a[1])
+              .map(([label, pct]) => (
+                <li key={label}>
+                  {humanizeToken(label)} <span className="text-grey-blue">{pct}%</span>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+      {rm.sustainability_direction && (
+        <p className="mb-2 text-sm text-navy">
+          <span className="text-grey-blue">Sustainability:</span>{' '}
+          {humanizeToken(rm.sustainability_direction)}
+        </p>
+      )}
+      {gaps.length > 0 && (
+        <div>
+          <p className="text-sm text-grey-blue">Resourcing gaps</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-navy">
+            {gaps.map((g, i) => (
+              <li key={i}>{g}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </Section>
   );
 }

@@ -117,6 +117,21 @@ npx vitest run                                          # 208 passed
 npm run lint                                            # clean
 ```
 
+## Demo seed data
+
+The demo dataset (14 orgs, 17 ideas, 7 strategies) ships with titles + themes
+only. Rich, schema-valid content for the idea/strategy detail pages is applied
+by an idempotent enrichment script:
+
+```bash
+docker exec llmstxt-local-api-1 python /app/api/scripts/seed_openorg_demo.py
+```
+
+It validates each record against the Open Org schemas, regenerates the markdown
+source, and commits. Re-running is safe. Content lives in
+`packages/api/scripts/seed_openorg_demo.py` (`IDEA_ENRICHMENTS` /
+`STRATEGY_ENRICHMENTS`, keyed by `(org_id, slug)`).
+
 ## Deploy notes
 
 - **Rebuild the prod image before deploy** — `config.py` imports `openai` at boot (provider abstraction), web package has `d3` + `@fontsource-variable/dm-sans` dependencies. A stale image will crash.

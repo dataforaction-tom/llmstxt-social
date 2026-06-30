@@ -121,6 +121,7 @@ export default function IdeaDetailPage() {
   const beneficiaries = data.beneficiaries ?? [];
   const collaborators = data.collaborators ?? [];
   const connections = data.connections ?? [];
+  const evidenceBase = data.evidence_base ?? [];
   const signalCount = signals?.length ?? 0;
   const rawJsonUrl = `/open-org/${orgId}/ideas/${slug}.json`;
 
@@ -222,6 +223,21 @@ export default function IdeaDetailPage() {
                   </span>
                   {c.relationship && (
                     <span className="text-grey-blue"> — {c.relationship}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {evidenceBase.length > 0 && (
+          <Section title="Evidence base">
+            <ul className="space-y-2">
+              {evidenceBase.map((e, i) => (
+                <li key={i} className="border-l-2 border-rule pl-4 text-sm">
+                  <span className="font-mono text-xs text-grey-blue">{e.evidence_id}</span>
+                  {e.relevance && (
+                    <p className="mt-0.5 text-navy/85">{e.relevance}</p>
                   )}
                 </li>
               ))}

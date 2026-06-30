@@ -65,7 +65,20 @@ const RICH_STRATEGY = {
   tensions: [
     { title: 'Dignity vs scale', narrative: 'Bigger reach risks impersonal service.' },
   ],
-  learning: { what_changed: 'We moved from parcels to choice-based pantries.' },
+  learning: {
+    what_changed: [{ lesson: 'We moved from parcels to choice-based pantries.' }],
+  },
+  relationships: {
+    partnerships: [
+      { name: 'FareShare South West', direction: 'established', narrative: 'Surplus food supply.' },
+    ],
+    ecosystem_position: 'We convene the food-justice network.',
+  },
+  resource_model: {
+    current_funding_mix: { grants: 55, local_authority: 30 },
+    sustainability_direction: 'diversifying',
+    resourcing_gaps: ['Coordinator role funded only to 2026.'],
+  },
 };
 
 describe('StrategyDetailPage', () => {
@@ -91,6 +104,10 @@ describe('StrategyDetailPage', () => {
     expect(
       screen.getByText('We moved from parcels to choice-based pantries.'),
     ).toBeInTheDocument();
+    // structured relationships + resource model
+    expect(screen.getByText('FareShare South West')).toBeInTheDocument();
+    expect(screen.getByText('Coordinator role funded only to 2026.')).toBeInTheDocument();
+    expect(screen.getByText(/55%/)).toBeInTheDocument();
 
     const rawLink = screen.getByRole('link', { name: /raw json/i });
     expect(rawLink).toHaveAttribute(

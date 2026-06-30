@@ -186,7 +186,7 @@ describe('Discover page — ideas-first', () => {
   it('clicking a theme chip filters ideas to that theme', async () => {
     renderPage();
     // Initially both ideas are visible.
-    expect(screen.getByText('kitchen-network')).toBeInTheDocument();
+    expect(screen.getByText('Community Kitchen Network')).toBeInTheDocument();
     expect(screen.getByText('warm-hubs')).toBeInTheDocument();
 
     // Click the Education chip — only warm-hubs has education.
@@ -195,7 +195,7 @@ describe('Discover page — ideas-first', () => {
     // After filtering, only warm-hubs should remain (kitchen-network has only
     // food_access). We use waitFor because the client-side filter re-renders.
     await waitFor(() => {
-      expect(screen.queryByText('kitchen-network')).not.toBeInTheDocument();
+      expect(screen.queryByText('Community Kitchen Network')).not.toBeInTheDocument();
       expect(screen.getByText('warm-hubs')).toBeInTheDocument();
     });
   });
@@ -204,13 +204,13 @@ describe('Discover page — ideas-first', () => {
     renderPage();
     fireEvent.click(screen.getByText('Food Access'));
     await waitFor(() => {
-      expect(screen.getByText('kitchen-network')).toBeInTheDocument();
+      expect(screen.getByText('Community Kitchen Network')).toBeInTheDocument();
       expect(screen.queryByText('warm-hubs')).not.toBeInTheDocument();
     });
     // Click again to deselect.
     fireEvent.click(screen.getByText('Food Access'));
     await waitFor(() => {
-      expect(screen.getByText('kitchen-network')).toBeInTheDocument();
+      expect(screen.getByText('Community Kitchen Network')).toBeInTheDocument();
       expect(screen.getByText('warm-hubs')).toBeInTheDocument();
     });
   });
@@ -222,7 +222,7 @@ describe('Discover page — ideas-first', () => {
       '[data-idea-card="GB-CHC-1-kitchen-network"]',
     );
     expect(card).not.toBeNull();
-    expect(card!.textContent).toContain('kitchen-network');
+    expect(card!.textContent).toContain('Community Kitchen Network');
     expect(card!.textContent).toContain('Riverside Trust');
     expect(card!.textContent).toContain('developing');
     expect(card!.textContent).toContain('3 interested');
