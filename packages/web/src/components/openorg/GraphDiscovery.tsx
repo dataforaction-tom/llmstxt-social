@@ -494,37 +494,66 @@ export default function GraphDiscovery() {
             </p>
             {graphData.graph_summary.clusters.length > 0 ? (
               <div className="mt-2 space-y-2">
-                {graphData.graph_summary.clusters.map((cluster, idx) => (
-                  <button
-                    key={idx}
-                    data-testid="cluster-card"
-                    type="button"
-                    onClick={() =>
-                      setHighlightedClusterIdx(
-                        highlightedClusterIdx === idx ? null : idx,
-                      )
-                    }
-                    className="block w-full border border-rule bg-cream p-3 text-left transition hover:border-navy"
-                  >
-                    <p className="text-sm text-navy">{cluster.description}</p>
-                    {(cluster.places?.length ?? 0) > 0 && (
-                      <p className="mt-1 text-xs text-grey-blue">
-                        Places: {(cluster.places ?? []).join(', ')}
-                      </p>
-                    )}
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {cluster.dominant_themes?.map((t) => (
-                        <span
-                          key={t}
-                          data-cluster-theme-chip
-                          className="border border-teal/40 bg-teal/10 px-1.5 py-0.5 text-xs text-teal"
-                        >
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </button>
-                ))}
+                {graphData.graph_summary.clusters.map((cluster, idx) => {
+                  const orgNames = cluster.org_names ?? [];
+                  const placesList = cluster.places ?? [];
+                  const themes = cluster.dominant_themes ?? [];
+                  return (
+                    <button
+                      key={idx}
+                      data-testid="cluster-card"
+                      type="button"
+                      onClick={() =>
+                        setHighlightedClusterIdx(
+                          highlightedClusterIdx === idx ? null : idx,
+                        )
+                      }
+                      className="block w-full border border-rule bg-cream p-3 text-left transition hover:border-navy"
+                    >
+                      {orgNames.length > 0 ? (
+                        <div className="space-y-1.5">
+                          <div>
+                            <span className="kicker">
+                              {orgNames.length} organisation
+                              {orgNames.length !== 1 ? 's' : ''}
+                            </span>
+                            <p className="text-sm text-navy">{orgNames.join(', ')}</p>
+                          </div>
+                          {placesList.length > 0 && (
+                            <div>
+                              <span className="kicker">Location</span>
+                              <p className="text-sm text-navy">{placesList.join(', ')}</p>
+                            </div>
+                          )}
+                          {cluster.ideas_summary && (
+                            <div>
+                              <span className="kicker">Idea</span>
+                              <p className="text-sm text-navy">{cluster.ideas_summary}</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-navy">{cluster.description}</p>
+                      )}
+                      {themes.length > 0 && (
+                        <div className="mt-2">
+                          <span className="kicker">Themes</span>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {themes.map((t) => (
+                              <span
+                                key={t}
+                                data-cluster-theme-chip
+                                className="border border-teal/40 bg-teal/10 px-1.5 py-0.5 text-xs text-teal"
+                              >
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <p className="mt-2 text-sm text-grey-blue">No clusters — all organisations are isolated.</p>
