@@ -13,6 +13,103 @@ export default function Layout({ children }: LayoutProps) {
     await logout();
   };
 
+  // Hostname detection mirrors App.tsx HostRoot — guard for SSR/prerender.
+  const isOpenOrg =
+    typeof window !== 'undefined' && window.location.hostname.startsWith('openorg.');
+
+  if (isOpenOrg) {
+    return (
+      <div className="min-h-screen flex flex-col surface-cream">
+        {/* Skip Link for Keyboard Navigation */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-navy focus:text-cream focus:rounded focus:outline-none focus:ring-2 focus:ring-teal"
+        >
+          Skip to main content
+        </a>
+
+        {/* Navigation — brand chrome */}
+        <nav className="bg-cream border-b border-rule" aria-label="Main navigation">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16 items-center">
+              {/* Brand */}
+              <Link
+                to="/openorg/discover"
+                className="flex items-center space-x-2"
+                aria-label="Open Org - Discover"
+              >
+                <span className="display-head text-xl font-medium text-navy">
+                  Open Org
+                </span>
+              </Link>
+
+              {/* Nav Links */}
+              <div className="flex items-center space-x-8" role="navigation">
+                <Link
+                  to="/openorg/discover"
+                  className="text-navy hover:text-teal transition-colors focus:outline-none focus:ring-2 focus:ring-teal focus:ring-offset-2 rounded-md px-1"
+                >
+                  Discover
+                </Link>
+                <Link
+                  to="/openorg/about"
+                  className="text-navy hover:text-teal transition-colors focus:outline-none focus:ring-2 focus:ring-teal focus:ring-offset-2 rounded-md px-1"
+                >
+                  About
+                </Link>
+                <Link
+                  to="/openorg/generate"
+                  className="text-navy hover:text-teal transition-colors focus:outline-none focus:ring-2 focus:ring-teal focus:ring-offset-2 rounded-md px-1"
+                >
+                  Generate Profile
+                </Link>
+
+                {/* Auth section */}
+                {isAuthenticated ? (
+                  <div className="flex items-center gap-4 ml-4 pl-4 border-l border-rule">
+                    <span className="text-sm text-grey-blue flex items-center gap-2">
+                      <User className="w-4 h-4" aria-hidden="true" />
+                      <span className="sr-only">Logged in as </span>
+                      {user?.email}
+                    </span>
+                    <button
+                      onClick={handleLogout}
+                      className="text-grey-blue hover:text-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded-md p-1"
+                      aria-label="Log out"
+                    >
+                      <LogOut className="w-5 h-5" aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="ml-4 btn-editorial focus:ring-2 focus:ring-teal focus:ring-offset-2"
+                  >
+                    Log in
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        {/* Main Content */}
+        <main id="main-content" className="flex-1" role="main">
+          {children}
+        </main>
+
+        {/* Footer — brand chrome */}
+        <footer className="bg-cream-dark border-t border-rule mt-auto" role="contentinfo">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="text-center text-grey-blue text-sm">
+              <p>Built by The Good Ship</p>
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Skip Link for Keyboard Navigation */}

@@ -1,5 +1,5 @@
 /**
- * Strategy / idea chat-creator page — civic editorial styling.
+ * Strategy / idea chat-creator page — Good Ship brand styling.
  *
  * Route: /openorg/:orgId/create/:kind  (kind in {strategy, idea})
  *
@@ -13,7 +13,7 @@
  *
  * Layout: two-column on lg+. Left: transcript styled like a printed
  * interview (role labels in small caps, left rule per turn, no chat
- * bubbles). Right: a paper-tone live draft using the same
+ * bubbles). Right: a cream-tone live draft using the same
  * .editorial-preview rules as MarkdownEditor.tsx — defined in index.css
  * so both surfaces stay identical.
  */
@@ -64,7 +64,7 @@ export default function CreatePage() {
   // all declared.
   if (!orgId || !kind || (kind !== 'strategy' && kind !== 'idea')) {
     return (
-      <div className="surface-paper min-h-screen">
+      <div className="surface-cream min-h-screen">
         <div className="mx-auto max-w-2xl px-6 py-12 text-red-800">
           Bad URL. Expected{' '}
           <code className="font-mono">
@@ -153,7 +153,7 @@ export default function CreatePage() {
   // ---------- Pre-session intro ------------------------------------------
   if (!sessionId) {
     return (
-      <div className="surface-paper min-h-screen">
+      <div className="surface-cream min-h-screen">
         <div className="mx-auto max-w-2xl px-6 py-16">
           <div className="kicker num">Creating · {typedKind}</div>
           <h1 className="display-head mt-2 text-4xl font-medium leading-tight">
@@ -161,29 +161,29 @@ export default function CreatePage() {
             <br />
             then a draft you can edit.
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-ink/90">
+          <p className="mt-4 text-base leading-relaxed text-navy/90">
             We'll ask one question at a time and build the document as we go.
             When you're done, you'll land in the editor for a final pass.
           </p>
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-sm text-grey-blue">
             Organisation:{' '}
-            <code className="font-mono text-ink">{orgId}</code>
+            <code className="font-mono text-navy">{orgId}</code>
           </p>
 
           <div className="rule-h mt-10 border-t border-rule pt-8">
             <span className="kicker">Optional · primer document</span>
-            <p className="mt-2 text-sm text-muted">
+            <p className="mt-2 text-sm text-grey-blue">
               Got an existing strategy doc? Drop it in and we'll start from
               there. PDF, Word, or plain text.
             </p>
-            <label className="mt-3 flex cursor-pointer items-center gap-3 border border-dashed border-rule bg-paper-2/40 px-4 py-3 text-sm text-ink hover:bg-paper-2">
+            <label className="mt-3 flex cursor-pointer items-center gap-3 border border-dashed border-rule bg-cream-dark/40 px-4 py-3 text-sm text-navy hover:bg-cream-dark">
               <input
                 type="file"
                 accept=".pdf,.docx,.txt,.md"
                 onChange={(e) => setUpload(e.target.files?.[0] ?? null)}
                 className="sr-only"
               />
-              <span className="font-mono text-xs text-muted">
+              <span className="font-mono text-xs text-grey-blue">
                 {upload ? '✓' : '+'}
               </span>
               <span>{upload ? upload.name : 'Choose a file'}</span>
@@ -194,7 +194,7 @@ export default function CreatePage() {
             type="button"
             onClick={start}
             disabled={starting}
-            className="mt-10 bg-ink px-5 py-2.5 text-sm font-medium text-paper transition hover:bg-primary-700 disabled:opacity-50"
+            className="mt-10 bg-teal px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-teal-light disabled:opacity-50"
           >
             {starting ? 'Starting…' : 'Begin session →'}
           </button>
@@ -206,7 +206,7 @@ export default function CreatePage() {
 
   // ---------- Active session ---------------------------------------------
   return (
-    <div className="surface-paper min-h-screen">
+    <div className="surface-cream min-h-screen">
       <div className="mx-auto max-w-6xl px-6 py-8">
         <header className="mb-6 flex items-end justify-between gap-6">
           <div>
@@ -214,7 +214,7 @@ export default function CreatePage() {
             <h1 className="display-head mt-1 text-2xl font-medium leading-tight">
               Building your {typedKind === 'strategy' ? 'strategy' : 'idea'}
             </h1>
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-1 text-xs text-grey-blue">
               <code className="font-mono">{orgId}</code>
               <span className="mx-2 text-rule">·</span>
               session <code className="font-mono">{sessionId.slice(0, 8)}</code>
@@ -224,7 +224,7 @@ export default function CreatePage() {
             type="button"
             onClick={finalize}
             disabled={!currentMarkdown || finalising}
-            className="bg-ink px-4 py-2 text-sm text-paper transition hover:bg-primary-700 disabled:opacity-40"
+            className="bg-teal px-4 py-2 text-sm text-cream transition hover:bg-teal-light disabled:opacity-40"
           >
             {finalising ? 'Finalising…' : 'Finalise & open editor'}
           </button>
@@ -232,7 +232,7 @@ export default function CreatePage() {
 
         <div className="grid grid-cols-1 gap-0 border border-rule lg:grid-cols-2 lg:divide-x lg:divide-rule">
           {/* --- transcript ---------------------------------------- */}
-          <section className="flex h-[72vh] flex-col bg-paper">
+          <section className="flex h-[72vh] flex-col bg-cream">
             <div className="kicker border-b border-rule px-3 py-2">Conversation</div>
             <div
               ref={transcriptRef}
@@ -240,7 +240,7 @@ export default function CreatePage() {
               aria-live="polite"
             >
               {turns.length === 0 && (
-                <p className="text-sm italic text-muted">
+                <p className="text-sm italic text-grey-blue">
                   Send your first message to begin. The assistant will ask one
                   question at a time.
                 </p>
@@ -252,21 +252,21 @@ export default function CreatePage() {
                     className={
                       'border-l-2 pl-4 ' +
                       (turn.role === 'user'
-                        ? 'border-ink/80'
-                        : 'border-primary-600/70')
+                        ? 'border-navy/80'
+                        : 'border-teal-light/70')
                     }
                   >
                     <div
                       className={
                         'kicker mb-1 ' +
-                        (turn.role === 'assistant' ? 'text-primary-700' : '')
+                        (turn.role === 'assistant' ? 'text-teal' : '')
                       }
                     >
                       {turn.role === 'user' ? 'You' : 'Assistant'}
                     </div>
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed text-ink">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed text-navy">
                       {turn.content || (
-                        <span className="text-muted italic">thinking…</span>
+                        <span className="text-grey-blue italic">thinking…</span>
                       )}
                     </div>
                   </li>
@@ -278,14 +278,14 @@ export default function CreatePage() {
                 e.preventDefault();
                 if (!pending) void send();
               }}
-              className="flex gap-2 border-t border-rule bg-paper-2/50 px-3 py-3"
+              className="flex gap-2 border-t border-rule bg-cream-dark/50 px-3 py-3"
             >
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 rows={2}
                 placeholder="Type your message…  (⌘/Ctrl + Enter to send)"
-                className="flex-1 resize-none border border-rule bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-ink focus:outline-none"
+                className="flex-1 resize-none border border-rule bg-cream px-3 py-2 text-sm text-navy placeholder:text-grey-blue focus:border-navy focus:outline-none"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault();
@@ -296,7 +296,7 @@ export default function CreatePage() {
               <button
                 type="submit"
                 disabled={!draft.trim() || pending}
-                className="self-end bg-ink px-4 py-1.5 text-sm text-paper transition hover:bg-primary-700 disabled:opacity-40"
+                className="self-end bg-teal px-4 py-1.5 text-sm text-cream transition hover:bg-teal-light disabled:opacity-40"
               >
                 {pending ? '…' : 'Send'}
               </button>
@@ -304,19 +304,19 @@ export default function CreatePage() {
           </section>
 
           {/* --- live draft ---------------------------------------- */}
-          <section className="flex h-[72vh] flex-col bg-paper-2/30">
+          <section className="flex h-[72vh] flex-col bg-cream-dark/30">
             <div className="kicker border-b border-rule px-3 py-2">
               Live draft
             </div>
             <div className="flex-1 overflow-y-auto px-7 py-6">
               {currentMarkdown ? (
-                <article className="editorial-preview text-ink">
+                <article className="editorial-preview text-navy">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {currentMarkdown}
                   </ReactMarkdown>
                 </article>
               ) : (
-                <p className="text-sm italic text-muted">
+                <p className="text-sm italic text-grey-blue">
                   The draft will appear here as the conversation builds it up.
                 </p>
               )}

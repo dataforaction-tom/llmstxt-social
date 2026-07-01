@@ -19,6 +19,7 @@ from llmstxt_api.routes import (
     open_org_generate,
     open_org_public,
     open_org_public_murmurations,
+    open_org_signals,
 )
 from llmstxt_api.schemas import HealthResponse
 
@@ -76,6 +77,7 @@ app.include_router(open_org_admin.router)
 app.include_router(open_org_generate.router)
 app.include_router(open_org_creator.router)
 app.include_router(open_org_discovery.router)
+app.include_router(open_org_signals.router)
 
 web_dist_dir = Path(settings.web_dist_dir)
 web_index_file = web_dist_dir / "index.html"

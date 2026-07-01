@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     # Resend
     resend_api_key: str
     from_email: str = "llmstxt <onboarding@resend.dev>"
+    # From-address for Open Org magic-link emails (must be a Resend-verified
+    # domain). Used when the login originates from the Open Org host.
+    openorg_from_email: str = "Open Org <hello@openorg.good-ship.co.uk>"
 
     # Security
     secret_key: str
@@ -65,6 +68,14 @@ class Settings(BaseSettings):
     base_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:3000"
     environment: str = "development"
+
+    # Comma-separated origins allowed to set the magic-link base URL (one
+    # FastAPI process serves multiple hostnames). Anything not listed falls
+    # back to frontend_url — never reflect an unvalidated Origin into a login
+    # link (host-header injection / token phishing).
+    magic_link_origin_allowlist: str = (
+        "https://llmstxt.social,https://openorg.good-ship.co.uk"
+    )
 
     # Rate Limiting (free tier)
     free_tier_daily_limit: int = 10
@@ -101,6 +112,12 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # Docker-compose and the frontend set env vars (POSTGRES_PASSWORD,
+        # VITE_STRIPE_PUBLIC_KEY, RESEND_FROM_EMAIL) that aren't declared on
+        # this model. Pydantic-settings v2 defaults to extra='forbid', which
+        # crashes on the real .env file. Ignore them — the vars we care about
+        # are declared explicitly above.
+        extra="ignore",
     )
 
     @property

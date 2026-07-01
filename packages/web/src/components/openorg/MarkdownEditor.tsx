@@ -1,5 +1,5 @@
 /**
- * Markdown editor with side-by-side preview — civic editorial styling.
+ * Markdown editor with side-by-side preview — Good Ship brand styling.
  *
  * Left: CodeMirror 6 with markdown + YAML highlighting.
  *
@@ -95,13 +95,13 @@ export default function MarkdownEditor({
           type="button"
           onClick={handleSave}
           disabled={saving || !dirty}
-          className="bg-ink px-4 py-1.5 text-sm font-medium text-paper transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="bg-teal px-4 py-1.5 text-sm font-medium text-cream transition hover:bg-teal-light disabled:cursor-not-allowed disabled:opacity-40"
         >
           {saving ? 'Saving…' : saveLabel}
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-0 border border-rule bg-paper lg:grid-cols-2 lg:divide-x lg:divide-rule">
+      <div className="grid grid-cols-1 gap-0 border border-rule bg-cream lg:grid-cols-2 lg:divide-x lg:divide-rule">
         <div className="flex flex-col">
           <div className="kicker border-b border-rule px-3 py-2">Source</div>
           <CodeMirror
@@ -124,17 +124,17 @@ export default function MarkdownEditor({
           <div className="kicker border-b border-rule px-3 py-2">Preview</div>
           <div className="min-h-[62vh] overflow-auto px-6 py-5">
             {frontmatter && (
-              <details className="mb-4 text-xs text-muted">
+              <details className="mb-4 text-xs text-grey-blue">
                 <summary className="kicker cursor-pointer select-none">
                   Frontmatter
                 </summary>
-                <pre className="mt-2 whitespace-pre-wrap rounded-sm bg-paper-2 px-3 py-2 font-mono text-[11px] leading-relaxed text-ink/80">
+                <pre className="mt-2 whitespace-pre-wrap rounded-sm bg-cream-dark px-3 py-2 font-mono text-[11px] leading-relaxed text-navy/80">
                   {frontmatter}
                 </pre>
               </details>
             )}
 
-            <article className="editorial-preview text-ink">
+            <article className="editorial-preview text-navy">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
             </article>
           </div>

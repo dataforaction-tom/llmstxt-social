@@ -81,6 +81,7 @@ Default: `anthropic` / `claude-sonnet-4-6`. Add LLM calls via
 - Live prod image predates all open-org code — needs a rebuild + force-recreate before openorg.good-ship.co.uk is live (see HANDOFF.md; mind the compose file-order lesson in MISTAKES.md)
 - Editor-polish PR 7 (keyboard + motion polish) not yet built — only remaining piece of the editor-polish plan
 - Cross-product SSO is not achievable with one cookie: `AUTH_COOKIE_DOMAIN=.good-ship.co.uk` can't span `llmstxt.social` (different registrable domain). Fine for openorg-only testing; revisit before relying on shared login across both products.
+- Magic-link login is now request-aware: `/auth/magic-link` builds the link from the request `Origin` validated against `MAGIC_LINK_ORIGIN_ALLOWLIST` (exact match), falling back to `FRONTEND_URL`. This lets the one shared FastAPI process send correct login links for both hosts — so deploying openorg no longer requires repointing `FRONTEND_URL` away from `llmstxt.social`.
 
 ## Lessons learned
 

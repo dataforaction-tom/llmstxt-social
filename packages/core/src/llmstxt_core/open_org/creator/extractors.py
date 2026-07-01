@@ -80,8 +80,29 @@ def _extract_docx(content: bytes) -> str:
     except Exception as exc:  # noqa: BLE001
         raise ExtractError(f"could not parse DOCX: {exc}") from exc
 
-    paragraphs = [p.text for p in document.paragraphs if p.text.strip()]
-    return "\n".join(paragraphs)
+    parts: list[str] = []
+
+    # Body paragraphs (the common case).
+    for p in document.paragraphs:
+        if p.text.strip():
+            parts.append(p.text)
+
+    # Tables — strategy docs often carry budgets, timelines, or RACI matrices
+    # in tables. Without this the LLM never sees that content.
+    for table in document.tables:
+        for row in table.rows:
+            cells = [cell.text.strip() for cell in row.cells]
+            if any(cells):
+                parts.append("\t".join(cells))
+
+    # Headers and footers — short but sometimes carry the org name / doc title.
+    for section in document.sections:
+        for container in (section.header, section.footer):
+            for p in container.paragraphs:
+                if p.text.strip():
+                    parts.append(p.text)
+
+    return "\n".join(parts)
 
 
 def _extract_plain(content: bytes) -> str:

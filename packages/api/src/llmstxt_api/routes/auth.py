@@ -4,7 +4,7 @@ import secrets
 import uuid
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Response, Cookie
+from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, Request
 from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,10 +87,55 @@ async def require_auth(
     return user
 
 
+def _allowed_origins() -> set[str]:
+    configured = {
+        o.strip()
+        for o in settings.magic_link_origin_allowlist.split(",")
+        if o.strip()
+    }
+    if settings.environment == "development":
+        configured |= {
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://openorg.localhost:3000",
+        }
+    return configured
+
+
+def _resolve_frontend_base(http_request: Request | None) -> str:
+    """Pick the SPA base URL for the magic link. Uses the request Origin only
+    if it is on the allowlist; otherwise falls back to the configured
+    frontend_url. Never returns an unvalidated host."""
+    if http_request is not None:
+        origin = http_request.headers.get("origin")
+        if origin and origin in _allowed_origins():
+            return origin
+    return settings.frontend_url
+
+
+def _email_branding(base_url: str) -> dict:
+    """Subject / from / html for the login email, branded by host."""
+    is_openorg = "openorg." in base_url
+    if is_openorg:
+        return {
+            "from_email": settings.openorg_from_email,
+            "subject": "Your Open Org login link",
+            "product": "Open Org",
+            "accent": "#2D8B7A",
+        }
+    return {
+        "from_email": settings.from_email,
+        "subject": "Your llms.txt login link",
+        "product": "llms.txt",
+        "accent": "#6366f1",
+    }
+
+
 @router.post("/auth/magic-link", response_model=MagicLinkResponse)
 async def send_magic_link(
     request: MagicLinkRequest,
     db: AsyncSession = Depends(get_db),
+    http_request: Request = None,  # type: ignore[assignment]  # FastAPI injects Request; None only in direct unit-test calls
 ):
     """
     Send a magic link to the user's email.
@@ -120,8 +165,9 @@ async def send_magic_link(
     db.add(magic_token)
     await db.commit()
 
-    # Build magic link URL
-    magic_link = f"{settings.frontend_url}/auth/verify?token={token}"
+    # Build magic link URL — base is the validated request Origin or the
+    # configured frontend_url fallback; never an unvalidated host.
+    magic_link = f"{_resolve_frontend_base(http_request)}/auth/verify?token={token}"
 
     # Dev mode: skip Resend so the developer doesn't need verified-domain
     # deliverability to click through locally. The link is logged so it can
@@ -142,19 +188,20 @@ async def send_magic_link(
         )
 
     # Send email
+    brand = _email_branding(_resolve_frontend_base(http_request))
     try:
         resend.Emails.send({
-            "from": settings.from_email,
+            "from": brand["from_email"],
             "to": [email],
-            "subject": "Your llms.txt login link",
+            "subject": brand["subject"],
             "html": f"""
                 <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2 style="color: #6366f1;">Log in to llms.txt</h2>
-                    <p>Click the button below to log in to your account. This link expires in {MAGIC_LINK_EXPIRY_MINUTES} minutes.</p>
+                    <h2 style="color: {brand['accent']};">Log in to {brand['product']}</h2>
+                    <p>Click the button below to log in. This link expires in {MAGIC_LINK_EXPIRY_MINUTES} minutes.</p>
                     <a href="{magic_link}"
-                       style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px;
+                       style="display: inline-block; background: {brand['accent']}; color: white; padding: 12px 24px;
                               text-decoration: none; border-radius: 8px; margin: 16px 0;">
-                        Log in to llms.txt
+                        Log in to {brand['product']}
                     </a>
                     <p style="color: #666; font-size: 14px;">
                         If you didn't request this link, you can safely ignore this email.
@@ -166,7 +213,6 @@ async def send_magic_link(
             """,
         })
     except Exception as e:
-        # Log error but don't expose details to user
         print(f"Failed to send magic link email: {e}")
         raise HTTPException(status_code=500, detail="Failed to send email. Please try again.")
 

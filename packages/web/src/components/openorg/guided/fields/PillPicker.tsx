@@ -57,8 +57,8 @@ export default function PillPicker({
               aria-pressed={sel}
               className={`border px-3 py-1 text-xs uppercase tracking-wider transition ${
                 sel
-                  ? 'border-ink bg-ink text-paper'
-                  : 'border-rule bg-paper text-muted hover:border-ink/40 hover:text-ink'
+                  ? 'border-navy bg-navy text-cream'
+                  : 'border-rule bg-cream text-grey-blue hover:border-navy/40 hover:text-navy'
               }`}
             >
               {opt.label}
@@ -67,11 +67,11 @@ export default function PillPicker({
         })}
       </div>
       {capNudge && (
-        <span className="mt-2 text-xs italic text-muted">
+        <span className="mt-2 text-xs italic text-grey-blue">
           Six is plenty — uncheck one first.
         </span>
       )}
-      {hint && !capNudge && <span className="mt-2 text-xs italic text-muted">{hint}</span>}
+      {hint && !capNudge && <span className="mt-2 text-xs italic text-grey-blue">{hint}</span>}
     </div>
   );
 }

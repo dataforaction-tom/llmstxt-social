@@ -40,12 +40,12 @@ export default function StringListField({
               value={item}
               onChange={(e) => update(idx, e.target.value)}
               placeholder={placeholder}
-              className="flex-1 border border-rule bg-paper px-3 py-2 text-base text-ink focus:border-ink focus:outline-none"
+              className="flex-1 border border-rule bg-cream px-3 py-2 text-base text-navy focus:border-navy focus:outline-none"
             />
             <button
               type="button"
               onClick={() => remove(idx)}
-              className="border border-rule px-3 text-xs uppercase tracking-wider text-muted hover:text-red-900"
+              className="border border-rule px-3 text-xs uppercase tracking-wider text-grey-blue hover:text-red-900"
             >
               Remove
             </button>
@@ -55,11 +55,11 @@ export default function StringListField({
       <button
         type="button"
         onClick={add}
-        className="mt-3 self-start border border-rule bg-paper-2 px-3 py-1 text-xs uppercase tracking-wider text-ink hover:bg-paper"
+        className="mt-3 self-start border border-rule bg-cream-dark px-3 py-1 text-xs uppercase tracking-wider text-navy hover:bg-cream"
       >
         + Add
       </button>
-      {hint && <span className="mt-2 text-xs italic text-muted">{hint}</span>}
+      {hint && <span className="mt-2 text-xs italic text-grey-blue">{hint}</span>}
     </div>
   );
 }

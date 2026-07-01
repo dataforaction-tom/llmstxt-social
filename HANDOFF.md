@@ -1,518 +1,176 @@
-# Handoff — LLM provider abstraction + full bug sweep (branch, committed, not pushed)
+# Handoff — Open Org hardening + essay-vision features
 
-> Session ended: 2026-06-23
-> Branch: `fix/openorg-providers-and-bug-sweep` (off `master`) — **committed, NOT pushed**; no PR yet (awaiting confirmation)
-> Picks up from: the second bug sweep before live-user testing
-> Resumes at: **push + open ONE PR**, then **rebuild prod image** (now needs the `openai` dep) + deploy
+> Session ended: 2026-06-30 (session 4)
+> Branch: `fix/openorg-hardening` (off `master`) — **all pushed to PR #22, all gates green**
+> Resumes at: **deploy** (prod image rebuild + Tunnel route + Resend verify), then Murmurations upstream PR and editor-polish PR 7
 
 ## TL;DR
 
-A second sweep (6 parallel domain audits) found the generation path was 404'ing
-on a retired model and surfaced 9 real bugs. All fixed via TDD, each its own
-commit. Gates: **core 296 · API 203 · web 166 · tsc + lint clean**. Generation
-verified **end-to-end live** on the test stack (3× `POST /v1/messages` → 200 on
-`claude-sonnet-4-6`; profile reached `ready`); lookup `9999999` → 404, `1089464` → 200.
+Session 1 hardened Open Org (8 bugs, brand alignment, graph discovery, Claude skills). Session 2 tackled the essay's vision gaps: **funder signalling**, **evidence layer**, **profile evolution**, **cluster insights**, and **ideas-first discovery**. Session 3 made magic-link auth **request-aware** and committed ideas-first discovery. Session 4 added **rendered idea & strategy detail pages**, a fully interactive **graph** (drag, zoom controls, click-to-focus, polish), **titles** in lists/cards, and **rich demo seed data** — plus fixed a dev proxy gap and a graph zoom-binding bug. The branch is **green on every gate** (core 325 · API 275 · web 216 · tsc · lint) and **PR #22 is open with everything pushed**. The only thing left before openorg.good-ship.co.uk goes live is deployment — all user actions.
 
-### What landed (one commit each)
-1. **Provider abstraction + retired-model fix (headline).** `claude-sonnet-4-20250514` reached EOL 2026-06-15 → every generation 404'd. New `llmstxt_core.llm_providers` with an OpenAI-compatible client for **OpenRouter + Ollama Cloud** + an Anthropic client behind a shared `LLMClient` protocol; `Settings.build_llm_client()` selects via `LLM_PROVIDER`/`LLM_MODEL`. Default `claude-sonnet-4-6`. Routed generation + creator + analyzer through it.
-2. **Strategy creator data loss** — priorities (frontmatter, not body) + learning format + template enum values.
-3. **Murmurations** — health-check `.get()` crash on a dataclass; publish validated for a non-empty name before flipping `published` (no more silent `name: null` federation failures).
-4. **Charity not-found** — sparse CC API body + scrape fallback now return None instead of a charity named "Unknown".
-5. **Creator SSE** offloaded to the threadpool (was blocking the event loop for the whole turn); finalize returns 409 (not 500) on duplicate slug.
-6. **Discover** map guarded against non-finite coords (white-screen); pagination reset moved `useMemo`→`useEffect`; top-level **ErrorBoundary** added.
-7. **Hardening** — `/docs` disabled in prod; verify seeds the auth cache (no login bounce); stuck-`pending` generations time out client-side.
+## Session 4 (2026-06-30)
 
-## Deploy notes (important)
-- **Rebuild the image before deploy** — `config.py` imports `openai` at boot now; a stale image crashes. The running test stack was hot-patched with `pip install openai`; a clean rebuild is the real fix.
-- New env vars documented in `.env.example` (`LLM_PROVIDER`, `LLM_MODEL`, `OPENROUTER_*`, `OLLAMA_*`).
-- `packages/core` edits need a test-stack container **restart** (uvicorn `--reload` doesn't watch `/app/core`).
+All committed and pushed to PR #22 (`79d59a8` is the tip).
 
-## Flagged, not fixed (low-severity / decisions)
-- Cross-product SSO cookie can't span `llmstxt.social` + `good-ship.co.uk` (product decision).
+- **Dev `/open-org` proxy fix** (`e8723e0`) — the public API routes live at `/open-org/*` (federation-friendly), but Vite only proxied `/api/*`, so profile/idea/strategy/history fetches fell through to the SPA fallback and the detail pages errored in dev. Added `/open-org` to the Vite proxy (prod is unaffected — FastAPI serves both from one origin).
+- **Rendered idea & strategy detail pages** (`635ae40`, `3f26e41`) — new routes `/openorg/:orgId/ideas/:slug` and `/openorg/:orgId/strategies/:slug`, styled like the org profile. Extracted shared presentation into `components/openorg/detail.tsx` + `detailFormat.ts` (ProfileDetail reuses them). Idea/strategy cards + profile lists + graph node panels now link to these pages; the raw `.json` survives as a "view raw JSON" link.
+- **Graph interaction + polish** (`39246c1`, `66beb44`) — drag nodes to reposition (pin/double-click-release), on-screen zoom **+/−/Fit/Reset** controls, click-to-focus neighbours, smoother physics (velocity/alpha damping), soft node shadows, teal focus rings, background vignette, pinned-node indicator.
+- **Graph zoom-binding fix** (`79d59a8`) — zoom/pan was bound in a `useEffect([])` that ran before the conditional `<svg>` existed, so it never attached on a cold load (only survived via HMR). Moved binding to a **callback ref** so it attaches when the svg mounts.
+- **Titles in lists/cards** (`821fc9c`) — `title` now flows through the discovery idea rows and public list summaries (API `_record_summary` + `IdeaRow`); cards/lists show the real title, falling back to slug. +1 API test.
+- **Rich demo seed data** (`66beb44`) — `packages/api/scripts/seed_openorg_demo.py` enriches all 17 ideas + 7 strategies with schema-valid content (idempotent; validates + regenerates markdown). `StrategyDetail` renders the structured relationships/funding-mix/learning shapes; `IdeaDetail` shows the evidence base. See the **Demo seed data** section below for how to run it.
+
+## Session 3 (2026-06-26)
+
+- **Ideas-first discovery committed** (`4f9a54f`) — leaflet mock fixed; `Discover.test.tsx` green; the session-2 blocker is gone.
+- **Request-aware magic links** (`6eeb72e`) — `/auth/magic-link` builds the link from the request `Origin`, validated against `MAGIC_LINK_ORIGIN_ALLOWLIST` (exact match), falling back to `FRONTEND_URL`. One shared FastAPI process now sends correct login links for both products without repointing `FRONTEND_URL`.
+- **Open Org email branding by host** (`11b27f8`) — magic-link emails use Open Org branding + `hello@openorg.good-ship.co.uk` sender when the request comes from the openorg host.
+- **Tests + docs** (`e7ff6e4`, `6125e71`) — origin-allowlist bypass pinned, endpoint branding wiring tested (+10 API tests → 274), `.env.example` + CLAUDE.md updated.
+- **Lint fix** — `themeChips` inlined into its `useMemo` to clear the only outstanding exhaustive-deps warning.
+
+## What landed this session (8 new commits, 20→22 total on branch)
+
+### 1. Semantic edge visualisation (commit 5)
+Six edge types in the graph API: `strategy_idea`, `idea_idea_shared_theme`, `idea_idea_shared_place`, `idea_org_connection`, `strategy_strategy_shared_theme`, `idea_idea_explicit`. Distinct visual styling per type, arrowheads, hover labels, "show only explicit" toggle.
+
+### 2. Cluster insights (commit 6)
+Graph summary now surfaces meaningful cluster descriptions — org names, ideas summary, places, dominant themes, human-readable sentences like *"2 organisations (Riverside Trust, Beta Trust) and 1 idea around food_access, health in Great Yarmouth"*. Clickable cluster cards dim non-cluster nodes. Cluster colour-coding toggle. API 234 (+6), Web 187 (+5).
+
+### 3. Profile evolution (commit 7)
+Three new features:
+- **Version history API** — `GET /open-org/{org_id}/history` returns chronological timeline across profile + strategies + ideas. Per-record history endpoints too.
+- **Timeline on profile detail** — vertical timeline showing the org's trajectory.
+- **Status badges** — ideas and strategies show coloured status badges + created/updated timestamps.
+- API 245 (+11), Web 191 (+4).
+
+### 4. Funder signalling + evidence layer (commit 8 — combined)
+
+**Funder signalling:**
+- `OrgSignal` model + Alembic migration (`org_signals` table)
+- `POST /api/open-org/ideas/{org_id}/{slug}/signal` — public, all fields optional
+- `GET /api/open-org/ideas/{org_id}/{slug}/signals` — list signals on one idea
+- `GET /api/open-org/{org_id}/signals` — aggregated signals for an org
+- `SignalButton` component with form (name, email, message — all optional)
+- `FunderInterestSection` on profile detail with expandable per-idea rows
+- Interest count badge on Ideas page cards
+- 11 API tests + 4 web tests
+
+**Evidence layer:**
+- Top-level `evidence` array in `org_profile.schema.json` (evidence_id, title, description, evidence_type, date, url, themes, outcomes)
+- Converter: `parse_evidence()` / `render_evidence()` for `## Evidence` section with `### {evidence_id}: {title}` subsections
+- Evidence section on ProfileDetail with coloured type badges, themes, outcomes, URL links
+- Evidence template with guided comments in `openorgTemplates.ts`
+- 11 converter tests + 5 ProfileDetail evidence tests
+- Existing `mission.evidence_summary` stub kept for backward compat
+
+### 5. Ideas-first discovery (commits pending — API done, frontend in progress)
+
+**API (committed in working tree, not yet committed to git):**
+- `GET /api/open-org/discover/ideas/summary` — returns `{total_ideas, total_orgs, themes_breakdown, status_breakdown}`
+- `sort` query param on `GET /api/open-org/discover/ideas`: `signals` (most interest first), `recent`, `status` (maturity order)
+- 8 new API tests (264 total API tests pass)
+
+**Frontend (written, not yet committed — test has a bug):**
+- `Discover.tsx` rewritten: Ideas view is the default (not Organisations)
+- Hero summary: "N ideas from M organisations across K themes"
+- Theme chips with counts from summary (multi-select, client-side refinement)
+- Place filter, status filter, sort dropdown
+- Idea cards with signal count, status badge, cost range, org name
+- `Discover.test.tsx` created (7 tests) but **hangs vitest** — root cause: `vi.mock('leaflet')` factory was missing `default` export key, causing `L.Icon.Default.mergeOptions` to crash at module load. Fix identified (add `default: { Icon: { Default: { mergeOptions: () => {} } } }` to mock) but not yet verified.
+
+## All commits on branch (22 total)
+
+```
+07477c0 feat(openorg): add funder signalling and evidence layer
+96f55e4 feat(openorg): add evidence layer to profile schema and converter
+4038c17 feat(openorg): show profile evolution — version history timeline and status badges
+4b43f03 feat(openorg): surface meaningful cluster insights in graph discovery
+94b8751 feat(openorg): add semantic edge visualisation to graph discovery
+5578502 feat(openorg): add semantic connections to graph API
+15b801f docs: update HANDOFF for Good Ship brand alignment
+fbf9bab style(openorg): align with actual Good Ship brand tokens
+56b88a3 docs: update STATE.md and HANDOFF.md for hardening session
+1aa6070 feat(openorg): add Claude skills for /org-strategy and /org-idea
+c4249a0 feat(openorg): add force-directed graph discovery view
+29f9968 feat(openorg): add graph data API endpoint for discovery visualisation
+d4c68a4 style(openorg): align design system with editorial palette + sage accents
+2df0e23 fix(openorg): coerce unquoted numeric YAML scalars to strings per schema
+0cc7a47 test(openorg-creator): verify create/get route method disjointness
+677abff fix(openorg): parse plain (non-bold) items in not_doing/tensions sections
+6615c47 fix(openorg-creator): extract DOCX tables, headers, and footers
+08cb770 fix(openorg): parse and render strategy priorities from body sections
+769be06 fix(openorg-creator): emit SSE error event when LLM stream throws mid-turn
+f0be6fa fix(openorg): mask fenced code blocks before splitting body sections
+a5656ac fix(api): ignore extra env vars in Settings model
+```
+
+## Uncommitted working tree state
+
+Branch is clean of feature work — everything above is committed and pushed.
+
+```
+M packages/web/public/sitemap.xml   (unrelated llmstxt.social route/date churn from another session — left out of this PR)
+```
+
+## How to resume
+
+The branch is feature-complete and green. The remaining work is **deployment** (all user actions — see below) plus two follow-ups (Murmurations upstream PR, editor-polish PR 7).
+
+### Re-run the full verification gate
+
+```bash
+# Python (from repo root)
+.venv/bin/python -m pytest packages/core/tests/ -q    # 325 passed
+.venv/bin/python -m pytest packages/api/tests/ -q     # 274 passed
+
+# Web (from packages/web)
+npx tsc --noEmit                                        # clean
+npx vitest run                                          # 208 passed
+npm run lint                                            # clean
+```
+
+## Demo seed data
+
+The demo dataset (14 orgs, 17 ideas, 7 strategies) ships with titles + themes
+only. Rich, schema-valid content for the idea/strategy detail pages is applied
+by an idempotent enrichment script:
+
+```bash
+docker exec llmstxt-local-api-1 python /app/api/scripts/seed_openorg_demo.py
+```
+
+It validates each record against the Open Org schemas, regenerates the markdown
+source, and commits. Re-running is safe. Content lives in
+`packages/api/scripts/seed_openorg_demo.py` (`IDEA_ENRICHMENTS` /
+`STRATEGY_ENRICHMENTS`, keyed by `(org_id, slug)`).
+
+## Deploy notes
+
+- **Rebuild the prod image before deploy** — `config.py` imports `openai` at boot (provider abstraction), web package has `d3` + `@fontsource-variable/dm-sans` dependencies. A stale image will crash.
+- New env vars in `.env.example` already documented (`LLM_PROVIDER`, `LLM_MODEL`, `OPENROUTER_*`, `OLLAMA_*`).
+- `packages/core` edits need a test-stack container restart (uvicorn `--reload` doesn't watch `/app/core`).
+- D3 adds ~50KB to the web bundle, but GraphDiscovery is lazy-loaded.
+
+## Flagged, not fixed
+
+- Cross-product SSO cookie can't span `llmstxt.social` + `good-ship.co.uk` (product decision — documented in CLAUDE.md).
+- Rate-limit real-client-IP behind Cloudflare/Caddy — verify `trusted_proxies` from a real external client.
+- Cosmetic: idea/strategy cards show raw slugs as titles; `/discover/ideas` `area_code` filter is a no-op.
+- Editor polish PR 7 (keyboard + motion polish) — still outstanding.
+- Murmurations schema not yet registered upstream.
 - Rate-limit real-client-IP behind Cloudflare/Caddy — verify `trusted_proxies` from a real external client.
 - Cosmetic: idea/strategy cards show raw slugs as titles; `/discover/ideas` `area_code` filter is a no-op.
 
----
-
-# Handoff — Local test pass: 10 editor bugs fixed via TDD (uncommitted on master)
-
-> Session ended: 2026-06-16
-> Branch: `master` — **all work is uncommitted in the working tree** (nothing pushed)
-> Picks up from: local click-through of the merged #18/#19 editor work on an isolated test stack
-> Resumes at: **finish the test pass**, then **branch + commit + open ONE PR** bundling everything
-
-## TL;DR
-
-Ran the Open Org editor end-to-end on an isolated local stack and fixed **10 real bugs** the merged editor (#18/#19) shipped with — each red/green TDD, each logged in `MISTAKES.md`. Nothing is committed yet (per your rule: no commits to `master`). All gates green: **web tsc clean · 156 vitest · lint clean · API 196 pytest**.
-
-### Fixes (in the order found)
-1. **Claim redirect raced to `/dashboard`** — `AuthVerify.tsx` gated `<Navigate>` on `|| isAuthenticated`, which flips true (via `refetch()`) before `claimOrgId` resolves. Now gates on `status === 'success'` only.
-2. **Rate-limit rule over-matched** — `startswith("/api/open-org/generate")` also caught the `/status` poll; now exact-match.
-3. **Rate-limit returned 500 not 429** — `raise HTTPException` inside `BaseHTTPMiddleware` bypasses handlers; now returns `JSONResponse(429)`.
-4. **Chat creator 422'd after session start** — session routes lacked `{org_id}` in their path, so `require_org_admin`'s `org_id` became a required *query* param. Added `{org_id}` to the 3 routes + threaded `orgId` through the client + `Create.tsx`.
-5. **Guided editor couldn't type spaces** — `TextField`/`TextAreaField` bound straight to a prop the bridge re-derives and trims; added a local input buffer.
-6. **Guided preview ignored frontmatter** — only rendered the body; now renders frontmatter YAML above it.
-7. **Guided saves failed silently** — `validationErrors` were only wired to the markdown surface; now shown on the guided surface too.
-8. **Guided field kinds vs schema *types*** — scalar controls pointed at object/number leaves (corrupting them). Added a `number` field kind; remapped `mission.evidence_summary` → its `beneficiaries_served_text` string subfield; removed `identity.scale`, `resource_model.current_funding_mix`, idea `geolocation` (markdown-only). New `schemaConsistency.test.ts` guard.
-9. **New-record save → NOT NULL violation** — `put_idea/strategy/profile_markdown` snapshotted a version with `parent_id=record.id`, but a new record's id is unset until flush. Pre-assign `id=uuid.uuid4()`. (This was the "couldn't save on a new idea".)
-10. **Guided array fields vs schema *item* shapes** — card cardShapes missed required item props (`evidence_id`, `org_name`); `connections` was pills (strings) for an object array; `also_known_as`/`area_codes`/`resourcing_gaps` are `string[]` modelled as `{value}` cards. Added a `string-list` field kind; fixed cardShapes; dropped the enum `connections.relationship` from cards. Guard extended to cover item shapes.
-
-## New files (untracked — `git add` before committing)
-- `packages/web/src/components/openorg/guided/fields/NumberField.tsx` (+ `.test.tsx`)
-- `packages/web/src/components/openorg/guided/fields/StringListField.tsx` (+ `.test.tsx`)
-- `packages/web/src/components/openorg/guided/sections/schemaConsistency.test.ts`
-- `docker-compose.test.yml` (repo root) — the isolated local test stack (see below). Decide whether to commit it.
-
-## How to verify / run the local stack
-Isolated, never touches the prod `llmstxt-local` stack:
-```bash
-docker compose -p llmstxt-test -f docker-compose.test.yml up -d --build   # ports 8010/5442/6389, dev mode
-docker compose -p llmstxt-test -f docker-compose.test.yml exec -T api alembic upgrade head
-```
-Backend runs from mounted source with `--reload` (Python fixes are live without rebuild); the SPA is baked into the image (**frontend fixes need a `--build`**). App + API on `http://localhost:8010`; magic-link/claim links print to the worker log. Tear down: `... down -v`.
-
-> **In-flight at session end:** a `--build` was kicked off after fix #10 (the array-field fixes). Confirm it finished and recreated the api container (`docker compose -p llmstxt-test -f docker-compose.test.yml ps` — api uptime should be recent) before re-testing evidence/connections/collaborators in the browser. If not, re-run the build line above.
-
-Gates:
-```bash
-cd packages/web && npx tsc --noEmit && npx vitest run && npm run lint   # tsc clean · 156 · lint 0
-cd packages/api && /Users/tomcwxyz/llmstxt-local/.venv/bin/python -m pytest tests/ -q   # 196
-```
-
-## Deliberate follow-ups (documented, not regressions)
-- **Structured guided editors** for the object/map types currently markdown-only: `identity.scale`, `resource_model.current_funding_mix` (int-% map), idea `geolocation`.
-- **Enum/boolean inputs inside card-lists** — `connections.relationship` (enum), `connections.mutual`/`collaborators.confirmed` (bool) are markdown-only until cards support constrained inputs.
-- The rate-limit 500→429 + over-match fixes (#2/#3) are unit-tested but not browser-verified against a real over-limit hit.
-
-## Resume / next step
-Test pass is nearly done (the user was walking the idea editor section by section). Once confirmed:
-1. Branch off `master` (e.g. `fix/openorg-editor-local-test-pass`).
-2. `git add` the 5 new files + the modified ones; commit (logical groupings or one Conventional Commit). Don't forget `docker-compose.test.yml` decision.
-3. Open **ONE PR** to `master` bundling all 10 fixes; call out the follow-ups above. Don't push/merge without confirming.
-
----
-
-> NOTE: the entry below (2026-06-11) covers the editor-polish + PAYMENTS_ENABLED merge that this session was testing. Kept for context.
-
----
-
-# Handoff — Editor-polish stack + PAYMENTS_ENABLED switch merged to master
-
-> Session ended: 2026-06-11
-> Branch: `master` (up to date with `origin/master`; nothing uncommitted)
-> Picks up from: the editor-polish plan (`docs/superpowers/plans/2026-05-19-openorg-editor-polish.md`)
-> Resumes at: **production rebuild + DNS**, the outstanding user actions, or **PR 7** (the one editor-polish PR still unbuilt)
-
-## TL;DR
-
-Two PRs landed and merged to `master` this session — the editor-polish stack that the prior handoff described as "stacked, unpushed" is now in, plus a payments kill switch.
-
-- **PR #18 — editor polish** (`fe97a52`, merged 2026-06-11). Carries **PR 1–6** of the 7-PR editor-polish plan: the dual-surface Guided + Markdown editor (`GuidedEditor`, `Section`, `SidebarNav`, `bridge.ts`, field widgets `CardList`/`PillPicker`/`GroupRule`), `EditorShell` + `SurfaceSwitch`, autosave (`useAutosave` + `SaveIndicator`), `PublishStrip`, live generate status (`GenerateLiveStatus`) backed by 5 new `generation_*` columns on `OrgProfile` (migration `d4f5a6b7c8`), the claim→`/openorg/edit/{orgId}/profile` redirect (`claim_org_id` on `AuthResponse` + `AuthVerify`), `WelcomeStrip` onboarding, and the central `microcopy.ts` string module. New backend routes: charity lookup + generate-status. `tsconfig` bumped to ES2022.
-- **PR #19 — free full pipeline** (`f1d3b7f`, merged 2026-06-11). New `PAYMENTS_ENABLED` kill switch. When off: the free endpoint runs the **full** generation pipeline, paid generation + payment-intent creation are refused, assessments list by presence rather than tier, and the SPA hides the tier selector + payment flow (pricing page shows everything free). Wired through `.env`, `docker-compose*.yml`, and the API Dockerfile. Covered by `test_payments_flag.py` (238 lines).
-- **`cede6ed`** — MISTAKES.md entry logging a prod compose file-order deploy mistake. **Read it before the next deploy.**
-
-## What is NOT done
-
-- **PR 7 — Keyboard + motion polish (tasks 7.1–7.2)** of the editor-polish plan never landed. PR #18 stopped at PR 6. No `motion.ts`, no `Cmd/Ctrl+S` save binding, no `j`/`k` section nav, no `prefers-reduced-motion` audit. Plan has exact tests + code at lines ~5817–6076. Task 7.2 Step 4 is a manual browser reduced-motion smoke check (can't run headlessly). This is the only remaining piece of that plan.
-
-## Still-open user / deploy actions (carried forward, none resolved this session)
-
-- **Production rebuild + DNS** — last-known live image predates all open-org code. `docker compose build` + `up -d --force-recreate api worker`, add the Cloudflare Tunnel route for `openorg.good-ship.co.uk`. Set prod env: `AUTH_COOKIE_DOMAIN=.good-ship.co.uk`, `CORS_ORIGINS=https://llmstxt.social,https://openorg.good-ship.co.uk`, Murmurations index/library URLs, and decide `PAYMENTS_ENABLED`. **Mind the compose file-order lesson in MISTAKES.md.**
-- **Open the Murmurations upstream schema PR** from `deploy/murmurations/`.
-- **Verify the Resend domain** for `hello@openorg.good-ship.co.uk`.
-- **Rotate `ANTHROPIC_API_KEY` + `CHARITY_COMMISSION_API_KEY`** (printed to a transcript during an earlier click-through).
-- **Security follow-ups** (SECURITY-REVIEW.md): M1 claim-ownership verification, M2 subdomain cookie audit; L1–L7 defence-in-depth.
-
-## Verification commands
-
-```bash
-cd packages/web && npx tsc --noEmit && npx vitest run && npm run lint && npm run build
-# backend (Python 3.11 venv):
-cd packages/api  && /Users/tomcwxyz/llmstxt-local/.venv/bin/python -m pytest tests/ -q
-cd packages/core && /Users/tomcwxyz/llmstxt-local/.venv/bin/python -m pytest tests/ -q
-```
-
-(The `npm run build` tail line "build was canceled / Vite server closed" is a cosmetic prerender-server shutdown artifact — exit code is 0.)
-
----
-
-> NOTE: everything below is the PRIOR handoff (2026-06-05), written while the editor-polish stack was still unpushed on the `editor-polish-pr5-generate` branch. PR #18 has since merged PR 1–6 of it to `master`. Kept for historical context.
-
----
-
-# Handoff — Editor-polish PR 5 + PR 6 complete; PR 7 is all that remains
-
-> Session ended: 2026-06-05
-> Branch: `editor-polish-pr5-generate` (name is historical — it now carries **PR 1 through PR 6**, all stacked)
-> Picks up from: the editor-polish plan (`docs/superpowers/plans/2026-05-19-openorg-editor-polish.md`)
-> Resumes at: **PR 7 — Keyboard + motion polish (tasks 7.1–7.2)**, the final PR; or push/PR the stack
-
-## TL;DR
-
-This session resumed mid-PR-5 (task 5.4 was already committed). Completed the rest of **PR 5** (live Generate progress) and all of **PR 6** (claim redirect + WelcomeStrip + microcopy). Both PRs are green. Along the way, fixed two pre-existing breakages the earlier PRs had left on the branch.
-
-- **PR 5 (5.5–5.8)** — `lookupCharity` + `useGenerateStatus` client hooks; `GenerateLiveStatus` component; `Generate.tsx` wired to inline charity-name lookup + live status polling; PR gate green.
-- **PR 6 (6.1–6.5)** — `claim_org_id` on `AuthResponse` + verify endpoint; post-claim verify redirects to `/openorg/edit/{orgId}/profile` and sets the `openorg.welcomeStrip.{orgId}=pending` flag; `WelcomeStrip` one-time strip; WelcomeStrip + "Start here" wired into `EditProfile`; `microcopy.ts` central string module with a sweep across 6 components.
-
-## Two pre-existing fixes made to unblock the PR-5 gate
-
-1. **`fix(web): restore green tsc build` (`6d27286`)** — PRs 2–4 left `tsc`/`npm run build` RED (it had gone unnoticed because backend-only tasks 5.1–5.4 never re-ran the JS gate). Causes: `tsconfig` targeted ES2020 but tests use `Array.at()` (→ bumped target+lib to **ES2022**, user-approved); `beforeEach(() => vi.useFakeTimers())` arrows leaked vi's return type (→ block bodies); `Section.tsx` pill `options` leaked an empty-string case past `?? []`; an untyped `vi.fn()` mock in `EditorShell.test.tsx`.
-2. **`test(openorg): cover new generation status columns` (`f94d1ca`)** — task 5.1 added 5 columns to `OrgProfile` (`generation_stage/message/payload/started_at/finished_at`) but didn't update the structural test `test_org_profile_columns`.
-
-## Microcopy sweep — one intentional trade-off to know about
-
-The 6.5 sweep flattens two micro-details into plain strings (the plan specifies `t(...)` calls for both): the publish-confirm URL is no longer wrapped in `<code>`, and `⌘S` in the "Unsaved" hint is no longer in a mono `<span>`. Tests stay green and visible text is unchanged. Restore the styling later if desired (keep the JSX structure, source only the words from microcopy).
-
-## State at handoff
-
-- Branch `editor-polish-pr5-generate` is **45 commits ahead of `master`** — all of PR 1–6 stacked on one branch (the per-PR-branch plan was never followed; the original git-auth block meant nothing was ever pushed/merged).
-- **`gh` auth now WORKS** (`dataforaction-tom`) — the earlier block is cleared. Nothing pushed yet **by user choice** this session.
-- All gates green: web `tsc` clean · `npm run lint` exit 0 · **119 vitest pass (31 files)** · `npm run build` exit 0. Backend: **281 core + 179 api = 460 pass** (run via `/Users/tomcwxyz/llmstxt-local/.venv` — Python 3.11, both packages installed).
-- Working tree: this HANDOFF.md edit + `.superpowers/` (untracked) are the only non-committed items.
-
-## How to resume
-
-Option A — **finish the plan (PR 7)**: tasks 7.1 (Cmd/Ctrl+S save on both surfaces; `j`/`k` section nav + Enter-to-focus in `GuidedEditor`) and 7.2 (`motion.ts` timing constants + `prefers-reduced-motion` audit). Plan has exact tests + code at lines ~5817–6076. Note 7.2 Step 4 is a **manual browser reduced-motion smoke check** — can't run headlessly.
-
-Option B — **push the stack**: `git push -u origin editor-polish-pr5-generate`, open ONE PR to `master` bundling PR 1–6 (call out the bundling + the two fix commits `6d27286`/`f94d1ca` in the body). Then optionally do PR 7 as a follow-up off the updated master.
-
-## Verification commands
-
-```bash
-cd packages/web && npx tsc --noEmit && npx vitest run && npm run lint && npm run build
-# backend (Python 3.11 venv already set up):
-cd packages/api  && /Users/tomcwxyz/llmstxt-local/.venv/bin/python -m pytest tests/ -q   # 179
-cd packages/core && /Users/tomcwxyz/llmstxt-local/.venv/bin/python -m pytest tests/ -q   # 281
-```
-
-(The `npm run build` tail line "build was canceled / Vite server closed" is a cosmetic prerender-server shutdown artifact — exit code is 0; the sitemap step runs after it and succeeds.)
-
----
-
-> NOTE: everything below is the PRIOR PR-1 handoff (2026-06-01) and the Phase-1 handoff (2026-05-12). Kept for historical context.
-
----
-
-# Handoff — Editor-polish PR 1 verified + lint debt cleared; BLOCKED on git auth
-
-> Session ended: 2026-06-01
-> Branch: `editor-polish-pr1-bridge` (off `master`)
-> Picks up from: the editor-polish plan (`docs/superpowers/plans/2026-05-19-openorg-editor-polish.md`) — PR 1 of 7
-> Resumes at: push + open PR + merge PR 1 (blocked on auth), then PR 2 (Field components)
-
-## TL;DR
-
-PR 1 of the 7-PR editor-polish plan (a dual-surface Guided + Markdown editor for the four Open Org flows) was already implemented on `editor-polish-pr1-bridge` before this session (commits `8edeb2c`..`dc778c8`): `bridge.ts` (per-section markdown splicer) + three section-spec files (`profile.ts`/`strategy.ts`/`idea.ts`) + `js-yaml` dep. No UI yet — this is the contract the Guided editor (PRs 2–4) is built on.
-
-This session:
-1. **Verified PR 1 green** — `tsc` clean, 22 guided tests (53 total) pass, `npm run build` exits 0.
-2. **Cleared pre-existing lint debt** so `npm run lint` (which runs `--max-warnings 0`) passes — it was red from 17 errors + 10 warnings predating this branch, which would block any CI keyed on the lint gate. Commit **`1fee161`** `fix(web): clear pre-existing eslint failures across web package`.
-
-## State at handoff
-
-- Branch `editor-polish-pr1-bridge` = PR 1 feature work + commit `1fee161` (lint cleanup) on top.
-- All gates green: `tsc` clean · 53/53 vitest · `npm run lint` exit 0 · `npm run build` exit 0.
-- **Nothing pushed. No PR. Not merged.** Both auth paths are down:
-  - SSH push → `Permission denied (publickey)`
-  - `gh` → token invalid (`gh auth status` fails)
-- **No backend changes this branch** (`api`/`core`/`cli` untouched) → no migration/deploy risk.
-- New `guided/` modules + `js-yaml` are imported by **nothing in the app** → tree-shaken out of the production bundle → zero runtime impact on either host. llmstxt-social renders identically.
-
-## On commit `1fee161` (the lint cleanup) — call this out in the PR description
-
-It touches 9 existing files, 6 of which are on the **shared llmstxt-social path**: `App.tsx`, `AuthContext.tsx`, `PaymentFlow.tsx`, `SubscriptionFlow.tsx`, `pages/Generate.tsx`, `SchemaScript.tsx` (the other 3 are openorg-only: `openorg.ts`, `MarkdownEditor.tsx`, `Create.tsx`). All changes are **behavior-preserving**:
-- `Create.tsx` — real `react-hooks/rules-of-hooks` bug fixed: 9 `useState` + `useRef` + `useEffect` were running *after* an early return; hoisted all hooks above the URL guard.
-- `AuthContext`/`openorg.ts`/`MarkdownEditor` — `any` → `unknown`/precise types.
-- `openorg.ts` — `while (true)` SSE reader → flagged loop.
-- `SubscriptionFlow` — static caption was a `<label>` with no control → `<div>`.
-- `Generate.tsx` — radiogroup made focusable (`tabIndex`).
-- `PaymentFlow` — depend on the stable `mutate` ref (avoids the render loop that adding the whole mutation object would cause).
-- `App`/`SchemaScript`/`AuthContext` — targeted `eslint-disable` for the HMR-only `react-refresh/only-export-components` rule on idiomatic co-located exports (user chose suppress over file-split).
-
-User decided: **keep the lint cleanup bundled in PR 1 and just call it out in the PR description** (do NOT split into a separate PR). Reviewer should focus on `1fee161`, not the inert feature code.
-
-## How to resume (BLOCKED — do this first)
-
-Git auth is broken. Have the user restore it, e.g.:
-```
-! gh auth login        # GitHub.com → HTTPS → browser; yes to "authenticate Git"
-```
-(or `! gh auth refresh`, or fix SSH via `! ssh-add ~/.ssh/id_ed25519`).
-
-Then, once push access is back:
-1. `git push -u origin editor-polish-pr1-bridge`
-2. Open the PR against `master`. Title e.g. `feat(openorg): guided-editor bridge + section specs (PR 1)`. **Body must call out** that it also carries a behavior-preserving lint cleanup of shared llmstxt-social files (see commit `1fee161` above), verified by `tsc` + 53 tests + build.
-3. Merge into `master`.
-4. Branch `editor-polish-pr2-fields` off the updated `master` and start **PR 2 — Field components (T2.1–T2.5)** per the plan.
-
-## Verification commands (web)
-
-```bash
-cd packages/web
-npx tsc --noEmit          # clean
-npx vitest run            # 53/53
-npm run lint              # exit 0 (was 17 errors + 10 warnings before 1fee161)
-npm run build             # exit 0 ("build was canceled / Vite server closed" tail line is a cosmetic prerender-server shutdown artifact — exit code is 0)
-```
-
-## How to test the Open Org generator locally (existing feature, unaffected)
-
-Domain: **`openorg.good-ship.co.uk`** (prod, may not be live yet — prod rebuild is still an open action item below). Local: `localhost:5173/openorg/generate`. Single Vite build + single FastAPI process serve both this and `llmstxt.social`, route tree chosen by `window.location.hostname`. Full click-through in `LOCAL.md` (needs `.env` with `ANTHROPIC_API_KEY` + `CHARITY_COMMISSION_API_KEY`; magic-link/claim emails print to API/worker stdout in dev).
-
----
-
-> NOTE: everything below is the PRIOR Phase-1 handoff (2026-05-12). Kept for historical context — its action items (prod rebuild, DNS, env vars, key rotation, Murmurations upstream PR) are still open.
-
----
-
-# Handoff — Phase 1 spec-complete; security blockers patched; ready for production rebuild
-
-> Session ended: 2026-05-12
-> Branch: `master` (post-merge of PR #16)
-> Picks up from: spec-complete pass — analyzer enrichment, discovery surface (detail view + idea browser + about), blank templates, generate UI, history restore, Murmurations health-check, packaged Claude skills, security review with three blockers patched in
-> Resumes at: production rebuild, post-claim redirect fix, or Phase 2 planning
-
-## TL;DR
-
-Nine PRs landed across the last two sessions, in order:
-
-- **PR #6** (`99bfee2`) — Phase 1 + 1.5 + frontend polish: the Open Org sub-application, schema v0.2 prompt/crawler iteration, all baseline reports v0.1 → v0.4, CodeMirror editor, chat creator, strategy/idea editor pages, Vitest+RTL setup.
-- **PR #7** (`86c7fbe`) — dev-mode magic-link logger + `LOCAL.md` walkthrough.
-- **PR #8** (`32b2c4d`) — civic-editorial design pass on the Open Org SPA + four code-review fixes.
-- **PR #9** (`bdda813`) — Chromium installed in the API/worker Docker image (so the v0.2.6 Playwright fallback fires in compose runs) + lazy-load `DiscoverPage` (fixes the prerender SSR break introduced by the Leaflet import).
-- **PR #10** (`7022cb1`) — Rate limit + £0.50/org/day budget cap on `/api/open-org/generate`. The endpoint stays unauthenticated; two deterrents (per-IP 5/hour, per-org spend cap) sit in front of it.
-- **PR #11** (`ec83c47`) — Daily `CreatorSession` eviction beat task + admin `POST /api/open-org/{org_id}/unpublish` route that flips `published=False` and dispatches a Murmurations node-delete task.
-- **PR #12** (`0d0ae6b`) — Publish/Unpublish UI buttons on the profile editor, surfaced `published` on the GET profile.md response, fixed a pre-existing TZ bug in the daily-budget query window that was failing every `/api/open-org/generate` call against a real Postgres.
-- **PR #14** (`0bb62f5`) — Publish/unpublish parity for strategies and ideas: 4 new admin routes, `published` flag on GET strategy.md/idea.md, badge + toggle on the strategy and idea editors, shared `PublishToggle` component used by all three editors. Closes a hidden Phase-1 gap where strategies/ideas had the column + the public-route gate but no API or UI to flip the flag — they were effectively un-publishable.
-- **PR #16** (`ee6c88e`) — Phase-1 spec-complete pass. Wires `llmstxt_core.analyzer` into the profile generator (schema gains `mission.programmes` + `evidence_summary`; v0.5 baseline shows ~2× richer profiles). Adds rendered profile detail at `/openorg/{orgId}`, cross-org idea browser at `/openorg/ideas`, About page, blank-template "New strategy/idea" flows, public `/openorg/generate` form, non-destructive history restore + UI. Weekly Murmurations health-check task. Packaged `/org-strategy` + `/org-idea` Claude skills at `.claude/skills/`. Security review with three blocker patches included (forwarded-allow-ips, magic-link rate limit, CORS env-var documentation).
-
-The v0.5 baseline scorecard (10 UK charities) is **6/6 must-pass green**, with substantially richer enrichment: programmes for 9/10, beneficiaries for 9/10, theory_of_change for 9/10, evidence_summary for 8/10, also_known_as for 7/10. Markdown length roughly doubled compared with v0.4. Click-through has been **executed** end-to-end on an isolated stack (generate → claim → publish → unpublish, JSON appears/disappears at the public URL, Murmurations submit/delete tasks fire).
-
-## State at handoff
-
-| Step | Status | Notes |
-|------|--------|-------|
-| 0 — Schemas + themes + validator | ✅ Done |
-| 1 — Markdown ↔ JSON converter | ✅ Done |
-| 2 — DB models + Alembic migration | ✅ Done | Head `c2d3e4f5a6b7` |
-| 3 — CachedAnthropic + llm_usage | ✅ Done | `tools`/`tool_choice` support; TZ-naive window after PR #12 |
-| 4 — Editor + magic-link admin auth | ✅ Done | CodeMirror 6 + preview + strategy/idea editor pages + Vitest+RTL + editorial design pass + publish/unpublish toggle (PR #12) |
-| 5 — Profile generator | ✅ Done | Rate limit (5/IP/hour) + £0.50/org/day cap landed in PR #10 |
-| 6 — Murmurations schema YAML | ✅ Drafted | **User opens upstream PR** |
-| 7 — Murmurations connector | ✅ Done | Plus PR #11's unpublish + node-delete task |
-| 8 — Strategy/idea chat creator | ✅ Done | Plus PR #11's daily CreatorSession eviction beat; publish/unpublish parity added in PR #14 |
-| 9 — Discovery page | ✅ Done | `DiscoverPage` lazy-loaded as of PR #9 |
-| 10 — Subdomain routing + Caddy | ✅ Done | `AUTH_COOKIE_DOMAIN` env-driven, Caddyfile updated, `HostRoot` redirect |
-| 11 — Real-world testing harness | ✅ Done + baselined v0.1 → v0.4 |
-| **Phase 1.5 — schema v0.2 iteration** | ✅ Done | v0.2.1 → v0.2.7, all 6/6 must-pass at v0.4 |
-| **Editorial design pass** | ✅ Done | Civic-editorial type system + paper palette + per-page polish + four code-review fixes |
-| **Operational hygiene** | ✅ Done | Chromium in worker image; per-IP + per-org caps on generate; eviction beat; unpublish + node-delete |
-| **Publish/unpublish UI + click-through** | ✅ Done | PR #12 (profile) + PR #14 (strategy + idea parity) — all three record types now publishable from the SPA; profile flow validated end-to-end |
-| **Phase-1 spec-complete pass** | ✅ Done | PR #16 — analyzer enrichment + schema v0.1.1 fields + profile detail view + idea browser + about page + blank templates + generate UI + history restore + Murmurations health-check + Claude skills + security review |
-
-## v0.1 → v0.5 baseline scorecard
-
-| Criterion | v0.1 | v0.2 | v0.3 | v0.4 | v0.5 |
-|---|---|---|---|---|---|
-| Trussell `food_access` | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Shelter `housing_and_homelessness` | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Mind `mental_health` | ❌ | ❌ | ✅ | ✅ | ✅ |
-| NSPCC `children_and_young_people` | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Macmillan `families_and_carers` | ❌ | ✅ | ✅ | ✅ | ✅ |
-| ≥3 orgs no spurious `education` | n/a | 6/7 | 5/7 | 6/7 | 6/7 |
-| **v0.5 enrichment** — programmes populated | n/a | n/a | n/a | n/a | **9/10** |
-| **v0.5 enrichment** — beneficiaries populated | n/a | n/a | n/a | n/a | **9/10** |
-| **v0.5 enrichment** — theory_of_change populated | n/a | n/a | n/a | n/a | **9/10** |
-| **v0.5 enrichment** — evidence_summary populated | n/a | n/a | n/a | n/a | **8/10** |
-
-Reports committed at `tests/reports/baseline_v0.{1,2,3,4,5}.md`.
-
-## Action items for the user
-
-Pre-deploy:
-1. **Open the Murmurations upstream PR** from `deploy/murmurations/` (schema name: `open_org_profile-v0.1.0`).
-2. **Verify Resend domain** for `hello@openorg.good-ship.co.uk` (needed for prod magic-link + claim email deliverability).
-3. **Rotate `ANTHROPIC_API_KEY` and `CHARITY_COMMISSION_API_KEY`** — both got printed into a chat transcript during the PR #12 click-through when a masking command failed. The keys are still functional; rotating is defence in depth.
-
-Deploy:
-4. **Set production env vars**:
-   - `AUTH_COOKIE_DOMAIN=.good-ship.co.uk`
-   - `MURMURATIONS_INDEX_URL` + `MURMURATIONS_LIBRARY_URL` — flip from test-index once the schema PR merges
-   - `CORS_ORIGINS=https://llmstxt.social,https://openorg.good-ship.co.uk` — **required**, otherwise the SPA can't talk to the API from prod hosts (SECURITY-REVIEW.md M3)
-5. **Add Cloudflare Tunnel route** for `openorg.good-ship.co.uk`:
-   ```
-   cloudflared tunnel route dns <tunnel-id> openorg.good-ship.co.uk
-   ```
-6. **Reload Caddy** with the new Caddyfile.
-7. **Rebuild + force-recreate the api/worker containers** so production picks up everything PR #6+ added (the live api as of session-start was still serving a May-3 image without the open-org routes):
-   ```
-   docker compose build api worker
-   docker compose up -d --force-recreate api worker
-   ```
-   Expect ~5 min for the Playwright `--with-deps` install during build.
-8. **Note on the live Postgres**: open-org tables + claim-flow columns were applied during the PR #12 session (additive migrations, harmless on the still-stale image). They'll be needed as soon as you do the rebuild above.
-
-## How to run things
-
-**Backend tests** (in `python:3.11-slim`):
-```bash
-docker run --rm -v "$(pwd):/work" -w /work python:3.11-slim bash -c '
-  apt-get update -qq && apt-get install -y -qq build-essential libxml2-dev libxslt1-dev libpq-dev > /dev/null
-  pip install --quiet -e packages/core[dev] -e "packages/api[dev]"
-  cd packages/core && python -m pytest tests/ -q
-  cd ../api && python -m pytest tests/ -q
-'
-```
-Expected: 281 core + 170 api = **451 backend** green.
-
-**Frontend**:
-```bash
-docker run --rm -v "$(pwd)/packages/web:/work" -w /work node:20-alpine sh -c '
-  npm install --silent && npx tsc --noEmit && npm test
-'
-```
-Expected: tsc clean, **31/31 vitest** green.
-
-**Real-world harness** (Playwright is now in the worker image, but the harness still installs ad-hoc when run standalone):
-```bash
-docker run --rm --env-file .env -v "$(pwd):/work" -w /work python:3.11-slim bash -c '
-  apt-get update -qq && apt-get install -y -qq build-essential libxml2-dev libxslt1-dev libpq-dev > /dev/null
-  pip install --quiet -e packages/core -e packages/cli > /dev/null
-  playwright install --with-deps chromium > /tmp/pw.log 2>&1
-  llmstxt openorg test-corpus
-'
-```
-Cost: ~$0.15 for 10 charities. Writes to `tests/reports/real_world_run_<ts>.md` (git-ignored). Promote a vetted run to `tests/reports/baseline_v0.5.md` to update the reference.
-
-**Local click-through**: see `LOCAL.md`. If the host's main docker-compose is already in use by a production deploy, an isolated test-stack pattern is what PR #12's click-through used — separate compose project name (`COMPOSE_PROJECT_NAME=llmstxt-test`), host ports `:8001` / `:5434` / `:6380`, and a thin `llmstxt-test-api` image (kept on disk for re-use) that extends `llmstxt-local-api` with the open-org python deps installed.
-
-## Open follow-ups (no order, none block ship)
-
-From the security review (SECURITY-REVIEW.md):
-- **M1** — design decision on whether to verify `owner_email` against the CC-registered email before sending claim links. Currently first-come-first-served — anyone who knows a charity number can race to claim ownership. Phase-1 design choice per spec; revisit before broad public launch.
-- **M2** — audit which subdomains under `good-ship.co.uk` should receive the auth cookie. `AUTH_COOKIE_DOMAIN=.good-ship.co.uk` sends the cookie to every subdomain; if `ghost.good-ship.co.uk` / `soundings.good-ship.co.uk` / others are also under that suffix, they receive the auth token.
-- **L1–L7** — defence-in-depth hardening: HSTS at Caddy, CSP header, JWT secret-key strength documentation, content-sniffing on uploads, TZ-naive comparison in auth (same class as PR #12's fix), Murmurations URL pinning, 409 existence-leak softening.
-
-From prior sessions, still open:
-- **Post-claim redirect honours `org_id`**. `/auth/verify` returns JSON and the frontend post-auth landing is hardcoded to `/dashboard`. After a claim flow the user should land at `/openorg/edit/{org_id}/profile`. Backend has the `org_id` on the magic-link token; needs (a) the verify response to surface it and (b) the frontend Verify page to use it.
-- **`GET /api/open-org/areas` typeahead** for the discovery area-code filter (~30 min).
-- **Diff-vs-baseline mode for the harness** — `llmstxt openorg compare baseline_v0.5.md` (~45 min).
-- **Live ONS centroid coverage** beyond UK nations + major cities; `refresh_from_ons` CLI hook (~1h).
-- **Postgres integration tests for JSONB filter paths** — needs a test-container fixture (~1.5h). Would also catch the class of bug PR #12 fixed (asyncpg TZ comparison) — that's only visible against a real Postgres.
-- **API tenant gating per host** (deliberately deferred — revisit when real logs show traffic on the wrong host).
-- **Firecrawl as a third fetch tier** (only if a future corpus surfaces sites that defeat both httpx and Playwright).
-- **Lower-scored design-pass items from the code review**: result-card `<h2>` semantics, file-input focus indicator, form-input focus ring beyond the 1px border, link underlines at rest on the Discover org name.
-- **`react-hooks/rules-of-hooks` violations** on `Create.tsx` and parts of `Discover.tsx` (still pre-existing — PR #12, #14, #16 cleaned up everything they touched).
-- **Analyzer token usage not reported by the harness** — `analyze_organisation` instantiates its own SDK client and doesn't return usage, so the harness's per-charity token totals undercount real spend by ~2-3×. Cosmetic; cost cap is still enforced at the budget service which sees logged usage.
-
-Items that landed across the last two sessions (strikes from the prior follow-ups list):
-- ~~Chromium in the `celery_worker` Docker image~~ → PR #9
-- ~~Rate limiting + £0.50/org/day cap on `/api/open-org/generate`~~ → PR #10
-- ~~Daily Celery beat to evict expired `CreatorSession` rows~~ → PR #11
-- ~~Murmurations node deletion when an OrgProfile is unpublished~~ → PR #11
-- ~~Publish/unpublish UI buttons in the SPA~~ → PR #12 (profile) + PR #14 (strategy + idea)
-- ~~Local click-through executed end-to-end~~ → PR #12 session
-- ~~Strategy/idea publish parity (hidden Phase-1 gap)~~ → PR #14
-- ~~Profile fills as much as possible from the initial crawl and API pull~~ → PR #16 (analyzer wired in, programmes + beneficiaries + evidence_summary)
-- ~~Profile detail view at `/openorg/{orgId}` (rendered, not raw JSON)~~ → PR #16
-- ~~Idea browser at `/openorg/ideas`~~ → PR #16
-- ~~About page at `/openorg/about`~~ → PR #16
-- ~~Blank "New strategy" / "New idea" templates with HTML-comment guidance~~ → PR #16
-- ~~Frontend Generate Profile UI~~ → PR #16
-- ~~History restore endpoint + UI~~ → PR #16
-- ~~Weekly Murmurations health-check task~~ → PR #16
-- ~~Package `/org-strategy` and `/org-idea` as installable Claude skills~~ → PR #16
-- ~~Run `/security-review` on the five deliverables~~ → PR #16 (SECURITY-REVIEW.md)
-- ~~Rate-limit middleware honours real client IP behind reverse proxy~~ → PR #16 (H1)
-- ~~`/api/auth/magic-link` rate-limited~~ → PR #16 (H2)
-- ~~`CORS_ORIGINS` documented as a required production env var~~ → PR #16 (M3)
-
-## Notable decisions this session
-
-PR #16 (spec-complete pass):
-- **Schema additions are additive — no v0.2 bump.** `mission.programmes` and `mission.evidence_summary` are optional fields on `open-org/v0.1`. Existing profiles validate unchanged. Hypercerts is documented in the `evidence_summary` description as the planned Phase-4 extension for richer evidence linking.
-- **Single crawl, multiple consumers.** `collect_website_pages` is the new core function; `collect_website_text` is a thin wrapper. The generator calls the crawl once and feeds both the theme extractor (text) and the analyzer (pages) — no duplicate HTTP.
-- **CC is the spine, analyzer fills soft tissue.** CC contact wins where present; analyzer fills gaps (email/phone/address). Analyzer geography wins only when CC's value is vague ("England", "United Kingdom"). Working name only added to `also_known_as` when distinct from CC registered name.
-- **Analyzer failures degrade gracefully.** A flaky analyzer (network, parse error) returns no enrichment but CC-only profile generation still succeeds.
-- **Cross-org idea browser is a separate endpoint** (`/api/open-org/discover/ideas`) rather than overloading the existing org-discovery endpoint. Different result shape (idea-centric, with cost range) justifies the split.
-- **History restore is non-destructive.** Restoring a past version appends a new version pointing to the chosen snapshot; old versions stay in place. Schema validation runs against the snapshot, so if v0.2 ever tightens a constraint and an old snapshot becomes invalid, restore returns 400 with structured field errors rather than silently writing bad data.
-- **Murmurations health check** is weekly (Mondays 04:00 UTC) — schema drift is rare and validating every published profile against the live library schema is mildly expensive. Recovers automatically: a profile that flips to `drift` then validates clean on the next run flips back to `validated`.
-- **Three security blockers fixed in this PR** so the production rebuild can proceed without queueing a follow-up PR first.
-
-PR #12 (publish/unpublish + TZ fix):
-- Extended `MarkdownResponse` with `published: bool` rather than adding a new state endpoint — backwards-compatible (older clients ignore the field) and saves a round-trip.
-- A single toggle button (Publish ↔ Unpublish) rather than two coexisting buttons, gated on `profile.data.published`. Keeps the header uncluttered. Inline alert handles the "save markdown before publishing" 400 path.
-- TZ-naive window in `_today_window_utc` is correct for the *current* column type (`TIMESTAMP WITHOUT TIME ZONE`). The "right" long-term fix is migrating to `TIMESTAMPTZ`, but that's a separate migration with bigger blast radius — current fix unblocks generate without any data-layer changes.
-- Regression test asserts the function returns naive datetimes. Doesn't replace the need for a real-Postgres integration test (still on the follow-ups list), but does encode the contract.
-
-Click-through methodology (worth keeping for next time):
-- Isolated test stack (`COMPOSE_PROJECT_NAME=llmstxt-test`, ports `:8001` / `:5434` / `:6380`, named volume) with a fresh DB per run — production data untouched, teardown is `docker compose -p llmstxt-test down -v`. The `llmstxt-test-api` extension image is kept on disk between runs.
-
-## Files of note
-
-PR #16 (spec-complete pass — 40 files, +4546/-99):
-- `packages/core/src/llmstxt_core/open_org/schemas/org_profile.schema.json` — `mission.programmes` + `mission.evidence_summary` (additive).
-- `packages/core/src/llmstxt_core/open_org/generator.py` — analyzer wired in via `_build_payload(analysis=...)`; merge helpers (`_merge_programmes`, `_evidence_summary`, vague-area override).
-- `packages/core/src/llmstxt_core/open_org/website_text.py` — refactored to expose `collect_website_pages`; `collect_website_text` is now a wrapper.
-- `packages/core/src/llmstxt_core/open_org/harness.py` — richer per-charity report (programme names, beneficiaries, enrichment flags).
-- `tests/reports/baseline_v0.5.md` — v0.5 corpus run report.
-- `packages/api/src/llmstxt_api/routes/open_org_public.py` — new `GET /open-org/{org_id}/{strategies,ideas}` list endpoints feeding the profile detail page.
-- `packages/api/src/llmstxt_api/routes/open_org_discovery.py` — new `GET /api/open-org/discover/ideas` cross-org idea endpoint.
-- `packages/api/src/llmstxt_api/routes/open_org_admin.py` — `POST .../history/{version_id}/restore` (non-destructive).
-- `packages/api/src/llmstxt_api/tasks/open_org_murmurations.py` — `_run_health_check` + `health_check_murmurations_task` (Mondays 04:00 UTC beat).
-- `packages/api/src/llmstxt_api/middleware/rate_limit.py` — new rule for `/api/auth/magic-link` (H2); `print` → `log.error` (M4).
-- `packages/api/src/llmstxt_api/config.py` — `magic_link_hourly_limit` setting.
-- `packages/api/Dockerfile` + `docker-compose.yml` — `--forwarded-allow-ips=127.0.0.1` on uvicorn (H1).
-- `packages/web/src/pages/openorg/ProfileDetail.tsx` — rendered profile detail view at `/openorg/{orgId}`.
-- `packages/web/src/pages/openorg/Ideas.tsx` — cross-org idea browser at `/openorg/ideas`.
-- `packages/web/src/pages/openorg/About.tsx` — explainer page.
-- `packages/web/src/pages/openorg/NewRecord.tsx` + `packages/web/src/openorgTemplates.ts` — blank-template "New strategy" / "New idea" flows.
-- `packages/web/src/pages/openorg/Generate.tsx` — public form to kick off profile generation.
-- `packages/web/src/pages/openorg/EditProfile.tsx` — `HistoryPanel` + chat/template create entry-point buttons.
-- `.claude/skills/org-strategy/SKILL.md` + `.claude/skills/org-idea/SKILL.md` — installable Claude skills (per spec section 2.5).
-- `SECURITY-REVIEW.md` — `/security-review` skill output + per-finding fixes.
-
-PR #14 (strategy/idea publish parity):
-- `packages/api/src/llmstxt_api/routes/open_org_admin.py` — 4 new routes (`publish_strategy`, `unpublish_strategy`, `publish_idea`, `unpublish_idea`) + `RecordPublishResponse` schema + `published` on the GET strategy.md / idea.md responses.
-- `packages/api/tests/test_open_org_record_publish_route.py` — 11 tests for the new routes + the GET flag.
-- `packages/web/src/api/openorg.ts` — `publishStrategy` / `unpublishStrategy` / `publishIdea` / `unpublishIdea` + matching `use*` hooks.
-- `packages/web/src/components/openorg/PublishToggle.tsx` — shared `PublishBadge` + `PublishControls` used by all three editors.
-- `packages/web/src/pages/openorg/EditStrategy.tsx`, `EditIdea.tsx` — badge + toggle + inline alert, hooks lifted above early-return.
-- `packages/web/src/pages/openorg/{EditStrategy,EditIdea}.test.tsx` — 4 Vitest tests each, mirroring the profile test pattern.
-
-PR #12 (profile publish + TZ fix):
-- `packages/api/src/llmstxt_api/routes/open_org_admin.py` — `MarkdownResponse.published`; GET handler populates it from `profile.published`.
-- `packages/api/src/llmstxt_api/services/llm_usage.py` — `_today_window_utc` returns naive UTC datetimes.
-- `packages/api/tests/test_open_org_admin_routes.py` — new test for the `published` field.
-- `packages/api/tests/test_llm_usage_service.py` — regression test for the naive-window contract.
-- `packages/web/src/api/openorg.ts` — `publishProfile` / `unpublishProfile` + `usePublishProfile` / `useUnpublishProfile` hooks + `OpenOrgPublishError`.
-- `packages/web/src/pages/openorg/EditProfile.tsx` — Draft/Published badge, single toggle button, inline alert, hooks lifted above early-return (refactored to use the shared `PublishToggle` in PR #14).
-- `packages/web/src/pages/openorg/EditProfile.test.tsx` — 4 Vitest+RTL tests for the toggle.
-
-Earlier this Phase (still relevant context):
-- `packages/core/src/llmstxt_core/playwright_fetch.py` — Playwright wrapper (PR #6, used by website crawl fallback).
-- `packages/core/src/llmstxt_core/open_org/website_text.py` — two-tier crawl orchestrator with URL normalisation + homepage-by-URL override.
-- `packages/web/src/pages/openorg/{Discover,Create,EditProfile,EditStrategy,EditIdea}.tsx` + `components/openorg/MarkdownEditor.tsx` — editorial redesign.
-- `packages/api/Dockerfile` — Chromium install (PR #9).
-- `packages/web/src/App.tsx` — lazy DiscoverPage (PR #9).
-- `packages/api/src/llmstxt_api/middleware/rate_limit.py` + `config.py` — per-IP hourly cap (PR #10).
-- `packages/api/src/llmstxt_api/routes/open_org_generate.py` — budget gate (PR #10).
-- `packages/api/src/llmstxt_api/tasks/open_org_creator.py` — eviction task + beat schedule entry (PR #11).
-- `packages/api/src/llmstxt_api/tasks/open_org_murmurations.py` — `_run_node_delete` + `delete_from_murmurations_task` (PR #11).
-- `packages/api/src/llmstxt_api/routes/open_org_admin.py` — `POST .../unpublish` route (PR #11), publish/unpublish response models extended (PR #12).
-
-## How to resume
-
-After `cd /Users/tomcwxyz/llmstxt-local`:
-
-```
-Read CLAUDE.md, then PLAN.md, then HANDOFF.md, then SECURITY-REVIEW.md.
-Phase 1 is spec-complete and security-reviewed; three blocker patches
-are in. Status check + propose next focus.
-```
-
-Most natural next picks:
-- **Production rebuild + DNS** — `docker compose build` + `up -d --force-recreate api worker` so the live deploy picks up everything from PR #6 through PR #16, then add the Cloudflare Tunnel route to `openorg.good-ship.co.uk`. The live image at session-start was still May-3 and predates all open-org code.
-- **Post-claim redirect fix** so the verify flow lands directly on the profile editor when the magic-link token carries an `org_id`. ~30 min.
-- **Subdomain cookie audit (SECURITY-REVIEW.md M2)** — confirm every `*.good-ship.co.uk` subdomain that will receive the auth cookie is a trusted service. Ghost / Soundings run on the same host; if any are reachable under that root they receive `auth_token` on every request.
-- **Phase 2 planning** (access control + grants, MCP integrations, funder profiles, strategy matching).
+## Outstanding user actions
+
+1. ~~**Open PR**~~ — ✅ opened 2026-06-26 (session 3)
+2. **Murmurations schema upstream PR** — schema at `deploy/murmurations/`
+3. **Cloudflare Tunnel route** for `openorg.good-ship.co.uk`
+4. **Resend domain verification** for `hello@openorg.good-ship.co.uk`
+5. **Prod image rebuild + deploy** — stale image lacks `openai` + D3 + `@fontsource-variable/dm-sans` deps and will crash on boot
+6. **Editor polish PR 7** (keyboard + motion polish)
+
+## Remaining essay-vision gaps (not started)
+
+- **#4 Access control / audit trail** — Phase 2 per spec. OrgVersion audit trail exists; proper tiered access control is Phase 2.
+- **#5 Local agent / evidence integration** — Phase 2 per spec.
+- **#7 Funder-facing view** — Ideas-first discovery partly addresses this. A dedicated funder-perspective lens could be built on top of the graph + signals data.

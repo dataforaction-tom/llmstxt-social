@@ -46,16 +46,26 @@ export default function EditProfilePage() {
   const restore = useRestoreVersion(orgId);
 
   if (!orgId) {
-    return <div className="p-6 text-red-700">Missing org_id in URL.</div>;
+    return (
+      <div className="surface-cream min-h-screen">
+        <div className="p-6 text-red-700">Missing org_id in URL.</div>
+      </div>
+    );
   }
 
   if (profile.isLoading) {
-    return <div className="p-6 text-gray-500">Loading profile…</div>;
+    return (
+      <div className="surface-cream min-h-screen">
+        <div className="p-6 text-grey-blue">Loading profile…</div>
+      </div>
+    );
   }
   if (profile.isError) {
     return (
-      <div className="p-6 text-red-700">
-        Failed to load profile: {String(profile.error)}
+      <div className="surface-cream min-h-screen">
+        <div className="p-6 text-red-700">
+          Failed to load profile: {String(profile.error)}
+        </div>
       </div>
     );
   }
@@ -117,7 +127,7 @@ export default function EditProfilePage() {
     : undefined;
 
   return (
-    <div className="surface-paper min-h-screen">
+    <div className="surface-cream min-h-screen">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <header className="mb-8">
           <div className="kicker num">Editing · Profile</div>
@@ -126,8 +136,8 @@ export default function EditProfilePage() {
               <h1 className="display-head text-3xl font-medium leading-tight sm:text-4xl">
                 Edit organisation profile
               </h1>
-              <p className="mt-2 flex items-center gap-3 text-sm text-muted">
-                <code className="font-mono text-ink">{orgId}</code>
+              <p className="mt-2 flex items-center gap-3 text-sm text-grey-blue">
+                <code className="font-mono text-navy">{orgId}</code>
               </p>
             </div>
             <PublishStrip
@@ -176,32 +186,32 @@ export default function EditProfilePage() {
         {/* Spec section 2 mode 3: blank-template creation entry points. */}
         <section className="mt-12 border-t border-rule pt-6">
           <div className="kicker num mb-3">Add a strategy or idea</div>
-          <p className="mb-4 max-w-prose text-sm text-muted">
+          <p className="mb-4 max-w-prose text-sm text-grey-blue">
             Use the guided chat creator for a conversational walkthrough, or
             start with a blank template if you'd rather write it yourself.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
               to={`/openorg/${orgId}/create/strategy`}
-              className="border border-rule px-4 py-2 text-sm text-ink hover:bg-paper-2"
+              className="border border-rule px-4 py-2 text-sm text-navy hover:bg-cream-dark"
             >
               Chat: new strategy
             </Link>
             <Link
               to={`/openorg/edit/${orgId}/strategies/new`}
-              className="border border-rule px-4 py-2 text-sm text-ink hover:bg-paper-2"
+              className="border border-rule px-4 py-2 text-sm text-navy hover:bg-cream-dark"
             >
               Blank template: new strategy
             </Link>
             <Link
               to={`/openorg/${orgId}/create/idea`}
-              className="border border-rule px-4 py-2 text-sm text-ink hover:bg-paper-2"
+              className="border border-rule px-4 py-2 text-sm text-navy hover:bg-cream-dark"
             >
               Chat: new idea
             </Link>
             <Link
               to={`/openorg/edit/${orgId}/ideas/new`}
-              className="border border-rule px-4 py-2 text-sm text-ink hover:bg-paper-2"
+              className="border border-rule px-4 py-2 text-sm text-navy hover:bg-cream-dark"
             >
               Blank template: new idea
             </Link>
@@ -241,11 +251,11 @@ function HistoryPanel({
                 className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm"
               >
                 <div>
-                  <span className="font-mono text-xs text-muted">
+                  <span className="font-mono text-xs text-grey-blue">
                     {formatVersionTime(v.created_at)}
                   </span>
                   {isLatest && (
-                    <span className="ml-2 text-xs uppercase tracking-wider text-emerald-700">
+                    <span className="ml-2 text-xs uppercase tracking-wider text-teal">
                       current
                     </span>
                   )}
@@ -254,7 +264,7 @@ function HistoryPanel({
                   type="button"
                   disabled={busy || isLatest}
                   onClick={() => onRestore(v.id)}
-                  className="border border-rule px-3 py-1 text-xs hover:bg-paper-2 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="border border-rule px-3 py-1 text-xs hover:bg-cream-dark disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {busy ? 'Restoring…' : 'Restore'}
                 </button>
@@ -262,7 +272,7 @@ function HistoryPanel({
             );
           })}
         </ul>
-        <p className="mt-2 text-xs text-muted">
+        <p className="mt-2 text-xs text-grey-blue">
           Restoring is non-destructive — it creates a new version pointing to
           the chosen snapshot. Nothing is overwritten.
         </p>
