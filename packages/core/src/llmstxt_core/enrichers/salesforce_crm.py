@@ -137,6 +137,28 @@ class SalesforceClient:
         records = await self.query(soql)
         return [self._parse_contact(r) for r in records]
 
+    # -- write API (Pattern B — push) -------------------------------------
+
+    async def create_account(self, payload: dict) -> dict:
+        """Create an Account via POST /sobjects/Account.
+
+        Returns the parsed JSON body (Salesforce returns ``{"id": "...",
+        "success": true}``). Raises ``httpx.HTTPStatusError`` on non-2xx.
+        """
+        url = f"{self._base_url}/sobjects/Account"
+        return await self._post_json(url, payload)
+
+    async def create_opportunity(self, account_id: str, payload: dict) -> dict:
+        """Create an Opportunity attached to ``account_id``.
+
+        The ``AccountId`` is injected into the payload before posting.
+        Returns parsed JSON with the new opportunity ``id``.
+        """
+        body = dict(payload)
+        body["AccountId"] = account_id
+        url = f"{self._base_url}/sobjects/Opportunity"
+        return await self._post_json(url, body)
+
     async def query(self, soql: str) -> list[dict]:
         """Execute a raw SOQL query and return the list of record dicts.
 
@@ -194,6 +216,17 @@ class SalesforceClient:
                 return resp.json()
         except (httpx.HTTPError, KeyError, ValueError):
             return None
+
+    async def _post_json(self, url: str, json_body: dict) -> dict:
+        """POST ``json_body`` to ``url`` and return the parsed JSON body.
+
+        Raises ``httpx.HTTPStatusError`` on non-2xx so callers handle
+        write failures explicitly (Pattern B).
+        """
+        async with self._make_client() as client:
+            resp = await client.post(url, json=json_body, headers=self._headers())
+            resp.raise_for_status()
+            return resp.json()
 
     # -- parsers ------------------------------------------------------------
 

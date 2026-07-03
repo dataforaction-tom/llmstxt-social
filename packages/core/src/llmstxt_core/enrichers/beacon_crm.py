@@ -137,6 +137,26 @@ class BeaconClient:
             return []
         return [_parse_case(row) for row in data.get("data", [])]
 
+    # -- write API (Pattern B — push) -------------------------------------
+
+    async def create_constituent(self, payload: dict) -> dict:
+        """Create a constituent via POST /constituents.
+
+        Returns the parsed JSON body (containing the new ``id``).
+        Raises ``httpx.HTTPStatusError`` on non-2xx responses.
+        """
+        return await self._post("/constituents", json_body=payload)
+
+    async def create_campaign(self, constituent_id: str, payload: dict) -> dict:
+        """Create a campaign attached to ``constituent_id``.
+
+        POST /constituents/{id}/campaigns — returns parsed JSON with the
+        new campaign ``id``.
+        """
+        return await self._post(
+            f"/constituents/{constituent_id}/campaigns", json_body=payload
+        )
+
     # -- internals --------------------------------------------------------
 
     async def _get(self, path: str, params: dict | None = None) -> dict | None:
@@ -155,6 +175,19 @@ class BeaconClient:
                 return resp.json()
         except (httpx.HTTPError, KeyError, ValueError):
             return None
+
+    async def _post(self, path: str, json_body: dict) -> dict:
+        """Perform a POST request and return the parsed JSON body.
+
+        Raises ``httpx.HTTPStatusError`` on non-2xx so callers can handle
+        write failures explicitly (Pattern B — writes should not silently
+        swallow errors the way reads do).
+        """
+        url = f"{self.base_url}{path}"
+        async with self._http_client_factory() as client:
+            resp = await client.post(url, json=json_body, headers=self._headers)
+            resp.raise_for_status()
+            return resp.json()
 
 
 # ---------------------------------------------------------------------------

@@ -133,6 +133,18 @@ class LamplightClient:
         async with self._http_client_factory() as client:
             return await client.get(url, headers=self._headers())
 
+    async def _post(self, path: str, json_body: dict) -> dict:
+        """POST ``json_body`` to ``path`` and return parsed JSON.
+
+        Raises ``httpx.HTTPStatusError`` on non-2xx so callers handle
+        write failures explicitly.
+        """
+        url = f"{self.base_url}/{path.lstrip('/')}"
+        async with self._http_client_factory() as client:
+            resp = await client.post(url, json=json_body, headers=self._headers())
+            resp.raise_for_status()
+            return resp.json()
+
     # -- public API -------------------------------------------------------
 
     async def get_profile(self, profile_id: str) -> LamplightProfile | None:
@@ -188,6 +200,26 @@ class LamplightClient:
         data = resp.json()
         records = data.get("value", []) if isinstance(data, dict) else data
         return [_parse_work_record(r) for r in records]
+
+    # -- write API (Pattern B — push) -------------------------------------
+
+    async def create_profile(self, payload: dict) -> dict:
+        """Create a profile via POST /profiles.
+
+        Returns the parsed JSON body (containing the new ``id``).
+        Raises ``httpx.HTTPStatusError`` on non-2xx.
+        """
+        return await self._post("profiles", json_body=payload)
+
+    async def create_work_record(self, profile_id: str, payload: dict) -> dict:
+        """Create a work record attached to ``profile_id``.
+
+        POST /profiles/{id}/work_records — returns parsed JSON with the
+        new work-record ``id``.
+        """
+        return await self._post(
+            f"profiles/{profile_id}/work_records", json_body=payload
+        )
 
 
 # ---------------------------------------------------------------------------
