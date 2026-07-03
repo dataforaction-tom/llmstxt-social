@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://library.murmurations.network/v2/schemas/open_org_idea-v0.1.0",
+  "title": "Open Org idea",
+  "description": "An idea an organisation is developing or seeking to deliver — themes, place, cost range, status. A thin discovery schema for the Murmurations index; the full idea is fetched via open_org_idea_url. See https://openorg.good-ship.co.uk for context.",
+  "type": "object",
+  "properties": {
+    "linked_schemas": {
+      "title": "Linked Schemas",
+      "description": "Identifies the schemas the idea is published against.",
+      "type": "array",
+      "items": {"type": "string"},
+      "contains": {"const": "open_org_idea-v0.1.0"}
+    },
+    "org_id_guide": {
+      "title": "org-id.guide identifier",
+      "description": "The organisation's identifier in org-id.guide format (e.g. GB-CHC-1234567).",
+      "type": "string",
+      "pattern": "^[A-Z]{2}-[A-Z]{3}-.+$"
+    },
+    "idea_slug": {
+      "title": "Idea slug",
+      "description": "The idea's slug (frontmatter id).",
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "title": "Name",
+      "description": "Human-readable name for the idea (from summary or slug).",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "description": "Brief summary of the idea.",
+      "type": ["string", "null"]
+    },
+    "status": {
+      "title": "Status",
+      "description": "Idea lifecycle status.",
+      "type": "string",
+      "enum": ["seed", "developing", "shaped", "delivered", "archived"]
+    },
+    "tags": {
+      "title": "Tags",
+      "description": "Open Org theme keys describing what the idea addresses.",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "primary_area": {
+      "title": "Primary area",
+      "description": "Human-readable name of the idea's primary place.",
+      "type": ["string", "null"]
+    },
+    "geolocation": {
+      "title": "Geolocation",
+      "description": "Latitude/longitude of the idea's primary place.",
+      "type": ["object", "null"],
+      "properties": {
+        "lat": {"type": "number", "minimum": -90, "maximum": 90},
+        "lon": {"type": "number", "minimum": -180, "maximum": 180}
+      },
+      "required": ["lat", "lon"]
+    },
+    "cost_min": {
+      "title": "Cost minimum",
+      "description": "Minimum estimated cost in the idea's currency.",
+      "type": ["integer", "null"]
+    },
+    "cost_max": {
+      "title": "Cost maximum",
+      "description": "Maximum estimated cost in the idea's currency.",
+      "type": ["integer", "null"]
+    },
+    "cost_currency": {
+      "title": "Cost currency",
+      "description": "ISO 4217 currency code for the cost range.",
+      "type": ["string", "null"]
+    },
+    "schema_version": {
+      "title": "Open Org schema version",
+      "description": "Version of the Open Org idea schema.",
+      "type": "string",
+      "const": "open-org-idea/v0.1"
+    },
+    "open_org_idea_url": {
+      "title": "Open Org idea URL",
+      "description": "URL of the full idea JSON, served by the organisation's host.",
+      "type": "string",
+      "format": "uri"
+    }
+  },
+  "required": [
+    "linked_schemas",
+    "org_id_guide",
+    "idea_slug",
+    "status",
+    "tags"
+  ],
+  "metadata": {
+    "schema": {
+      "name": "open_org_idea-v0.1.0",
+      "purpose": "Federated discovery of organisation ideas. Funders can find ideas by theme, place, status, and cost range.",
+      "url": "https://openorg.good-ship.co.uk/about"
+    },
+    "creator": {
+      "name": "Good Ship",
+      "url": "https://good-ship.co.uk"
+    }
+  }
+}

@@ -44,8 +44,8 @@ export default function SidebarNav({
                 onClick={() => onSelect(s.id)}
                 className={`flex w-full items-center justify-between border-l-2 px-3 py-2 text-left text-sm transition ${
                   isActive
-                    ? 'border-ink bg-paper-2 text-ink'
-                    : 'border-transparent text-muted hover:bg-paper-2/60 hover:text-ink'
+                    ? 'border-navy bg-cream-dark text-navy'
+                    : 'border-transparent text-grey-blue hover:bg-cream-dark/60 hover:text-navy'
                 }`}
               >
                 <span className="flex items-center gap-2">
@@ -55,7 +55,7 @@ export default function SidebarNav({
                   <span>{s.name}</span>
                 </span>
                 {startHereId === s.id && (
-                  <span className="border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted">
+                  <span className="border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-grey-blue">
                     {t('sidebar.starthere')}
                   </span>
                 )}
@@ -65,7 +65,7 @@ export default function SidebarNav({
         })}
       </ul>
 
-      <div className="border-t border-rule pt-3 text-xs text-muted">
+      <div className="border-t border-rule pt-3 text-xs text-grey-blue">
         <div className="kicker">{pct}% done</div>
         {missing.length > 0 && (
           <div className="mt-3">
@@ -77,7 +77,7 @@ export default function SidebarNav({
                     <button
                       type="button"
                       onClick={() => onSelect(s.id)}
-                      className="text-left text-[11px] text-muted hover:text-ink"
+                      className="text-left text-[11px] text-grey-blue hover:text-navy"
                     >
                       · {s.name} — {m}
                     </button>

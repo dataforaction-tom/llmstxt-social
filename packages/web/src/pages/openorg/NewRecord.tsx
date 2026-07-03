@@ -59,7 +59,11 @@ export default function NewRecordPage({ kind }: NewRecordPageProps) {
   const themes = useThemes();
 
   if (!orgId) {
-    return <div className="p-6 text-red-700">Missing org_id in URL.</div>;
+    return (
+      <div className="surface-cream min-h-screen">
+        <div className="p-6 text-red-700">Missing org_id in URL.</div>
+      </div>
+    );
   }
 
   const template = templateFor(kind);
@@ -100,14 +104,14 @@ export default function NewRecordPage({ kind }: NewRecordPageProps) {
   };
 
   return (
-    <div className="surface-paper min-h-screen">
+    <div className="surface-cream min-h-screen">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <header className="mb-8">
           <div className="kicker num">New · {Noun}</div>
           <h1 className="display-head mt-2 text-3xl font-medium leading-tight sm:text-4xl">
             New {noun}
           </h1>
-          <p className="mt-2 max-w-prose text-sm text-muted">
+          <p className="mt-2 max-w-prose text-sm text-grey-blue">
             The template below has placeholder prompts in
             <code className="font-mono"> &lt;!-- comments --&gt;</code>. Fill
             them in and click <strong>Save {noun}</strong>; the comments are

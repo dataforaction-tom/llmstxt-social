@@ -27,7 +27,7 @@ export default function SaveIndicator({ state, savedAt, onRetry }: SaveIndicator
 
   if (state === 'saving') {
     return (
-      <span className="kicker text-muted" aria-live="polite">
+      <span className="kicker text-grey-blue" aria-live="polite">
         {t('save.saving')}
       </span>
     );
@@ -39,7 +39,7 @@ export default function SaveIndicator({ state, savedAt, onRetry }: SaveIndicator
         <button
           type="button"
           onClick={onRetry}
-          className="ml-1 border border-rule px-2 py-0.5 text-xs hover:bg-paper-2"
+          className="ml-1 border border-rule px-2 py-0.5 text-xs hover:bg-cream-dark"
         >
           {t('save.retry')}
         </button>
@@ -48,14 +48,14 @@ export default function SaveIndicator({ state, savedAt, onRetry }: SaveIndicator
   }
   if (state === 'unsaved') {
     return (
-      <span className="kicker text-muted" aria-live="polite">
+      <span className="kicker text-grey-blue" aria-live="polite">
         {t('save.unsaved')}
       </span>
     );
   }
   const age = savedAt ? ageLabel(savedAt, now) : t('save.justnow');
   return (
-    <span className="kicker text-muted" aria-live="polite">
+    <span className="kicker text-grey-blue" aria-live="polite">
       Saved · {age}
     </span>
   );

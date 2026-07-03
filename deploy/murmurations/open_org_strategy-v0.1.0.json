@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://library.murmurations.network/v2/schemas/open_org_strategy-v0.1.0",
+  "title": "Open Org strategy",
+  "description": "An organisation's strategy — themes, period, status, summary. A thin discovery schema for the Murmurations index; the full strategy is fetched via open_org_strategy_url. See https://openorg.good-ship.co.uk for context.",
+  "type": "object",
+  "properties": {
+    "linked_schemas": {
+      "title": "Linked Schemas",
+      "description": "Identifies the schemas the strategy is published against.",
+      "type": "array",
+      "items": {"type": "string"},
+      "contains": {"const": "open_org_strategy-v0.1.0"}
+    },
+    "org_id_guide": {
+      "title": "org-id.guide identifier",
+      "description": "The organisation's identifier in org-id.guide format (e.g. GB-CHC-1234567).",
+      "type": "string",
+      "pattern": "^[A-Z]{2}-[A-Z]{3}-.+$"
+    },
+    "strategy_slug": {
+      "title": "Strategy slug",
+      "description": "The strategy's slug (frontmatter id).",
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "title": "Name",
+      "description": "Human-readable name for the strategy (from summary or slug).",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "description": "Brief summary of the strategy.",
+      "type": ["string", "null"]
+    },
+    "status": {
+      "title": "Status",
+      "description": "Strategy lifecycle status.",
+      "type": "string",
+      "enum": ["draft", "active", "archived"]
+    },
+    "tags": {
+      "title": "Tags",
+      "description": "Open Org theme keys describing what the strategy addresses.",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "period_start": {
+      "title": "Period start",
+      "description": "Start date of the strategy period.",
+      "type": ["string", "null"],
+      "format": "date"
+    },
+    "period_end": {
+      "title": "Period end",
+      "description": "End date of the strategy period.",
+      "type": ["string", "null"],
+      "format": "date"
+    },
+    "period_horizon": {
+      "title": "Period horizon",
+      "description": "Time horizon of the strategy.",
+      "type": ["string", "null"],
+      "enum": ["1_year", "2_3_years", "3_5_years", "5_10_years", null]
+    },
+    "schema_version": {
+      "title": "Open Org schema version",
+      "description": "Version of the Open Org strategy schema.",
+      "type": "string",
+      "const": "open-org-strategy/v0.1"
+    },
+    "open_org_strategy_url": {
+      "title": "Open Org strategy URL",
+      "description": "URL of the full strategy JSON, served by the organisation's host.",
+      "type": "string",
+      "format": "uri"
+    }
+  },
+  "required": [
+    "linked_schemas",
+    "org_id_guide",
+    "strategy_slug",
+    "status",
+    "tags"
+  ],
+  "metadata": {
+    "schema": {
+      "name": "open_org_strategy-v0.1.0",
+      "purpose": "Federated discovery of organisation strategies. Funders and partners can find strategies by theme and status.",
+      "url": "https://openorg.good-ship.co.uk/about"
+    },
+    "creator": {
+      "name": "Good Ship",
+      "url": "https://good-ship.co.uk"
+    }
+  }
+}

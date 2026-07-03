@@ -252,10 +252,10 @@ export default function Section({ section, parsed, onChange, vocabs }: SectionPr
     <section className="flex flex-col gap-4" data-section-id={section.id}>
       <header>
         <div className="kicker">{section.name}</div>
-        <p className="mt-1 max-w-prose text-sm text-muted">{section.description}</p>
+        <p className="mt-1 max-w-prose text-sm text-grey-blue">{section.description}</p>
       </header>
       {empty && section.emptyPrompt && (
-        <p className="max-w-prose border-l-2 border-rule pl-3 text-sm italic text-muted">
+        <p className="max-w-prose border-l-2 border-rule pl-3 text-sm italic text-grey-blue">
           {section.emptyPrompt}
         </p>
       )}

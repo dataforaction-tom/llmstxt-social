@@ -42,7 +42,7 @@ export default function TextField({
       <span className="kicker mb-2 flex items-center gap-2">
         {label}
         {showChip && (
-          <span className="border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted">
+          <span className="border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-grey-blue">
             {SOURCE_LABELS[source]}
           </span>
         )}
@@ -56,9 +56,9 @@ export default function TextField({
           onChange(e.target.value);
         }}
         placeholder={placeholder}
-        className="border border-rule bg-paper px-3 py-2 text-base text-ink focus:border-ink focus:outline-none"
+        className="border border-rule bg-cream px-3 py-2 text-base text-navy focus:border-navy focus:outline-none"
       />
-      {hint && <span className="mt-1 text-xs italic text-muted">{hint}</span>}
+      {hint && <span className="mt-1 text-xs italic text-grey-blue">{hint}</span>}
     </label>
   );
 }

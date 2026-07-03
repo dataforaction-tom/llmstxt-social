@@ -7,7 +7,17 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
+      // In production FastAPI serves the SPA and every API route from one
+      // origin, so both `/api/open-org/*` (discovery, signals, editor) and the
+      // public `/open-org/*` routes (profile.json, strategies, ideas, history)
+      // resolve. In dev the SPA is served by Vite, so both path families must
+      // be proxied to FastAPI. The SPA's own routes live under `/openorg`
+      // (no hyphen), so `/open-org` does not collide with them.
       '/api': {
+        target: process.env.VITE_API_URL || 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/open-org': {
         target: process.env.VITE_API_URL || 'http://localhost:8000',
         changeOrigin: true,
       },

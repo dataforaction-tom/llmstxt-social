@@ -1,10 +1,25 @@
-# Plan — Open Org Phase 1 + 1.5
+# Plan — Open Org Phase 1 + 1.5 + Vision Hardening
 
-> Last updated: 2026-05-11
-> Status: **Phase 1 + 1.5 complete + frontend polish landed**. All 6/6 v0.4 baseline must-pass items green; SPA now has CodeMirror+preview editor, strategy/idea editor pages, Vitest+RTL setup, and an SSE chat-creator page. Firecrawl reserved for a future corpus that defeats both httpx and Playwright.
+> Last updated: 2026-06-25 (session 2)
+> Status: **Phase 1 complete, hardening complete, essay-vision features in progress**. All 11 build steps done. Session 1: 8 bugs fixed, brand aligned, graph discovery + Claude skills added. Session 2: funder signalling, evidence layer, profile evolution, cluster insights, ideas-first discovery (API done, frontend test pending). 22 commits on `fix/openorg-hardening`, pushed. PR not yet opened.
 > Spec: `open-org/open-org-phase1-spec.md`
+> Essay: https://tomcw.xyz/the-grant-application-is-dead-what-comes-next/
 > Resume guide: `HANDOFF.md`
 > Baselines: `tests/reports/baseline_v0.1.md` → `baseline_v0.4.md`
+
+## Session 2 progress (essay-vision gap closure)
+
+| # | Gap | Status | Commits |
+|---|-----|--------|---------|
+| 1 | Evidence layer is empty | ✅ Done | `96f55e4`, `07477c0` |
+| 3 | No funder signalling | ✅ Done | `07477c0` |
+| 6 | No profile evolution / trajectory | ✅ Done | `4038c17` |
+| 9 | Cluster insights not described meaningfully | ✅ Done | `4b43f03` |
+| 10 | Ideas not centred in discovery | 🔧 In progress | API done (uncommitted), frontend written (test pending) |
+| 4 | No access control / audit trail | ⏳ Phase 2 | OrgVersion audit trail exists; proper access control is Phase 2 |
+| 5 | No local agent / evidence integration | ⏳ Phase 2 | |
+| 7 | No funder-facing view | ⏳ Not started | Ideas-first discovery partly addresses this |
+| 8 | No temporal dimension | ✅ Partly done | Timeline shows change over time |
 
 ## Objective
 

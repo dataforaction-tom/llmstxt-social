@@ -52,7 +52,7 @@ export default function PublishStrip({
             type="button"
             onClick={() => setConfirming('publish')}
             disabled={busy}
-            className="bg-ink px-4 py-1.5 text-sm font-medium text-paper hover:bg-primary-700 disabled:opacity-40"
+            className="bg-teal px-4 py-1.5 text-sm font-medium text-cream hover:bg-teal-light disabled:opacity-40"
           >
             Publish
           </button>
@@ -62,7 +62,7 @@ export default function PublishStrip({
             type="button"
             onClick={() => setConfirming('unpublish')}
             disabled={busy}
-            className="border border-ink/30 bg-paper px-4 py-1.5 text-sm font-medium text-ink hover:bg-paper-2 disabled:opacity-40"
+            className="border border-navy/30 bg-cream px-4 py-1.5 text-sm font-medium text-navy hover:bg-cream-dark disabled:opacity-40"
           >
             Unpublish
           </button>
@@ -70,7 +70,7 @@ export default function PublishStrip({
       </div>
 
       {confirming === 'publish' && (
-        <div role="region" aria-live="polite" className="border-l-2 border-ink bg-paper-2 px-4 py-3 text-sm">
+        <div role="region" aria-live="polite" className="border-l-2 border-navy bg-cream-dark px-4 py-3 text-sm">
           <p>{t('publish.confirm.prompt', { noun, url: liveUrl })}</p>
           <div className="mt-2 flex gap-2">
             <button
@@ -80,14 +80,14 @@ export default function PublishStrip({
                 onPublish();
               }}
               disabled={busy}
-              className="bg-ink px-3 py-1 text-xs uppercase tracking-wider text-paper disabled:opacity-40"
+              className="bg-teal px-3 py-1 text-xs uppercase tracking-wider text-cream disabled:opacity-40"
             >
               {t('publish.confirm.publish')}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(null)}
-              className="border border-rule px-3 py-1 text-xs uppercase tracking-wider text-muted hover:text-ink"
+              className="border border-rule px-3 py-1 text-xs uppercase tracking-wider text-grey-blue hover:text-navy"
             >
               {t('publish.confirm.notyet')}
             </button>
@@ -96,7 +96,7 @@ export default function PublishStrip({
       )}
 
       {confirming === 'unpublish' && (
-        <div role="region" aria-live="polite" className="border-l-2 border-ink bg-paper-2 px-4 py-3 text-sm">
+        <div role="region" aria-live="polite" className="border-l-2 border-navy bg-cream-dark px-4 py-3 text-sm">
           <p>Unpublish this {noun}? It will be removed from the federated network.</p>
           <div className="mt-2 flex gap-2">
             <button
@@ -106,14 +106,14 @@ export default function PublishStrip({
                 onUnpublish();
               }}
               disabled={busy}
-              className="border border-ink/30 bg-paper px-3 py-1 text-xs uppercase tracking-wider text-ink disabled:opacity-40"
+              className="border border-navy/30 bg-cream px-3 py-1 text-xs uppercase tracking-wider text-navy disabled:opacity-40"
             >
               Unpublish
             </button>
             <button
               type="button"
               onClick={() => setConfirming(null)}
-              className="border border-rule px-3 py-1 text-xs uppercase tracking-wider text-muted hover:text-ink"
+              className="border border-rule px-3 py-1 text-xs uppercase tracking-wider text-grey-blue hover:text-navy"
             >
               Cancel
             </button>
@@ -125,20 +125,20 @@ export default function PublishStrip({
         <div className="flex flex-col gap-1">
           <div
             aria-hidden
-            className="h-px w-full origin-left bg-amber-500 transition-transform duration-[600ms] ease-out"
+            className="h-px w-full origin-left bg-amber transition-transform duration-[600ms] ease-out"
             style={{ transform: 'scaleX(1)' }}
           />
-          <p className="text-sm text-ink">
+          <p className="text-sm text-navy">
             Live at <code className="font-mono">{liveUrl}</code> ·{' '}
             <button
               type="button"
               onClick={handleCopy}
-              className="underline decoration-rule underline-offset-2 hover:text-primary-700"
+              className="underline decoration-rule underline-offset-2 hover:text-teal"
             >
               {t('publish.celebrate.share')}
             </button>
             {copied && (
-              <span className="ml-2 text-xs text-emerald-700">{t('publish.celebrate.copied')}</span>
+              <span className="ml-2 text-xs text-teal">{t('publish.celebrate.copied')}</span>
             )}
           </p>
         </div>

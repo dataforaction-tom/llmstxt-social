@@ -40,16 +40,26 @@ export default function EditStrategyPage() {
   const themes = useThemes();
 
   if (!orgId || !slug) {
-    return <div className="p-6 text-red-700">Missing org_id or slug in URL.</div>;
+    return (
+      <div className="surface-cream min-h-screen">
+        <div className="p-6 text-red-700">Missing org_id or slug in URL.</div>
+      </div>
+    );
   }
 
   if (strategy.isLoading) {
-    return <div className="p-6 text-gray-500">Loading strategy…</div>;
+    return (
+      <div className="surface-cream min-h-screen">
+        <div className="p-6 text-grey-blue">Loading strategy…</div>
+      </div>
+    );
   }
   if (strategy.isError) {
     return (
-      <div className="p-6 text-red-700">
-        Failed to load strategy: {String(strategy.error)}
+      <div className="surface-cream min-h-screen">
+        <div className="p-6 text-red-700">
+          Failed to load strategy: {String(strategy.error)}
+        </div>
       </div>
     );
   }
@@ -99,7 +109,7 @@ export default function EditStrategyPage() {
   const liveUrl = `https://openorg.good-ship.co.uk/openorg/${orgId}/strategies/${slug}`;
 
   return (
-    <div className="surface-paper min-h-screen">
+    <div className="surface-cream min-h-screen">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <header className="mb-8">
           <div className="kicker num">Editing · Strategy</div>
@@ -108,8 +118,8 @@ export default function EditStrategyPage() {
               <h1 className="display-head text-3xl font-medium leading-tight sm:text-4xl">
                 Edit strategy
               </h1>
-              <p className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted">
-                <code className="font-mono text-ink">{orgId}</code>
+              <p className="mt-2 flex flex-wrap items-center gap-3 text-sm text-grey-blue">
+                <code className="font-mono text-navy">{orgId}</code>
                 <span className="text-rule">·</span>
                 <span className="font-mono">{slug}</span>
               </p>

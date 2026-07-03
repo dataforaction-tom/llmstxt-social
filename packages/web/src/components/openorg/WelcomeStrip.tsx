@@ -23,13 +23,13 @@ export default function WelcomeStrip({ orgId }: WelcomeStripProps) {
   };
 
   return (
-    <div className="border-l-2 border-ink bg-paper-2 px-4 py-3">
+    <div className="border-l-2 border-navy bg-cream-dark px-4 py-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="max-w-prose text-sm text-ink">{t('welcome.body')}</p>
+        <p className="max-w-prose text-sm text-navy">{t('welcome.body')}</p>
         <button
           type="button"
           onClick={handleDismiss}
-          className="border border-rule px-2 py-0.5 text-xs uppercase tracking-wider text-muted hover:text-ink"
+          className="border border-rule px-2 py-0.5 text-xs uppercase tracking-wider text-grey-blue hover:text-navy"
         >
           {t('welcome.dismiss')}
         </button>

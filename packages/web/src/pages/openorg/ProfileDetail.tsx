@@ -8,14 +8,29 @@
  * via the "View raw" link for power users.
  */
 
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   fetchPublicIdeas,
+  fetchPublicOrgHistory,
   fetchPublicProfile,
   fetchPublicStrategies,
+  fetchOrgSignals,
+  useIdeaSignals,
   type PublicRecordSummary,
+  type SignalOut,
 } from '../../api/openorg';
+import SignalButton from '../../components/openorg/SignalButton';
+import {
+  EvidenceItemCard,
+  Section,
+  StatusBadge,
+  ThemeChips,
+  TimelineSection,
+  type EvidenceItem,
+} from '../../components/openorg/detail';
+import { formatDate } from '../../components/openorg/detailFormat';
 
 interface Geography {
   primary_area?: string;
@@ -63,6 +78,7 @@ interface Identity {
 interface PublicProfile {
   identity?: Identity;
   mission?: Mission;
+  evidence?: EvidenceItem[];
 }
 
 export default function ProfileDetailPage() {
@@ -87,24 +103,40 @@ export default function ProfileDetailPage() {
     enabled: Boolean(orgId),
     retry: false,
   });
+  const history = useQuery({
+    queryKey: ['openorg', 'public-history', orgId],
+    queryFn: () => fetchPublicOrgHistory(orgId),
+    enabled: Boolean(orgId),
+    retry: false,
+  });
+  const signals = useQuery({
+    queryKey: ['openorg', 'org-signals', orgId],
+    queryFn: () => fetchOrgSignals(orgId),
+    enabled: Boolean(orgId),
+    retry: false,
+  });
 
   if (!orgId) {
-    return <div className="p-6 text-red-700">Missing org_id in URL.</div>;
+    return (
+      <div className="surface-cream min-h-screen">
+        <div className="p-6 text-red-700">Missing org_id in URL.</div>
+      </div>
+    );
   }
 
   if (profile.isLoading) {
     return (
-      <div className="surface-paper min-h-screen">
-        <div className="mx-auto max-w-4xl px-6 py-10 text-muted">Loading profile…</div>
+      <div className="surface-cream min-h-screen">
+        <div className="mx-auto max-w-4xl px-6 py-10 text-grey-blue">Loading profile…</div>
       </div>
     );
   }
   if (profile.isError || !profile.data) {
     return (
-      <div className="surface-paper min-h-screen">
+      <div className="surface-cream min-h-screen">
         <div className="mx-auto max-w-4xl px-6 py-10">
           <h1 className="display-head text-2xl font-medium">Profile not found</h1>
-          <p className="mt-3 text-sm text-muted">
+          <p className="mt-3 text-sm text-grey-blue">
             <code className="font-mono">{orgId}</code> isn't a published Open Org profile.
             It may be unpublished, claimed but not yet generated, or a charity number we
             don't have in the index.
@@ -125,17 +157,18 @@ export default function ProfileDetailPage() {
   const geography = identity.geography ?? {};
   const contact = identity.contact ?? {};
   const programmes = mission.programmes ?? [];
-  const evidence = mission.evidence_summary ?? {};
+  const evidenceSummary = mission.evidence_summary ?? {};
+  const evidenceItems = data.evidence ?? [];
   const themes = mission.themes ?? [];
   const beneficiaries = mission.beneficiaries ?? [];
   const aka = identity.also_known_as ?? [];
   const rawJsonUrl = `/open-org/${orgId}/profile.json`;
 
   return (
-    <div className="surface-paper min-h-screen">
+    <div className="surface-cream min-h-screen">
       <div className="mx-auto max-w-4xl px-6 py-10">
         <nav className="mb-6 text-xs">
-          <Link to="/openorg/discover" className="text-muted hover:text-ink">
+          <Link to="/openorg/discover" className="text-grey-blue hover:text-navy">
             ← Discover
           </Link>
         </nav>
@@ -146,12 +179,12 @@ export default function ProfileDetailPage() {
             {identity.name ?? orgId}
           </h1>
           {aka.length > 0 && (
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1 text-sm text-grey-blue">
               Also known as: {aka.join(', ')}
             </p>
           )}
-          <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted">
-            <code className="font-mono text-ink">{orgId}</code>
+          <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-grey-blue">
+            <code className="font-mono text-navy">{orgId}</code>
             {geography.primary_area && (
               <>
                 <span className="text-rule">·</span>
@@ -165,14 +198,14 @@ export default function ProfileDetailPage() {
                   href={identity.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:text-ink"
+                  className="underline hover:text-navy"
                 >
                   Website
                 </a>
               </>
             )}
             <span className="text-rule">·</span>
-            <a href={rawJsonUrl} className="underline hover:text-ink">
+            <a href={rawJsonUrl} className="underline hover:text-navy">
               View raw JSON
             </a>
           </p>
@@ -180,28 +213,19 @@ export default function ProfileDetailPage() {
 
         {mission.summary && (
           <Section title="Mission">
-            <p className="text-lg leading-relaxed text-ink">{mission.summary}</p>
+            <p className="text-lg leading-relaxed text-navy">{mission.summary}</p>
           </Section>
         )}
 
         {themes.length > 0 && (
           <Section title="Themes">
-            <div className="flex flex-wrap gap-2">
-              {themes.map((t) => (
-                <span
-                  key={t}
-                  className="border border-rule bg-paper-2 px-2 py-0.5 text-xs text-ink"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
+            <ThemeChips themes={themes} />
           </Section>
         )}
 
         {mission.theory_of_change && (
           <Section title="Theory of change">
-            <p className="text-base leading-relaxed text-ink">{mission.theory_of_change}</p>
+            <p className="text-base leading-relaxed text-navy">{mission.theory_of_change}</p>
           </Section>
         )}
 
@@ -210,14 +234,14 @@ export default function ProfileDetailPage() {
             <ul className="space-y-4">
               {programmes.map((p) => (
                 <li key={p.name} className="border-l-2 border-rule pl-4">
-                  <h3 className="font-medium text-ink">{p.name}</h3>
+                  <h3 className="font-medium text-navy">{p.name}</h3>
                   {p.description && (
-                    <p className="mt-1 text-sm leading-relaxed text-ink/85">
+                    <p className="mt-1 text-sm leading-relaxed text-navy/85">
                       {p.description}
                     </p>
                   )}
                   {(p.eligibility || p.location) && (
-                    <p className="mt-1 text-xs text-muted">
+                    <p className="mt-1 text-xs text-grey-blue">
                       {p.eligibility && <>Eligibility: {p.eligibility}</>}
                       {p.eligibility && p.location && ' · '}
                       {p.location && <>Location: {p.location}</>}
@@ -231,7 +255,7 @@ export default function ProfileDetailPage() {
 
         {beneficiaries.length > 0 && (
           <Section title="Beneficiaries">
-            <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
+            <ul className="list-disc space-y-1 pl-5 text-sm text-navy">
               {beneficiaries.map((b, i) => (
                 <li key={i}>{b}</li>
               ))}
@@ -239,21 +263,31 @@ export default function ProfileDetailPage() {
           </Section>
         )}
 
-        {(evidence.beneficiaries_served_text || (evidence.outcomes?.length ?? 0) > 0) && (
-          <Section title="Evidence">
-            {evidence.beneficiaries_served_text && (
-              <p className="text-sm text-ink">
-                <span className="text-muted">Reach:</span>{' '}
-                {evidence.beneficiaries_served_text}
+        {(evidenceSummary.beneficiaries_served_text || (evidenceSummary.outcomes?.length ?? 0) > 0) && (
+          <Section title="Evidence summary">
+            {evidenceSummary.beneficiaries_served_text && (
+              <p className="text-sm text-navy">
+                <span className="text-grey-blue">Reach:</span>{' '}
+                {evidenceSummary.beneficiaries_served_text}
               </p>
             )}
-            {evidence.outcomes && evidence.outcomes.length > 0 && (
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink">
-                {evidence.outcomes.map((o, i) => (
+            {evidenceSummary.outcomes && evidenceSummary.outcomes.length > 0 && (
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-navy">
+                {evidenceSummary.outcomes.map((o, i) => (
                   <li key={i}>{o}</li>
                 ))}
               </ul>
             )}
+          </Section>
+        )}
+
+        {evidenceItems.length > 0 && (
+          <Section title="Evidence">
+            <ul className="space-y-6">
+              {evidenceItems.map((item) => (
+                <EvidenceItemCard key={item.evidence_id} item={item} />
+              ))}
+            </ul>
           </Section>
         )}
 
@@ -271,10 +305,10 @@ export default function ProfileDetailPage() {
 
         {(contact.email || contact.phone || contact.address) && (
           <Section title="Contact">
-            <dl className="grid gap-2 text-sm text-ink sm:grid-cols-[auto_1fr] sm:gap-x-4">
+            <dl className="grid gap-2 text-sm text-navy sm:grid-cols-[auto_1fr] sm:gap-x-4">
               {contact.email && (
                 <>
-                  <dt className="text-muted">Email</dt>
+                  <dt className="text-grey-blue">Email</dt>
                   <dd>
                     <a href={`mailto:${contact.email}`} className="underline">
                       {contact.email}
@@ -284,30 +318,29 @@ export default function ProfileDetailPage() {
               )}
               {contact.phone && (
                 <>
-                  <dt className="text-muted">Phone</dt>
+                  <dt className="text-grey-blue">Phone</dt>
                   <dd>{contact.phone}</dd>
                 </>
               )}
               {contact.address && (
                 <>
-                  <dt className="text-muted">Address</dt>
+                  <dt className="text-grey-blue">Address</dt>
                   <dd>{contact.address}</dd>
                 </>
               )}
             </dl>
           </Section>
         )}
+
+        <TimelineSection entries={history.data ?? []} />
+
+        <FunderInterestSection
+          orgId={orgId}
+          ideas={ideas.data ?? []}
+          signals={signals.data ?? []}
+        />
       </div>
     </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="mb-8">
-      <div className="kicker mb-3">{title}</div>
-      {children}
-    </section>
   );
 }
 
@@ -323,36 +356,104 @@ function RecordList({
   return (
     <ul className="space-y-3">
       {items.map((item) => {
-        const jsonHref = `/open-org/${orgId}/${kind}/${item.slug}.json`;
+        const detailHref = `/openorg/${orgId}/${kind}/${item.slug}`;
         return (
           <li key={item.slug} className="border-l-2 border-rule pl-4">
             <div className="flex flex-wrap items-baseline gap-x-3">
-              <h3 className="font-medium text-ink">
-                <a href={jsonHref} className="hover:underline">
-                  {item.slug}
-                </a>
+              <h3 className="font-medium text-navy">
+                <Link to={detailHref} className="hover:underline">
+                  {item.title ?? item.slug}
+                </Link>
               </h3>
               {item.status && (
-                <span className="text-xs uppercase tracking-wider text-muted">
-                  {item.status}
-                </span>
+                <StatusBadge kind={kind} status={item.status} />
               )}
             </div>
             {item.summary && (
-              <p className="mt-1 text-sm leading-relaxed text-ink/85">{item.summary}</p>
+              <p className="mt-1 text-sm leading-relaxed text-navy/85">{item.summary}</p>
             )}
             {item.themes.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-1">
                 {item.themes.map((t) => (
-                  <span key={t} className="text-xs text-muted">
+                  <span key={t} className="text-xs text-grey-blue">
                     #{t}
                   </span>
                 ))}
               </div>
             )}
+            {(item.created_at || item.updated_at) && (
+              <p className="mt-1 text-xs text-grey-blue">
+                {item.created_at && <>created {formatDate(item.created_at)}</>}
+                {item.created_at && item.updated_at && ' · '}
+                {item.updated_at && <>updated {formatDate(item.updated_at)}</>}
+              </p>
+            )}
           </li>
         );
       })}
     </ul>
+  );
+}
+
+// --- funder interest (Phase 1 transparency) -------------------------------
+
+function FunderInterestSection({
+  orgId,
+  ideas,
+  signals,
+}: {
+  orgId: string;
+  ideas: PublicRecordSummary[];
+  signals: SignalOut[];
+}) {
+  if (ideas.length === 0 && signals.length === 0) return null;
+  const total = signals.length;
+  return (
+    <Section title="Funder interest">
+      <p className="text-sm text-grey-blue">
+        {total === 0
+          ? 'No funders have signalled interest yet — but they can.'
+          : `${total} signal${total === 1 ? '' : 's'} of interest from funders.`}
+      </p>
+      {ideas.map((idea) => (
+        <IdeaSignalRow key={idea.slug} orgId={orgId} slug={idea.slug} />
+      ))}
+    </Section>
+  );
+}
+
+function IdeaSignalRow({ orgId, slug }: { orgId: string; slug: string }) {
+  const { data } = useIdeaSignals(orgId, slug, true);
+  const count = data?.length ?? 0;
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="mt-3 border-l-2 border-rule pl-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="font-medium text-navy">{slug}</h3>
+        <span className="text-xs text-grey-blue">
+          {count} signal{count === 1 ? '' : 's'}
+        </span>
+      </div>
+      {expanded && (data?.length ?? 0) > 0 && (
+        <ul className="mt-2 space-y-1 text-xs text-navy">
+          {data!.map((s) => (
+            <li key={s.id}>
+              <span className="font-medium">{s.funder_name ?? 'Anonymous'}</span>
+              {s.message && <span className="text-grey-blue"> — {s.message}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {count > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-xs text-grey-blue underline hover:text-navy"
+        >
+          {expanded ? 'Hide' : 'Show'} signals
+        </button>
+      )}
+      <SignalButton orgId={orgId} slug={slug} />
+    </div>
   );
 }

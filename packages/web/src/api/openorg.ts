@@ -116,8 +116,11 @@ export async function fetchPublicIdea(
 export interface PublicRecordSummary {
   slug: string;
   themes: string[];
+  title?: string;
   status?: string;
   summary?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export async function fetchPublicStrategies(orgId: string): Promise<PublicRecordSummary[]> {
@@ -127,6 +130,38 @@ export async function fetchPublicStrategies(orgId: string): Promise<PublicRecord
 
 export async function fetchPublicIdeas(orgId: string): Promise<PublicRecordSummary[]> {
   const { data } = await api.get(`/open-org/${orgId}/ideas`);
+  return data;
+}
+
+// --- public version history (no auth) ------------------------------------
+
+export interface PublicHistoryEntry {
+  timestamp: string;
+  parent_kind: 'profile' | 'strategy' | 'idea';
+  parent_slug: string | null;
+  summary: string;
+}
+
+export async function fetchPublicOrgHistory(
+  orgId: string,
+): Promise<PublicHistoryEntry[]> {
+  const { data } = await api.get(`/open-org/${orgId}/history`);
+  return data;
+}
+
+export async function fetchPublicStrategyHistory(
+  orgId: string,
+  slug: string,
+): Promise<PublicHistoryEntry[]> {
+  const { data } = await api.get(`/open-org/${orgId}/strategies/${slug}/history`);
+  return data;
+}
+
+export async function fetchPublicIdeaHistory(
+  orgId: string,
+  slug: string,
+): Promise<PublicHistoryEntry[]> {
+  const { data } = await api.get(`/open-org/${orgId}/ideas/${slug}/history`);
   return data;
 }
 
@@ -555,12 +590,108 @@ export function useDiscoveryFirstPage(filters: DiscoveryFilters, limit = 20) {
   });
 }
 
+// --- graph data (public, no auth) -----------------------------------------
+
+export interface GraphNode {
+  id: string;
+  type: 'organisation' | 'idea' | 'strategy';
+  name: string;
+  themes: string[];
+  // organisation-only
+  area?: string | null;
+  income_band?: string | null;
+  ideas_count?: number | null;
+  strategy_themes?: string[];
+  // idea/strategy-only
+  org_id?: string | null;
+  cost_range?: [number, number] | null;
+  summary?: string | null;
+  // idea-only
+  place?: string | null;
+  connections?: Array<{
+    org_name: string;
+    org_id?: string;
+    relationship?: string;
+    mutual?: boolean;
+  }> | null;
+  // strategy-only
+  period?: { start?: string; end?: string; horizon?: string } | null;
+  priorities_count?: number | null;
+  // cluster membership — null when the node isn't in a ≥2-node cluster.
+  cluster_id?: number | null;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  type:
+    | 'org_idea'
+    | 'org_strategy'
+    | 'shared_theme'
+    | 'shared_area'
+    | 'strategy_idea'
+    | 'idea_idea_shared_theme'
+    | 'idea_idea_shared_place'
+    | 'idea_idea_explicit'
+    | 'strategy_strategy_shared_theme'
+    | 'idea_org_connection';
+  weight?: number | null;
+  relationship?: string;
+  description?: string;
+}
+
+export interface GraphCluster {
+  description: string;
+  themes: string[];
+  // Enhanced cluster insight fields — give funders a real sense of what
+  // each cluster represents, not just a head-count.
+  node_count?: number;
+  org_names?: string[];
+  ideas_summary?: string | null;
+  places?: string[];
+  dominant_themes?: string[];
+  edge_count?: number;
+}
+
+export interface GraphSummary {
+  total_nodes: number;
+  total_edges: number;
+  organisations: number;
+  ideas: number;
+  strategies: number;
+  clusters: GraphCluster[];
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  graph_summary?: GraphSummary | null;
+}
+
+export async function fetchGraphData(
+  themes: string[] = [],
+  limit = 100,
+): Promise<GraphData> {
+  const params: Record<string, string | number> = { limit };
+  if (themes.length > 0) params.themes = themes.join(',');
+  const { data } = await api.get('/api/open-org/graph', { params });
+  return data;
+}
+
+export function useGraphData(themes: string[], limit = 100) {
+  return useQuery({
+    queryKey: ['openorg', 'graph', themes, limit],
+    queryFn: () => fetchGraphData(themes, limit),
+  });
+}
+
 // --- idea browser (cross-org) ---------------------------------------------
 
 export interface IdeaRow {
   org_id: string;
   org_name: string;
   slug: string;
+  title: string | null;
   summary: string | null;
   themes: string[];
   status: string | null;
@@ -570,6 +701,7 @@ export interface IdeaRow {
   cost_currency: string | null;
   idea_url: string;
   profile_url: string;
+  signal_count: number;
 }
 
 export interface IdeaPage {
@@ -577,11 +709,14 @@ export interface IdeaPage {
   next_cursor: string | null;
 }
 
+export type IdeaSort = 'recent' | 'signals' | 'status';
+
 export interface IdeaFilters {
   theme?: string;
   status?: string;
   q?: string;
   costMax?: number;
+  sort?: IdeaSort;
 }
 
 export async function fetchIdeasPage(
@@ -594,6 +729,7 @@ export async function fetchIdeasPage(
   if (filters.status) params.status = filters.status;
   if (filters.q) params.q = filters.q;
   if (filters.costMax !== undefined) params.cost_max = filters.costMax;
+  if (filters.sort) params.sort = filters.sort;
   if (cursor) params.cursor = cursor;
   const { data } = await api.get('/api/open-org/discover/ideas', { params });
   return data;
@@ -603,6 +739,84 @@ export function useIdeasFirstPage(filters: IdeaFilters, limit = 20) {
   return useQuery({
     queryKey: ['openorg', 'discover-ideas', filters, limit],
     queryFn: () => fetchIdeasPage(filters, null, limit),
+  });
+}
+
+// --- ideas summary (public, no auth) ----------------------------------------
+
+export interface IdeasSummary {
+  total_ideas: number;
+  total_orgs: number;
+  themes_breakdown: Record<string, number>;
+  status_breakdown: Record<string, number>;
+}
+
+export async function fetchIdeasSummary(): Promise<IdeasSummary> {
+  const { data } = await api.get('/api/open-org/discover/ideas/summary');
+  return data;
+}
+
+export function useIdeasSummary() {
+  return useQuery({
+    queryKey: ['openorg', 'discover-ideas-summary'],
+    queryFn: fetchIdeasSummary,
+    staleTime: 60 * 1000, // matches server Cache-Control
+  });
+}
+
+// --- funder signals (public, no auth) -----------------------------------
+
+export interface SignalBody {
+  funder_name: string | null;
+  funder_email: string | null;
+  message: string | null;
+}
+
+export interface SignalOut {
+  id: string;
+  idea_id: string | null;
+  org_id: string;
+  signal_type: string;
+  funder_name: string | null;
+  funder_email: string | null;
+  message: string | null;
+  created_at: string;
+}
+
+export async function signalIdea(
+  orgId: string,
+  slug: string,
+  body: SignalBody,
+): Promise<SignalOut> {
+  const { data } = await api.post(`/api/open-org/ideas/${orgId}/${slug}/signal`, body);
+  return data;
+}
+
+export async function fetchSignals(orgId: string, slug: string): Promise<SignalOut[]> {
+  const { data } = await api.get(`/api/open-org/ideas/${orgId}/${slug}/signals`);
+  return data;
+}
+
+export async function fetchOrgSignals(orgId: string): Promise<SignalOut[]> {
+  const { data } = await api.get(`/api/open-org/${orgId}/signals`);
+  return data;
+}
+
+export function useIdeaSignals(orgId: string, slug: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['openorg', 'idea-signals', orgId, slug],
+    queryFn: () => fetchSignals(orgId, slug),
+    enabled: enabled && Boolean(orgId && slug),
+    retry: false,
+  });
+}
+
+export function useOrgSignals(orgId: string) {
+  return useQuery({
+    queryKey: ['openorg', 'org-signals', orgId],
+    queryFn: () => fetchOrgSignals(orgId),
+    enabled: Boolean(orgId),
+    retry: false,
   });
 }
 

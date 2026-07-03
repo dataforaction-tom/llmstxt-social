@@ -280,11 +280,21 @@ async def post_message(
         nonlocal history
         assistant_text_parts: list[str] = []
 
-        async for chunk in iterate_in_threadpool(_run_turn_sync()):
-            if not chunk:
-                continue
-            assistant_text_parts.append(chunk)
-            yield _sse_event("delta", {"text": chunk})
+        try:
+            async for chunk in iterate_in_threadpool(_run_turn_sync()):
+                if not chunk:
+                    continue
+                assistant_text_parts.append(chunk)
+                yield _sse_event("delta", {"text": chunk})
+        except Exception as exc:  # noqa: BLE001
+            # The LLM stream threw mid-turn (network error, provider 5xx,
+            # malformed response, etc.). 200 + headers are already sent, so we
+            # can't switch to an HTTP error status — emit a terminal SSE
+            # ``error`` event so the client knows the turn failed and can
+            # surface the message instead of seeing a silent connection drop.
+            log.exception("LLM stream failed during creator turn")
+            yield _sse_event("error", {"message": str(exc) or exc.__class__.__name__})
+            return
 
         final_markdown = turn_result.get("final_markdown")
         usage = turn_result.get("usage")

@@ -95,13 +95,13 @@ export default function GeneratePage() {
 
   if (submitted) {
     return (
-      <div className="surface-paper min-h-screen">
+      <div className="surface-cream min-h-screen">
         <div className="mx-auto max-w-2xl px-6 py-16">
           <div className="kicker num">Generation kicked off</div>
           <h1 className="display-head mt-2 text-3xl font-medium leading-tight sm:text-4xl">
             Drafting your profile
           </h1>
-          <p className="mt-4 max-w-prose text-sm text-muted">
+          <p className="mt-4 max-w-prose text-sm text-grey-blue">
             We're emailing <strong>{submitted.email}</strong> a one-time link
             you can use to claim and edit the draft.
           </p>
@@ -116,18 +116,18 @@ export default function GeneratePage() {
   }
 
   return (
-    <div className="surface-paper min-h-screen">
+    <div className="surface-cream min-h-screen">
       <div className="mx-auto max-w-2xl px-6 py-16">
         <div className="kicker num">Generate</div>
         <h1 className="display-head mt-2 text-3xl font-medium leading-tight sm:text-4xl">
           Open Org profile in one minute
         </h1>
-        <p className="mt-4 max-w-prose text-lg text-ink/90">
+        <p className="mt-4 max-w-prose text-lg text-navy/90">
           Enter your UK charity number. We'll pull what's already public —
           Charity Commission filings, your website — and draft a profile you
           can review, edit, and publish to the federated network.
         </p>
-        <p className="mt-3 max-w-prose text-sm text-muted">
+        <p className="mt-3 max-w-prose text-sm text-grey-blue">
           No account. We'll email you a one-time claim link when the draft is
           ready, and that link signs you in.
         </p>
@@ -145,15 +145,15 @@ export default function GeneratePage() {
               value={charityNumber}
               onChange={(e) => setCharityNumber(e.target.value)}
               placeholder="1234567"
-              className="border border-rule bg-paper px-3 py-2 text-base"
+              className="border border-rule bg-cream px-3 py-2 text-base"
               required
               disabled={submitting}
             />
-            <span className="mt-1 text-xs text-muted">
+            <span className="mt-1 text-xs text-grey-blue">
               6 to 8 digits. England &amp; Wales registrations only for now.
             </span>
             {lookupName && (
-              <span className="mt-1 text-xs text-emerald-700">Match: {lookupName}</span>
+              <span className="mt-1 text-xs text-teal">Match: {lookupName}</span>
             )}
           </label>
 
@@ -165,11 +165,11 @@ export default function GeneratePage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@your-charity.org"
-              className="border border-rule bg-paper px-3 py-2 text-base"
+              className="border border-rule bg-cream px-3 py-2 text-base"
               required
               disabled={submitting}
             />
-            <span className="mt-1 text-xs text-muted">
+            <span className="mt-1 text-xs text-grey-blue">
               Where we'll send the one-time claim link. Use an address you
               control as an admin or trustee.
             </span>
@@ -184,20 +184,20 @@ export default function GeneratePage() {
             </div>
           )}
 
-          <p className="text-xs italic text-muted">{t('generate.trust')}</p>
+          <p className="text-xs italic text-grey-blue">{t('generate.trust')}</p>
 
           <div>
             <button
               type="submit"
               disabled={submitting}
-              className="bg-ink px-5 py-2 text-sm font-medium text-paper hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="bg-teal px-5 py-2 text-sm font-medium text-cream hover:bg-teal-light disabled:cursor-not-allowed disabled:opacity-40"
             >
               {submitting ? 'Generating…' : 'Generate profile'}
             </button>
           </div>
         </form>
 
-        <p className="mt-12 text-xs text-muted">
+        <p className="mt-12 text-xs text-grey-blue">
           By submitting you agree the email address is one you control. We
           use it only for the claim link and to notify you of significant
           changes to the profile.

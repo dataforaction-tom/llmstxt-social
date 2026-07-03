@@ -52,15 +52,15 @@ export default function CardList({ label, value, shape, onChange, hint }: CardLi
         {value.map((item, idx) => {
           const open = idx === openIdx;
           return (
-            <li key={idx} className="border border-rule bg-paper">
+            <li key={idx} className="border border-rule bg-cream">
               <button
                 type="button"
                 onClick={() => setOpenIdx(open ? null : idx)}
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-ink hover:bg-paper-2"
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-navy hover:bg-cream-dark"
                 aria-expanded={open}
               >
                 <span>{titleOf(item, shape)}</span>
-                <span className="text-xs text-muted">{open ? 'Close' : 'Edit'}</span>
+                <span className="text-xs text-grey-blue">{open ? 'Close' : 'Edit'}</span>
               </button>
               {open && (
                 <div className="flex flex-col gap-3 border-t border-rule px-3 py-3">
@@ -88,7 +88,7 @@ export default function CardList({ label, value, shape, onChange, hint }: CardLi
                   <button
                     type="button"
                     onClick={() => handleRemove(idx)}
-                    className="self-start border border-rule px-3 py-1 text-xs uppercase tracking-wider text-muted hover:text-red-900"
+                    className="self-start border border-rule px-3 py-1 text-xs uppercase tracking-wider text-grey-blue hover:text-red-900"
                   >
                     Remove
                   </button>
@@ -101,11 +101,11 @@ export default function CardList({ label, value, shape, onChange, hint }: CardLi
       <button
         type="button"
         onClick={handleAdd}
-        className="mt-3 self-start border border-rule bg-paper-2 px-3 py-1 text-xs uppercase tracking-wider text-ink hover:bg-paper"
+        className="mt-3 self-start border border-rule bg-cream-dark px-3 py-1 text-xs uppercase tracking-wider text-navy hover:bg-cream"
       >
         + Add
       </button>
-      {hint && <span className="mt-2 text-xs italic text-muted">{hint}</span>}
+      {hint && <span className="mt-2 text-xs italic text-grey-blue">{hint}</span>}
     </div>
   );
 }

@@ -40,9 +40,9 @@ export default function NumberField({ label, value, onChange, hint, placeholder 
           if (!Number.isNaN(parsed)) onChange(parsed);
         }}
         placeholder={placeholder}
-        className="border border-rule bg-paper px-3 py-2 text-base text-ink focus:border-ink focus:outline-none"
+        className="border border-rule bg-cream px-3 py-2 text-base text-navy focus:border-navy focus:outline-none"
       />
-      {hint && <span className="mt-1 text-xs italic text-muted">{hint}</span>}
+      {hint && <span className="mt-1 text-xs italic text-grey-blue">{hint}</span>}
     </label>
   );
 }

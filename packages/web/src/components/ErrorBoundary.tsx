@@ -33,8 +33,8 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback;
       return (
         <div role="alert" className="mx-auto max-w-lg p-8 text-center">
-          <h1 className="font-display text-2xl text-ink">Something went wrong</h1>
-          <p className="mt-2 text-muted">
+          <h1 className="font-display text-2xl text-navy">Something went wrong</h1>
+          <p className="mt-2 text-grey-blue">
             The page hit an unexpected error. Reloading usually fixes it.
           </p>
           <button
