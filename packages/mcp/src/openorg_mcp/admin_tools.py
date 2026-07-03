@@ -15,7 +15,7 @@ Auth model: org admin token validated against the ``OrgAdmin`` table.
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import Any, Callable
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,6 +35,12 @@ from llmstxt_core.enrichers.salesforce_crm import (
     SalesforceClient,
     opportunities_to_evidence,
     contacts_to_evidence,
+)
+from llmstxt_core.open_org.hypercerts import (
+    HypercertClaim,
+    build_claim,
+    mint_claim,
+    validate_evidence_for_minting,
 )
 
 
@@ -227,8 +233,100 @@ async def add_evidence(
     }
 
 
+# ---------------------------------------------------------------------------
+# mint_hypercert
+# ---------------------------------------------------------------------------
+
+
+async def mint_hypercert(
+    db: AsyncSession,
+    *,
+    org_id: str,
+    evidence_id: str,
+    mint_fn: Callable[..., Any],
+) -> dict[str, Any]:
+    """Mint a Hypercert from a verified evidence item.
+
+    Pipeline:
+    1. Fetch the published profile
+    2. Find the evidence item by evidence_id
+    3. Validate it's outcome_data with populated outcomes
+    4. Build the on-chain claim via ``build_claim``
+    5. Submit via the injected ``mint_fn``
+    6. Update the evidence item with the hypercert reference
+    7. Commit to DB
+
+    Minting is irreversible (on-chain). The MCP tool must require explicit
+    admin confirmation before calling this function.
+    """
+    # 1. Fetch the profile
+    result = await db.execute(
+        select(OrgProfile).where(
+            OrgProfile.org_id == org_id,
+            OrgProfile.published.is_(True),
+        )
+    )
+    profile = result.scalars().one_or_none()
+    if profile is None or profile.profile_json is None:
+        return {"success": False, "error": "Organisation not found or not published"}
+
+    # 2. Find the evidence item
+    evidence_list = list(profile.profile_json.get("evidence") or [])
+    evidence_item = None
+    for ev in evidence_list:
+        if isinstance(ev, dict) and ev.get("evidence_id") == evidence_id:
+            evidence_item = ev
+            break
+
+    if evidence_item is None:
+        return {"success": False, "error": f"Evidence item '{evidence_id}' not found in profile"}
+
+    # 3. Validate for minting
+    validation = validate_evidence_for_minting(evidence_item)
+    if not validation["valid"]:
+        return {"success": False, "error": validation["reason"]}
+
+    # 4. Build the claim
+    claim = build_claim(evidence_item, org_id=org_id)
+
+    # 5. Submit the mint
+    mint_result = await mint_claim(claim, mint_fn=mint_fn)
+    if not mint_result["success"]:
+        return {"success": False, "error": mint_result.get("error", "Mint failed")}
+
+    # 6. Update the evidence item with the hypercert reference
+    for i, ev in enumerate(evidence_list):
+        if isinstance(ev, dict) and ev.get("evidence_id") == evidence_id:
+            evidence_list[i] = {
+                **ev,
+                "hypercert": {
+                    "token_id": mint_result["token_id"],
+                    "chain_id": mint_result["chain_id"],
+                    "transaction_hash": mint_result["transaction_hash"],
+                },
+            }
+            break
+
+    # Write back
+    updated_json = dict(profile.profile_json)
+    updated_json["evidence"] = evidence_list
+    profile.profile_json = updated_json
+
+    # 7. Commit
+    await db.commit()
+
+    return {
+        "success": True,
+        "token_id": mint_result["token_id"],
+        "transaction_hash": mint_result["transaction_hash"],
+        "chain_id": mint_result["chain_id"],
+        "evidence": evidence_list,
+    }
+
+
 __all__ = [
     "validate_admin_token",
     "sync_from_crm",
     "add_evidence",
+    "mint_hypercert",
 ]
