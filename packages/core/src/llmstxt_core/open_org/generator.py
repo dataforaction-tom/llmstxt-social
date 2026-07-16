@@ -439,15 +439,6 @@ async def generate_profile_from_charity_number(
     try:
         validate_for_kind(payload, kind="profile")
     except ValidationError as exc:
-        # The most common failure here is ``mission.themes`` minItems=1 when
-        # the theme extractor returned nothing — surface that explicitly.
-        if not theme_result.themes:
-            raise ProfileGenerationError(
-                "No themes met the confidence threshold; cannot build a "
-                "valid profile. The owner can add themes manually after "
-                "claiming the profile.",
-                errors=exc.errors,
-            ) from exc
         raise ProfileGenerationError(
             "Generated profile failed schema validation",
             errors=exc.errors,
