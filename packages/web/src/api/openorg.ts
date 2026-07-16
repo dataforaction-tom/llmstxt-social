@@ -307,12 +307,34 @@ export async function generateProfile(
   } catch (err) {
     if (err instanceof AxiosError && err.response) {
       const raw = err.response.data?.detail;
-      const detail =
-        typeof raw === 'string'
-          ? raw
-          : Array.isArray(raw)
-          ? raw.map((d: { msg?: string }) => d.msg ?? '').join('; ')
-          : 'generate failed';
+      let detail: string;
+      if (typeof raw === 'string') {
+        detail = raw;
+      } else if (Array.isArray(raw)) {
+        detail = raw.map((d: { msg?: string }) => d.msg ?? '').join('; ');
+      } else if (raw && typeof raw === 'object') {
+        // Structured error bodies from open_org_generate.py, e.g.
+        // {"error": "profile_already_exists", "org_id": ..., "generation_status": ...}
+        // or {"error": "daily_budget_exceeded", "message": "..."}.
+        const structured = raw as {
+          message?: string;
+          error?: string;
+          generation_status?: string;
+        };
+        if (structured.message) {
+          detail = structured.message;
+        } else if (structured.error === 'profile_already_exists') {
+          detail = structured.generation_status
+            ? `This organisation already has a profile (status: ${structured.generation_status}).`
+            : 'This organisation already has a profile.';
+        } else if (structured.error) {
+          detail = structured.error.replace(/_/g, ' ');
+        } else {
+          detail = 'generate failed';
+        }
+      } else {
+        detail = 'generate failed';
+      }
       throw new OpenOrgGenerateError(err.response.status, detail);
     }
     throw err;
