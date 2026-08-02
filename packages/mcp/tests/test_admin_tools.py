@@ -394,3 +394,40 @@ async def test_add_evidence_rejects_missing_title():
     )
 
     assert result["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_add_evidence_updates_markdown_source():
+    """add_evidence regenerates markdown_source alongside profile_json.
+
+    The markdown editor treats markdown_source as canonical — on every PUT
+    it regenerates profile_json from the markdown. If add_evidence only
+    updates profile_json, the next editor save silently wipes the MCP-added
+    evidence. This test verifies markdown_source is kept in sync.
+    """
+    db = AsyncMock()
+
+    profile = MagicMock()
+    profile.profile_json = {"identity": {"name": "Test Org"}, "evidence": []}
+    profile.markdown_source = "---\nidentity:\n  name: Test Org\n---\n"
+    profile.published = True
+    profile_result = MagicMock()
+    profile_result.scalars.return_value.one_or_none.return_value = profile
+    db.execute = AsyncMock(return_value=profile_result)
+
+    new_item = {
+        "title": "New evidence",
+        "evidence_type": "external_research",
+        "date": "2024-06-01",
+        "url": "https://example.com/study",
+        "themes": ["food_access"],
+        "outcomes": [],
+    }
+
+    result = await add_evidence(db, org_id="GB-CHC-1234567", evidence_item=new_item)
+
+    assert result["success"] is True
+    # markdown_source must have been updated to include the new evidence
+    assert profile.markdown_source is not None
+    assert "New evidence" in profile.markdown_source
+    assert "external_research" in profile.markdown_source
