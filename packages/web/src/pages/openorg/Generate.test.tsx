@@ -115,4 +115,38 @@ describe('OpenOrgGeneratePage', () => {
     // The live-status panel renders the current stage message.
     expect(screen.getByText('Drafting your profile…')).toBeInTheDocument();
   });
+
+  it('does not promise a claim email once generation has failed', async () => {
+    // No claim email is ever sent when generation fails (see
+    // tasks/open_org_generate.py — send_claim_email only runs on success), so
+    // the "we're emailing you a link" copy must not survive into the failed
+    // state — it would tell the user to wait for something that never comes.
+    generateProfile.mockResolvedValue({
+      org_id: 'GB-CHC-1234567',
+      profile_id: 'abc',
+      generation_status: 'pending',
+      task_id: 't1',
+    });
+    statusData = {
+      org_id: 'GB-CHC-1234567',
+      status: 'failed',
+      stage: 'error',
+      message: "Couldn't finish — see error below.",
+      payload: null,
+      elapsed_ms: 5000,
+    };
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/charity number/i), {
+      target: { value: '1234567' },
+    });
+    fireEvent.change(screen.getByLabelText(/your email/i), {
+      target: { value: 'tom@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /generate profile/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/couldn't finish/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/we're emailing/i)).not.toBeInTheDocument();
+  });
 });

@@ -1,8 +1,8 @@
-# Plan — Open Org Phase 1 + 1.5 + Vision Hardening
+# Plan — Open Org Phase 1 + 1.5 + Vision Hardening + Phase 2
 
-> Last updated: 2026-06-25 (session 2)
-> Status: **Phase 1 complete, hardening complete, essay-vision features in progress**. All 11 build steps done. Session 1: 8 bugs fixed, brand aligned, graph discovery + Claude skills added. Session 2: funder signalling, evidence layer, profile evolution, cluster insights, ideas-first discovery (API done, frontend test pending). 22 commits on `fix/openorg-hardening`, pushed. PR not yet opened.
-> Spec: `open-org/open-org-phase1-spec.md`
+> Last updated: 2026-07-03 (session 5)
+> Status: **Phase 1 complete, hardening complete, essay-vision features complete (8/10 gaps), Phase 2 complete (12/12 steps, merged to master).** Session 1: 8 bugs fixed, brand aligned, graph discovery + Claude skills added. Session 2–4: funder signalling, evidence layer, profile evolution, cluster insights, ideas-first discovery, interactive graph, detail pages — shipped as PR #22, merged 2026-06-30. Session 5: full Phase 2 spec (evidence enrichers, CRM integration, MCP server, federation, Hypercerts) built on `feat/phase2-federation-evidence` and merged directly to master (no PR). See "Phase 2" section below.
+> Spec: `open-org/open-org-phase1-spec.md` (Phase 1), `open-org/open-org-phase2-spec.md` (Phase 2, currently untracked — see HANDOFF)
 > Essay: https://tomcw.xyz/the-grant-application-is-dead-what-comes-next/
 > Resume guide: `HANDOFF.md`
 > Baselines: `tests/reports/baseline_v0.1.md` → `baseline_v0.4.md`
@@ -598,6 +598,66 @@ real-charity corpus. v0.3 baseline shows we don't need this yet for the
 
 **Expected impact on the baseline**: Trussell Trust + Shelter + Mind should hit their must-pass themes after the re-baseline. Will only know for sure after v0.2.5 is run.
 
+---
+
+# Phase 2 — Federation, Evidence, and System Integration
+
+> Built session 5 (2026-07-03) on `feat/phase2-federation-evidence`, merged directly to master (no PR — see HANDOFF).
+> Spec: `open-org/open-org-phase2-spec.md` (drafted this session, currently untracked).
+
+## Objective
+
+Connect Open Org to the wider ecosystem: the systems charities already use (CRMs), the data sources that enrich profiles (Companies House, 360Giving), the federation layers that make profiles portable (Murmurations per-record, AT Protocol design), and the on-chain primitives that let orgs claim impact (Hypercerts).
+
+## Build order (all 12 steps complete)
+
+```
+Step 1   Companies House enricher                    ✅ e3a1f59
+Step 2   360Giving API v1 rewrite                     ✅ 5202153
+Step 3   openorg-mcp-server (public tools only)        ✅ 042724e
+Step 4   Murmurations per-record schemas + submit      ✅ 9d98dae
+Step 5   Beacon CRM integration (Pattern A — read)     ✅ 33e0c42
+Step 6   Lamplight CRM integration (read + write)      ✅ 356d18b
+Step 7   Salesforce CRM integration (Pattern A)        ✅ 7d97eea
+Step 8   MCP admin tools (sync_from_crm, add_evidence) ✅ fbe194a
+Step 9   Hypercerts module + mint pipeline             ✅ 4ccb004
+Step 10  MCP mint_hypercert tool                       ✅ ebf8526
+Step 11  AT Protocol Lexicon design (spec only)        ✅ 5d98e20
+Step 12  CRM Pattern B — one-way push                  ✅ 7f421f1, b616ef6
+```
+
+**Tests**: 485 core (was 325, +160) + 47 MCP (new package) + 275 API (unchanged) + 216 web (unchanged). `tsc`/eslint clean.
+
+## Gaps between spec and what shipped
+
+The spec describes more than what landed as working, deployed features. See `HANDOFF.md` session 5 for full detail; summary:
+
+- **Hypercerts has no REST API.** Spec §5.2's `mint-hypercert`/`hypercerts` routes weren't built — only the core module + MCP tool. Minting is only reachable via an MCP client. `build_claim()` verified working as a pure function (2026-07-03).
+- **MCP server isn't deployed.** `packages/mcp/` exists and is tested, but there's no `docker-compose.yml` service or Caddy route running it. Live-verified 2026-07-03 that its public tools do work correctly against real data once run.
+- **No env vars for the new integrations.** Companies House, Beacon, Lamplight, Salesforce, and the Hypercerts wallet all need credentials that aren't in any `.env.example` yet — none of the CRM/CH enrichers have been live-tested as a result.
+- **Murmurations upstream PR scope grew** from 1 schema to 3 (profile + strategy + idea) — still not submitted upstream. Worse than a submission gap: **the per-record envelope builders aren't wired to any route at all** (confirmed 2026-07-03 — `.../strategies/{slug}/murmurations.json` 404s to the SPA). Unlike the profile-level envelope, nothing calls `build_strategy_envelope`/`build_idea_envelope` outside their own tests.
+- **360Giving API v1 enricher is broken against the real API** (confirmed 2026-07-03, live-tested against Trussell Trust). `fetch_grant_summary()` crashes on the real response shape; `fetch_grants_received`/`fetch_grants_made` silently produce empty records because grant fields are nested one level deeper (`result["data"]`) than the parser reads. The 19 unit tests pass only because they mock an incorrect response shape — passing tests didn't mean working code here, which is worth remembering before trusting the CRM enrichers' tests too.
+- **MCP `add_evidence` breaks the markdown↔JSON round-trip invariant** (locked decision #5). It writes `profile_json` only; `markdown_source` goes stale, so the next markdown-editor save silently discards any evidence added via MCP.
+
+## Deliberately deferred (per spec, not gaps)
+
+- Donorfy, CiviCRM, Raisely CRM integrations (spec explicitly holds these back — Beacon/Lamplight/Salesforce first)
+- AT Protocol PDS/relay/App View deployment (Phase 4 decision gate — see `deploy/atprotocol/openorg-lexicons.md`)
+- Org-owned Ethereum wallets (Phase 3 — Phase 2 uses a Good Ship custodial wallet)
+- CRM webhooks / real-time bidirectional sync (Phase 3 — polling/one-way only in Phase 2)
+- Access control / tiered permissions (split into a separate "Phase 2.5" spec)
+- Strategy matching / cluster detection, funder profiles (Phase 3)
+- Firecrawl crawler tier (held — not needed for the current corpus)
+
+## Post-Phase-2 fixes (session 6, 2026-07-05)
+
+Found via hands-on click-through testing on the isolated `llmstxt-test` sandbox (see `HANDOFF.md`/`STATE.md` session 6 for the full environment-topology story — this Mac Mini also runs production under the confusingly-named `llmstxt-local` compose project, which this session initially mistook for a dev sandbox before being corrected).
+
+- **Theme vocabulary is no longer a hard gate on generation.** `org_profile.schema.json`'s `mission.themes` relaxed from `minItems: 1` to `minItems: 0` — a charity whose activities don't cleanly map onto any of the 30 controlled-vocabulary themes (sector-infrastructure bodies like NAVCA, charity `1001635`) now still gets a claimable draft profile with an empty themes array, instead of generation failing outright. This was always the *intent* (the old error message said "the owner can add themes manually after claiming the profile") but the code never actually reached a claimable state. `generator.py`'s now-dead special-case raise for zero themes was removed.
+- Two smaller frontend/backend bugs fixed alongside — see `HANDOFF.md` session 6 items 1–3 and 5 (dev-mode CORS/origin gaps, an unhelpful 409 error message, a stale "we're emailing you" UI promise on failed generation).
+
+**Not addressed**: whether an org with zero themes should get some other nudge (e.g. a "themes needed" banner on the claimed profile) — the editor already supports adding themes manually, this is just about not blocking on it at generation time.
+
 ## Other follow-ups still on the list (unchanged from Phase 1)
 
 Captured under "Open follow-ups (post-Phase-1)" in `HANDOFF.md`. Not on the v0.2 critical path:
@@ -612,3 +672,46 @@ Captured under "Open follow-ups (post-Phase-1)" in `HANDOFF.md`. Not on the v0.2
 - Postgres integration tests for JSONB filter paths.
 - API tenant gating per host.
 - Diff-vs-baseline mode for the harness.
+
+## Deploy — openorg.good-ship.co.uk (session 7, 2026-07-16)
+
+Goal: expose Open Org at `openorg.good-ship.co.uk` via the existing Cloudflare Tunnel (locked decision #2). Got most of the way there this session; three steps remain that need a human with `sudo` + an authenticated `cloudflared` — an agent can't run them unattended.
+
+### Done this session
+
+- **Found and fixed a real production misconfiguration** while checking deploy-readiness: `llmstxt-local` had never actually been started with its production compose overlay (`docker-compose.single.yml`) — only `docker-compose.yml` + `docker-compose.override.yml`. Production was running with `ENVIRONMENT: development` and a **hardcoded dev `SECRET_KEY`** sitting in the repo. Fixed by recreating the stack with the correct 3-file set (override last, per the `MISTAKES.md` 2026-06-11 rule):
+  ```
+  docker compose -f docker-compose.yml -f docker-compose.single.yml -f docker-compose.override.yml up -d postgres redis api celery_worker celery_beat
+  ```
+- Added `AUTH_COOKIE_DOMAIN` forwarding to `docker-compose.single.yml`'s `api` environment block (previously absent entirely) and set in `.env`: `AUTH_COOKIE_DOMAIN=.good-ship.co.uk`, `CORS_ORIGINS=https://llmstxt.social,https://openorg.good-ship.co.uk`.
+- Confirmed the duplicate `worker`/`beat` vs `celery_worker`/`celery_beat` problem from `MISTAKES.md`/`HANDOFF.md` session 6 is already resolved — exactly 5 correctly-named services run now, no orphans.
+- Rebuilt `api`/`celery_worker`/`celery_beat` images and recreated all 5 services on the corrected config. Verified `llmstxt.social` still serves 200 on the new stack (confirmed via container logs showing real Cloudflare-edge traffic).
+- Committed the 14 files left uncommitted on `master` since session 6 (theme-vocab relaxation, dev CORS/origin fix, generate-error/stale-email UI fixes, Phase 2 spec, doc updates) — 6 commits, straight to `master` per this session's explicit instruction (matches how Phase 2 landed).
+
+### Remaining — needs a human with sudo + Cloudflare auth
+
+`nslookup openorg.good-ship.co.uk` currently returns `NXDOMAIN` — no DNS record yet. In order:
+
+1. **Add this stanza to `/etc/cloudflared/config.yml`** (root-owned, mode 644), anywhere before the catch-all `- service: http_status:404` line — grouping it next to the `llmstxt.social` entries reads best:
+   ```yaml
+     - hostname: openorg.good-ship.co.uk
+       service: http://127.0.0.1:8000
+   ```
+   Back up first: `sudo cp /etc/cloudflared/config.yml /etc/cloudflared/config.yml.bak.$(date +%s)`, then edit it in.
+
+2. **Add the DNS route** (creates the CNAME pointing at the tunnel, id `4acef419-3986-4d38-8fc0-3ab7471c011b`):
+   ```
+   sudo cloudflared tunnel route dns 4acef419-3986-4d38-8fc0-3ab7471c011b openorg.good-ship.co.uk
+   ```
+
+3. **Restart the tunnel daemon** (LaunchDaemon `com.cloudflare.cloudflared.plist`, runs as root):
+   ```
+   sudo launchctl kickstart -k system/com.cloudflare.cloudflared
+   ```
+
+4. **Verify** (DNS may take a minute to propagate):
+   ```
+   sleep 20 && curl -sS -o /dev/null -w "%{http_code}\n" https://openorg.good-ship.co.uk/
+   ```
+
+Once live, also worth re-checking **Resend domain verification for `hello@openorg.good-ship.co.uk`** — magic-link claim emails sent from the openorg host won't deliver until that's done. Separate, pre-existing outstanding item, unaffected by this session's work.

@@ -94,6 +94,11 @@ export default function GeneratePage() {
   const statusQuery = useGenerateStatus(submitted?.orgId ?? '', Boolean(submitted));
 
   if (submitted) {
+    // No claim email is ever sent when generation fails (the backend only
+    // calls send_claim_email after generation_status is set to "ready"), so
+    // don't promise one once the status comes back "failed" — the user would
+    // be left waiting for an email that's never coming.
+    const hasFailed = statusQuery.data?.status === 'failed';
     return (
       <div className="surface-cream min-h-screen">
         <div className="mx-auto max-w-2xl px-6 py-16">
@@ -101,10 +106,12 @@ export default function GeneratePage() {
           <h1 className="display-head mt-2 text-3xl font-medium leading-tight sm:text-4xl">
             Drafting your profile
           </h1>
-          <p className="mt-4 max-w-prose text-sm text-grey-blue">
-            We're emailing <strong>{submitted.email}</strong> a one-time link
-            you can use to claim and edit the draft.
-          </p>
+          {!hasFailed && (
+            <p className="mt-4 max-w-prose text-sm text-grey-blue">
+              We're emailing <strong>{submitted.email}</strong> a one-time link
+              you can use to claim and edit the draft.
+            </p>
+          )}
           <div className="mt-6">
             {statusQuery.data && (
               <GenerateLiveStatus status={statusQuery.data} onTimeout={() => undefined} />

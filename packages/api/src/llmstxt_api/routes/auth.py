@@ -98,6 +98,7 @@ def _allowed_origins() -> set[str]:
             "http://localhost:3000",
             "http://localhost:5173",
             "http://openorg.localhost:3000",
+            "http://openorg.localhost:5173",
         }
     return configured
 

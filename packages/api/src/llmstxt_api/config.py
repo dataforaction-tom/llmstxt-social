@@ -124,16 +124,34 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         value = self.cors_origins.strip()
         if not value:
-            return []
-        if value.startswith("["):
+            origins: list[str] = []
+        elif value.startswith("["):
             try:
                 parsed = json.loads(value)
             except json.JSONDecodeError:
-                return []
-            if isinstance(parsed, list):
-                return [str(item).strip() for item in parsed if str(item).strip()]
-            return []
-        return [item.strip() for item in value.split(",") if item.strip()]
+                parsed = []
+            origins = (
+                [str(item).strip() for item in parsed if str(item).strip()]
+                if isinstance(parsed, list)
+                else []
+            )
+        else:
+            origins = [item.strip() for item in value.split(",") if item.strip()]
+
+        # Dev convenience: the openorg subdomain is tested locally via a
+        # hostname trick (openorg.localhost), which is a distinct CORS origin
+        # from plain localhost even on the same port. Mirrors the equivalent
+        # carve-out in routes/auth.py's _allowed_origins().
+        if self.environment == "development":
+            dev_origins = {
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://openorg.localhost:3000",
+                "http://openorg.localhost:5173",
+            }
+            origins = list(set(origins) | dev_origins)
+
+        return origins
 
     def build_llm_client(self):
         """Construct the configured provider-neutral LLM client.

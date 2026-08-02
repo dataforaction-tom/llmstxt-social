@@ -36,6 +36,7 @@ from llmstxt_core.enrichers.salesforce_crm import (
     opportunities_to_evidence,
     contacts_to_evidence,
 )
+from llmstxt_core.open_org.converter import json_to_markdown
 from llmstxt_core.open_org.hypercerts import (
     HypercertClaim,
     build_claim,
@@ -223,7 +224,13 @@ async def add_evidence(
     updated_json["evidence"] = evidence_list
     profile.profile_json = updated_json
 
-    # 6. Commit
+    # 6. Regenerate markdown_source from the updated JSON so the editor
+    #    doesn't silently wipe MCP-added evidence on the next save.
+    #    (The editor treats markdown_source as canonical and regenerates
+    #    profile_json from it on every PUT.)
+    profile.markdown_source = json_to_markdown(updated_json, kind="profile")
+
+    # 7. Commit
     await db.commit()
 
     return {
@@ -311,6 +318,10 @@ async def mint_hypercert(
     updated_json = dict(profile.profile_json)
     updated_json["evidence"] = evidence_list
     profile.profile_json = updated_json
+
+    # Regenerate markdown_source so the editor doesn't wipe the hypercert
+    # reference on the next save.
+    profile.markdown_source = json_to_markdown(updated_json, kind="profile")
 
     # 7. Commit
     await db.commit()

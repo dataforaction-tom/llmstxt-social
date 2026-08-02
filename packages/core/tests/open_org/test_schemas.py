@@ -153,11 +153,14 @@ def test_profile_invalid_income_band_fails():
     assert any("annual_income_band" in e["path"] for e in errors)
 
 
-def test_profile_themes_must_be_non_empty():
+def test_profile_themes_can_be_empty():
+    """A charity whose activities don't match any controlled-vocabulary theme
+    (e.g. sector-infrastructure bodies) must still produce a valid, claimable
+    profile. The owner can add themes manually after claiming."""
     payload = yaml.safe_load(PROFILE_EXAMPLE_YAML)
     payload["mission"]["themes"] = []
     errors = validate_iter(payload, schema=load_schema("profile"))
-    assert any("themes" in e["path"] for e in errors)
+    assert errors == []
 
 
 def test_profile_schema_version_must_match():

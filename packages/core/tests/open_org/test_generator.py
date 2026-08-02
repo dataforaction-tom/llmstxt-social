@@ -244,23 +244,26 @@ async def test_raises_when_charity_not_found(
 
 
 @pytest.mark.asyncio
-async def test_raises_when_no_themes_meet_threshold(
+async def test_succeeds_when_no_themes_meet_threshold(
     fake_fetch_charity, fake_rewrite_mission
 ):
+    """Sector-infrastructure charities (NAVCA and similar) often don't match
+    any controlled-vocabulary theme above the confidence threshold. Generation
+    must still produce a claimable profile — the owner can add themes
+    manually after claiming — rather than failing outright."""
     fake_fetch_charity.return_value = _full_charity_data()
 
     def stub_themes(*, client, objects_text, activities_text, **kw):
         return ThemeExtractionResult(themes=[], flagged=[])
 
-    with pytest.raises(ProfileGenerationError) as exc:
-        await generate_profile_from_charity_number(
-            "1234567",
-            anthropic_client=_stub_anthropic(),
-            fetch_charity=fake_fetch_charity,
-            rewrite_mission=fake_rewrite_mission,
-            extract_themes=stub_themes,
-        )
-    assert "theme" in str(exc.value).lower()
+    result = await generate_profile_from_charity_number(
+        "1234567",
+        anthropic_client=_stub_anthropic(),
+        fetch_charity=fake_fetch_charity,
+        rewrite_mission=fake_rewrite_mission,
+        extract_themes=stub_themes,
+    )
+    assert result.json_payload["mission"]["themes"] == []
 
 
 @pytest.mark.asyncio
