@@ -672,3 +672,46 @@ Captured under "Open follow-ups (post-Phase-1)" in `HANDOFF.md`. Not on the v0.2
 - Postgres integration tests for JSONB filter paths.
 - API tenant gating per host.
 - Diff-vs-baseline mode for the harness.
+
+## Deploy — openorg.good-ship.co.uk (session 7, 2026-07-16)
+
+Goal: expose Open Org at `openorg.good-ship.co.uk` via the existing Cloudflare Tunnel (locked decision #2). Got most of the way there this session; three steps remain that need a human with `sudo` + an authenticated `cloudflared` — an agent can't run them unattended.
+
+### Done this session
+
+- **Found and fixed a real production misconfiguration** while checking deploy-readiness: `llmstxt-local` had never actually been started with its production compose overlay (`docker-compose.single.yml`) — only `docker-compose.yml` + `docker-compose.override.yml`. Production was running with `ENVIRONMENT: development` and a **hardcoded dev `SECRET_KEY`** sitting in the repo. Fixed by recreating the stack with the correct 3-file set (override last, per the `MISTAKES.md` 2026-06-11 rule):
+  ```
+  docker compose -f docker-compose.yml -f docker-compose.single.yml -f docker-compose.override.yml up -d postgres redis api celery_worker celery_beat
+  ```
+- Added `AUTH_COOKIE_DOMAIN` forwarding to `docker-compose.single.yml`'s `api` environment block (previously absent entirely) and set in `.env`: `AUTH_COOKIE_DOMAIN=.good-ship.co.uk`, `CORS_ORIGINS=https://llmstxt.social,https://openorg.good-ship.co.uk`.
+- Confirmed the duplicate `worker`/`beat` vs `celery_worker`/`celery_beat` problem from `MISTAKES.md`/`HANDOFF.md` session 6 is already resolved — exactly 5 correctly-named services run now, no orphans.
+- Rebuilt `api`/`celery_worker`/`celery_beat` images and recreated all 5 services on the corrected config. Verified `llmstxt.social` still serves 200 on the new stack (confirmed via container logs showing real Cloudflare-edge traffic).
+- Committed the 14 files left uncommitted on `master` since session 6 (theme-vocab relaxation, dev CORS/origin fix, generate-error/stale-email UI fixes, Phase 2 spec, doc updates) — 6 commits, straight to `master` per this session's explicit instruction (matches how Phase 2 landed).
+
+### Remaining — needs a human with sudo + Cloudflare auth
+
+`nslookup openorg.good-ship.co.uk` currently returns `NXDOMAIN` — no DNS record yet. In order:
+
+1. **Add this stanza to `/etc/cloudflared/config.yml`** (root-owned, mode 644), anywhere before the catch-all `- service: http_status:404` line — grouping it next to the `llmstxt.social` entries reads best:
+   ```yaml
+     - hostname: openorg.good-ship.co.uk
+       service: http://127.0.0.1:8000
+   ```
+   Back up first: `sudo cp /etc/cloudflared/config.yml /etc/cloudflared/config.yml.bak.$(date +%s)`, then edit it in.
+
+2. **Add the DNS route** (creates the CNAME pointing at the tunnel, id `4acef419-3986-4d38-8fc0-3ab7471c011b`):
+   ```
+   sudo cloudflared tunnel route dns 4acef419-3986-4d38-8fc0-3ab7471c011b openorg.good-ship.co.uk
+   ```
+
+3. **Restart the tunnel daemon** (LaunchDaemon `com.cloudflare.cloudflared.plist`, runs as root):
+   ```
+   sudo launchctl kickstart -k system/com.cloudflare.cloudflared
+   ```
+
+4. **Verify** (DNS may take a minute to propagate):
+   ```
+   sleep 20 && curl -sS -o /dev/null -w "%{http_code}\n" https://openorg.good-ship.co.uk/
+   ```
+
+Once live, also worth re-checking **Resend domain verification for `hello@openorg.good-ship.co.uk`** — magic-link claim emails sent from the openorg host won't deliver until that's done. Separate, pre-existing outstanding item, unaffected by this session's work.

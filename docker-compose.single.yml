@@ -57,6 +57,7 @@ services:
       BASE_URL: ${BASE_URL:-http://localhost:8000}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8000}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000}
+      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
     ports:
       - "8000:8000"
 
