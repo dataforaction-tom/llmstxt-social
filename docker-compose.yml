@@ -131,6 +131,37 @@ services:
     depends_on:
       - api
 
+  # MCP server (Open Org data exposed to AI agents)
+  # Transport: stdio (local, default) or streamable-http (remote, port 8001)
+  # Set MCP_TRANSPORT=streamable-http to enable the HTTP endpoint.
+  mcp:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    command: python -m openorg_mcp.server
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-dev_password}@postgres/llmstxt
+      REDIS_URL: redis://redis:6379
+      MCP_TRANSPORT: ${MCP_TRANSPORT:-stdio}
+      MCP_HTTP_PORT: ${MCP_HTTP_PORT:-8001}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CHARITY_COMMISSION_API_KEY: ${CHARITY_COMMISSION_API_KEY}
+      SECRET_KEY: dev-secret-key-change-in-production
+      ENVIRONMENT: development
+    ports:
+      - "${MCP_HTTP_PORT:-8001}:${MCP_HTTP_PORT:-8001}"
+    volumes:
+      - ./packages/core:/app/core
+      - ./packages/api:/app/api
+      - ./packages/mcp:/app/mcp
+    profiles:
+      - mcp  # opt-in: `docker compose --profile mcp up` to start
+
 volumes:
   postgres_data:
   celerybeat_data:
